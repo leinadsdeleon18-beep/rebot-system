@@ -1,0 +1,260 @@
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Complete responsive CSS */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.dashboard {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 280px;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+  padding: 2rem 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  padding: 0 2rem 2rem;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 2rem;
+}
+
+.logo-icon {
+  font-size: 3rem;
+  margin-right: 1rem;
+}
+
+.school-badge {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 1rem 2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.nav-item:hover, .nav-item.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.stat-card {
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(20px);
+  padding: 2rem;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.stat-value {
+  font-size: 3rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.student-card {
+  background: white;
+  border-radius: 15px;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.student-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+}
+
+.login-container {
+  max-width: 400px;
+  margin: 5rem auto;
+  padding: 3rem;
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+}
+
+@media (max-width: 768px) {
+  .dashboard {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: auto;
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: 'Segoe UI', sans-serif; 
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.login-container {
+  max-width: 400px; margin: 5rem auto; padding: 3rem;
+  background: rgba(255,255,255,0.95); border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+
+.form-group { margin-bottom: 1.5rem; }
+label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+input, select { 
+  width: 100%; padding: 0.75rem; border: 2px solid #eee; 
+  border-radius: 10px; font-size: 1rem;
+}
+input:focus, select:focus { outline: none; border-color: #667eea; }
+
+.btn-primary {
+  width: 100%; padding: 1rem; background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white; border: none; border-radius: 10px; font-size: 1.1rem;
+  cursor: pointer; transition: all 0.3s ease;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102,126,234,0.4); }
+
+.error { color: #e74c3c; margin-top: 1rem; padding: 0.75rem; background: #ffeaea; border-radius: 8px; }
+
+.public-home { text-align: center; padding: 2rem; color: white; }
+.hero { margin-bottom: 3rem; }
+.logo { font-size: 4rem; margin-bottom: 1rem; }
+.qr-generator { max-width: 500px; margin: 0 auto; background: rgba(255,255,255,0.1); padding: 2rem; border-radius: 20px; }
+.qr-card { 
+  background: white; padding: 2rem; border-radius: 20px; margin-top: 2rem;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+}
+.points-badge { background: #f39c12; color: white; padding: 0.5rem 1rem; border-radius: 25px; display: inline-block; margin-top: 1rem; }
+
+.dashboard { display: flex; min-height: 100vh; }
+.sidebar { width: 280px; background: white; padding: 2rem; box-shadow: 2px 0 20px rgba(0,0,0,0.1); }
+.main-content { flex: 1; padding: 2rem; }
+.student-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem; }
+.student-card { 
+  background: white; padding: 1.5rem; border-radius: 15px; text-align: center;
+  cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: all 0.3s;
+}
+.student-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.2); }
+
+.transaction-modal { 
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  z-index: 1000; max-width: 400px; width: 90%;
+}
+.amount-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 2rem 0; }
+.amount-buttons button { padding: 1rem; font-size: 1.2rem; border: none; border-radius: 10px; background: #667eea; color: white; cursor: pointer; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; }
+.stat-card { 
+  background: white; padding: 2rem; border-radius: 20px; text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+.stat-value { font-size: 3rem; font-weight: bold; color: #667eea; margin-bottom: 0.5rem; }
+
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #eee; }
+th { background: #f8f9fa; font-weight: 600; }
+
+@media (max-width: 768px) {
+  .dashboard { flex-direction: column; }
+  .sidebar { width: 100%; }
+  .amount-buttons { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,327 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafc;
+    --bg-tertiary: #f1f5f9;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-tertiary: #94a3b8;
+    --border: #e2e8f0;
+    --card-bg: #ffffff;
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --input-bg: #ffffff;
+    --input-border: #e2e8f0;
+    --hover-bg: #f1f5f9;
+  }
+
+  .dark {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
+    --border: #334155;
+    --card-bg: #1e293b;
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --input-bg: #1e293b;
+    --input-border: #334155;
+    --hover-bg: #334155;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 transition-colors duration-200;
+  }
+
+  .dark body {
+    @apply bg-gray-900 text-gray-100;
+  }
+}
+
+/* Global Dark Mode Styles */
+.dark .bg-white { background-color: #1e293b; }
+.dark .bg-gray-50 { background-color: #0f172a; }
+.dark .bg-gray-100 { background-color: #1e293b; }
+.dark .bg-gray-200 { background-color: #334155; }
+.dark .border-gray-100 { border-color: #334155; }
+.dark .border-gray-200 { border-color: #334155; }
+.dark .border-gray-300 { border-color: #475569; }
+.dark .text-gray-500 { color: #94a3b8; }
+.dark .text-gray-600 { color: #cbd5e1; }
+.dark .text-gray-700 { color: #e2e8f0; }
+.dark .text-gray-800 { color: #f1f5f9; }
+.dark .text-gray-900 { color: #ffffff; }
+.dark .shadow-sm { box-shadow: none; }
+.dark .shadow-md { box-shadow: none; }
+.dark .shadow-lg { box-shadow: none; }
+.dark .hover\:bg-gray-50:hover { background-color: #334155; }
+.dark .hover\:bg-gray-100:hover { background-color: #334155; }
+.dark .divide-gray-100 > * { border-color: #334155; }
+.dark .divide-gray-200 > * { border-color: #334155; }
+
+/* Input Dark Mode */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #4caf50 !important;
+  ring-color: #4caf50 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Table Dark Mode */
+.dark table thead {
+  background-color: #1e293b !important;
+}
+
+.dark table tbody tr {
+  border-color: #334155 !important;
+}
+
+.dark table tbody tr:hover {
+  background-color: #334155 !important;
+}
+
+/* Button Dark Mode */
+.dark .btn-primary {
+  background-color: #4caf50 !important;
+}
+
+.dark .btn-primary:hover {
+  background-color: #388e3c !important;
+}
+
+.dark .btn-secondary {
+  border-color: #4caf50 !important;
+  color: #4caf50 !important;
+}
+
+.dark .btn-secondary:hover {
+  background-color: rgba(76, 175, 80, 0.1) !important;
+}
+
+/* Card Dark Mode */
+.dark .card,
+.dark .stat-card,
+.dark .bg-white.rounded-2xl,
+.dark .bg-white.rounded-xl {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Modal Dark Mode */
+.dark .fixed.inset-0.bg-black\/50 {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+.dark .bg-white.rounded-3xl,
+.dark .bg-white.rounded-2xl,
+.dark .bg-white.rounded-xl {
+  background-color: #1e293b !important;
+}
+
+/* Scrollbar Dark Mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Alert Dark Mode */
+.dark .bg-orange-50 { background-color: rgba(249, 115, 22, 0.1) !important; }
+.dark .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1) !important; }
+.dark .bg-green-50 { background-color: rgba(34, 197, 94, 0.1) !important; }
+.dark .bg-red-50 { background-color: rgba(239, 68, 68, 0.1) !important; }
+.dark .bg-yellow-50 { background-color: rgba(234, 179, 8, 0.1) !important; }
+
+/* Badge Dark Mode */
+.dark .bg-green-100 { background-color: rgba(34, 197, 94, 0.2) !important; color: #4ade80 !important; }
+.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.2) !important; color: #f87171 !important; }
+.dark .bg-yellow-100 { background-color: rgba(234, 179, 8, 0.2) !important; color: #facc15 !important; }
+.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.2) !important; color: #60a5fa !important; }
+.dark .bg-purple-100 { background-color: rgba(168, 85, 247, 0.2) !important; color: #c084fc !important; }
+.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.2) !important; color: #fb923c !important; }
+.dark .bg-gray-100 { background-color: #334155 !important; color: #cbd5e1 !important; }
+
+/* Dropdown Dark Mode */
+.dark select option {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+/* Gradient Dark Mode */
+.dark .bg-gradient-to-br,
+.dark .bg-gradient-to-r {
+  background-image: none !important;
+  background-color: #1e293b !important;
+}
+
+.dark .from-green-50,
+.dark .to-white,
+.dark .from-amber-50,
+.dark .to-orange-50 {
+  --tw-gradient-from: #1e293b !important;
+  --tw-gradient-to: #1e293b !important;
+}
+
+/* Chart Dark Mode */
+.dark canvas {
+  filter: brightness(0.9) contrast(1.1);
+}
+
+/* Components */
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold py-2 px-4 rounded-full transition-all duration-200 transform hover:scale-105 shadow-md;
+  }
+
+  .btn-secondary {
+    @apply border-2 border-primary-600 text-primary-600 dark:text-primary-400 font-semibold py-2 px-4 rounded-full transition-all duration-200 hover:bg-primary-50 dark:hover:bg-primary-900/30;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-full transition-all duration-200 shadow-md;
+  }
+
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 transition-colors duration-200;
+  }
+
+  .stat-card {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 hover:shadow-lg transition-all duration-300 cursor-pointer;
+  }
+
+  .input-primary {
+    @apply w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* LANDING PAGE ONLY - safe scoped styles */
+.landing-page {
+  color-scheme: light;
+  background-color: #ffffff;
+}
+
+.landing-page .bg-white {
+  background-color: #ffffff !important;
+}
+
+.landing-page .bg-gray-50 {
+  background-color: #f9fafb !important;
+}
+
+.landing-page .bg-gray-100 {
+  background-color: #f3f4f6 !important;
+}
+
+.landing-page .text-gray-900 {
+  color: #111827 !important;
+}
+
+.landing-page .text-gray-800 {
+  color: #1f2937 !important;
+}
+
+.landing-page .text-gray-700 {
+  color: #374151 !important;
+}
+
+.landing-page .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.landing-page .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+.landing-page .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+.landing-page .border-gray-100 {
+  border-color: #f3f4f6 !important;
+}
+
+.landing-page .border-gray-200 {
+  border-color: #e5e7eb !important;
+}
+
+.landing-page .border-gray-300 {
+  border-color: #d1d5db !important;
+}
+
+.landing-page input,
+.landing-page select,
+.landing-page textarea {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+}
+
+.landing-page input::placeholder,
+.landing-page textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+.landing-page .hover\:bg-gray-50:hover {
+  background-color: #f9fafb !important;
+}
+
+/* Keep gradients visible on landing page */
+.landing-page .bg-gradient-to-br,
+.landing-page .bg-gradient-to-r {
+  background-image: inherit !important;
+}
+
+/* Ensure cards and sections stay fully visible */
+.landing-page .rounded-xl,
+.landing-page .rounded-2xl,
+.landing-page .rounded-3xl {
+  opacity: 1 !important;
+  filter: none !important;
+}

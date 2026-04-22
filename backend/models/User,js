@@ -1,0 +1,102 @@
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const userSchema = new mongoose.Schema({
+    username: {
+        type: String,
+        required: [true, 'Username is required'],
+        unique: true,
+        trim: true,
+        lowercase: true
+    },
+    fullName: {
+        type: String,
+        required: [true, 'Full name is required'],
+        trim: true
+    },
+    email: {
+        type: String,
+        required: [true, 'Email is required'],
+        unique: true,
+        lowercase: true,
+        trim: true,
+        match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please provide a valid email']
+    },
+    password: {
+        type: String,
+        required: [true, 'Password is required'],
+        minlength: [6, 'Password must be at least 6 characters']
+    },
+    role: {
+        type: String,
+        enum: ['student', 'teacher', 'canteen', 'junk', 'utility', 'admin'],
+        default: 'student',
+        required: true
+    },
+    isEnabled: {
+        type: Boolean,
+        default: true
+    },
+    avatar: {
+        type: String,
+        default: ''
+    },
+    // Student specific fields
+    studentDetails: {
+        studentId: String,
+        grade: String,
+        section: String,
+        points: {
+            type: Number,
+            default: 0
+        },
+        qrCode: String
+    },
+    // Password reset
+    resetPasswordToken: {
+        code: String,
+        expires: Date
+    },
+    lastLogin: {
+        type: Date,
+        default: null
+    }
+}, {
+    timestamps: true // Adds createdAt and updatedAt automatically
+});
+
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+    // Only hash if password is modified
+    if (!this.isModified('password')) return next();
+    
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Method to compare password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+    return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Method to get public profile (hide sensitive data)
+userSchema.methods.getPublicProfile = function() {
+    return {
+        id: this._id,
+        username: this.username,
+        fullName: this.fullName,
+        email: this.email,
+        role: this.role,
+        avatar: this.avatar,
+        studentDetails: this.studentDetails,
+        isEnabled: this.isEnabled,
+        createdAt: this.createdAt
+    };
+};
+
+module.exports = mongoose.model('User', userSchema);

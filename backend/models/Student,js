@@ -1,0 +1,60 @@
+const mongoose = require('mongoose');
+
+const studentSchema = new mongoose.Schema({
+    studentId: {
+        type: String,
+        required: true,
+        unique: true,
+        index: true
+    },
+    name: {
+        type: String,
+        required: [true, 'Student name is required'],
+        trim: true
+    },
+    grade: {
+        type: String,
+        required: true
+    },
+    section: {
+        type: String,
+        required: true
+    },
+    points: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    qrCode: {
+        type: String, // Base64 encoded QR code image
+        default: ''
+    },
+    totalBottlesRecycled: {
+        type: Number,
+        default: 0
+    },
+    totalPaperRecycled: {
+        type: Number, // in grams
+        default: 0
+    },
+    isActive: {
+        type: Boolean,
+        default: true
+    },
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }
+}, {
+    timestamps: true
+});
+
+// Virtual for full grade-section
+studentSchema.virtual('gradeSection').get(function() {
+    return `${this.grade} - ${this.section}`;
+});
+
+// Index for search
+studentSchema.index({ name: 'text', studentId: 'text' });
+
+module.exports = mongoose.model('Student', studentSchema);
