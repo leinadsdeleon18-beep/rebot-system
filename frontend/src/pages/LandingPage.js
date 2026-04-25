@@ -439,9 +439,6 @@ export default function LandingPage() {
             <a href="#how-it-works" className="text-gray-700 hover:text-green-700 font-medium transition flex items-center gap-2">
               <i className="fas fa-question-circle text-sm"></i> How It Works
             </a>
-            <a href="#donate" className="text-gray-700 hover:text-green-700 font-medium transition flex items-center gap-2">
-              <i className="fas fa-hand-holding-heart text-sm"></i> Support Us
-            </a>
             <a href="#about" className="text-gray-700 hover:text-green-700 font-medium transition flex items-center gap-2">
               <i className="fas fa-info-circle text-sm"></i> About
             </a>
