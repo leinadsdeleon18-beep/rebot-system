@@ -1,282 +1,193 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const multer = require('multer');
-const path = require('path');
-const QRCode = require('qrcode');
-const fs = require('fs');
-require('dotenv').config();
+
+dotenv.config();
+
+// Import models
+const User = require('./src/models/User');
+const Role = require('./src/models/Role');
+
+// Import routes
+const authRoutes = require('./src/routes/authRoutes');
+const adminRoutes = require('./src/routes/adminRoutes');
+const studentRoutes = require('./src/routes/studentRoutes');
+const rewardRoutes = require('./src/routes/rewardRoutes');
+const transactionRoutes = require('./src/routes/transactionRoutes');
+const statsRoutes = require('./src/routes/statsRoutes');
+const esp32Routes = require('./src/routes/esp32Routes');
+const canteenRoutes = require('./src/routes/canteenRoutes');
+const inventoryRoutes = require('./src/routes/inventoryRoutes');
+const junkShopRoutes = require('./src/routes/junkShopRoutes');
+const teacherRoutes = require('./src/routes/teacherRoutes');
+const sectionRoutes = require('./src/routes/sectionRoutes');  // ADD THIS LINE
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// Create uploads directory if it doesn't exist
-if (!fs.existsSync('uploads')) {
-    fs.mkdirSync('uploads');
-}
-app.use('/uploads', express.static('uploads'));
-
-// MongoDB Connection - FIXED (removed deprecated options)
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rebot';
-
-console.log('📡 Connecting to MongoDB Atlas...');
+// MongoDB Connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bibot';
 mongoose.connect(MONGODB_URI)
-.then(() => {
-    console.log('✅ Connected to MongoDB successfully!');
-    console.log('📦 Database:', mongoose.connection.name);
-})
-.catch((error) => {
-    console.error('❌ MongoDB connection error:', error.message);
-    console.log('⚠️  Make sure your IP is whitelisted in Atlas');
-    console.log('   Add 0.0.0.0/0 to Network Access if needed');
-});
-
-// Models
-const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    role: { type: String, enum: ['admin', 'teacher', 'canteen', 'junk', 'utility'], required: true },
-    fullname: String,
-    avatar: String,
-    enabled: { type: Boolean, default: true },
-    school: { type: String, default: 'Patubig ES' }
-});
-
-const studentSchema = new mongoose.Schema({
-    id: { type: String, unique: true, required: true },
-    name: { type: String, required: true },
-    section: { type: String, required: true },
-    points: { type: Number, default: 0 },
-    qrDataURL: String,
-    teacherId: mongoose.Schema.Types.ObjectId,
-    createdAt: { type: Date, default: Date.now }
-});
-
-const rewardSchema = new mongoose.Schema({
-    name: String,
-    points: Number,
-    stock: Number,
-    icon: String
-});
-
-const donationSchema = new mongoose.Schema({
-    donor: String,
-    amount: Number,
-    purpose: String,
-    reference: String,
-    date: { type: Date, default: Date.now }
-});
-
-const inventorySchema = new mongoose.Schema({
-    item: String,
-    stock: Number,
-    threshold: Number
-});
-
-const transactionSchema = new mongoose.Schema({
-    studentId: String,
-    type: String,
-    amount: String,
-    points: Number,
-    status: String,
-    date: { type: Date, default: Date.now }
-});
-
-const User = mongoose.model('User', userSchema);
-const Student = mongoose.model('Student', studentSchema);
-const Reward = mongoose.model('Reward', rewardSchema);
-const Donation = mongoose.model('Donation', donationSchema);
-const Inventory = mongoose.model('Inventory', inventorySchema);
-const Transaction = mongoose.model('Transaction', transactionSchema);
-
-// Multer for file uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/'),
-    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
-});
-const upload = multer({ storage });
+  .then(() => {
+    console.log('✅ MongoDB connected successfully');
+    console.log('Database:', mongoose.connection.db.databaseName);
+  })
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
 
 // Middleware
-const authMiddleware = async (req, res, next) => {
-    try {
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-        if (!token) return res.status(401).json({ error: 'Access denied' });
-        
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'rebot_secret');
-        const user = await User.findById(decoded.id);
-        if (!user || !user.enabled) return res.status(401).json({ error: 'Invalid user' });
-        
-        req.user = user;
-        next();
-    } catch (error) {
-        res.status(401).json({ error: 'Invalid token' });
-    }
-};
+app.use(helmet({ contentSecurityPolicy: false, hsts: false }));
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(morgan('dev'));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-    const dbState = mongoose.connection.readyState;
-    const dbStatus = {
-        0: 'disconnected',
-        1: 'connected',
-        2: 'connecting',
-        3: 'disconnecting'
-    };
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 500,
+  message: 'Too many requests, please try again later.',
+  skip: (req) => req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === 'localhost'
+});
+app.use('/api/', limiter);
+
+// ========== LOGIN ROUTE ==========
+app.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username }).populate('role');
+    
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    
+    user.lastLogin = new Date();
+    await user.save();
+    
+    const token = jwt.sign(
+      { id: user._id, username: user.username },
+      process.env.JWT_SECRET || 'your_jwt_secret_key',
+      { expiresIn: '7d' }
+    );
     
     res.json({
-        status: 'OK',
-        message: 'Server is running',
-        timestamp: new Date(),
-        mongodb: dbStatus[dbState] || 'unknown',
-        database: mongoose.connection.name || 'not connected'
+      success: true,
+      token: token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role?.name || 'administrator',
+        assignedGrades: user.assignedGrades || [],
+        isActive: true
+      }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
-// Routes
-app.post('/api/register', async (req, res) => {
-    try {
-        const { username, email, password, role, fullname } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        const user = new User({
-            username,
-            email,
-            password: hashedPassword,
-            role,
-            fullname
-        });
-        
-        await user.save();
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'rebot_secret');
-        res.json({ token, user: { id: user._id, username, role, fullname } });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-app.post('/api/login', async (req, res) => {
-    try {
-        const { username, password, role } = req.body;
-        const user = await User.findOne({ username, role });
-        
-        if (!user || !await bcrypt.compare(password, user.password)) {
-            return res.status(400).json({ error: 'Invalid credentials' });
-        }
-        
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'rebot_secret');
-        res.json({
-            token,
-            user: {
-                id: user._id,
-                username: user.username,
-                role: user.role,
-                fullname: user.fullname,
-                avatar: user.avatar
-            }
-        });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// Protected Routes
-app.get('/api/users', authMiddleware, async (req, res) => {
-    const users = await User.find({ school: req.user.school }).select('-password');
-    res.json(users);
-});
-
-app.get('/api/students/:teacherId?', authMiddleware, async (req, res) => {
-    const { teacherId } = req.params;
-    const query = teacherId ? { teacherId } : {};
-    const students = await Student.find(query);
-    res.json(students);
-});
-
-app.post('/api/students', authMiddleware, async (req, res) => {
-    try {
-        const { name, section } = req.body;
-        const id = `STU-${new Date().getFullYear()}-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-        
-        const qrDataURL = await QRCode.toDataURL(id);
-        
-        const student = new Student({
-            id,
-            name,
-            section,
-            qrDataURL,
-            teacherId: req.user._id
-        });
-        
-        await student.save();
-        res.json(student);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-app.get('/api/rewards', authMiddleware, async (req, res) => {
-    const rewards = await Reward.find();
-    res.json(rewards);
-});
-
-app.get('/api/donations', authMiddleware, async (req, res) => {
-    const donations = await Donation.find().sort({ date: -1 });
-    res.json(donations);
-});
-
-app.post('/api/donations', authMiddleware, async (req, res) => {
-    const donation = new Donation(req.body);
-    await donation.save();
-    res.json(donation);
-});
-
-app.get('/api/inventory', authMiddleware, async (req, res) => {
-    const inventory = await Inventory.find();
-    res.json(inventory);
-});
-
-app.post('/api/inventory', authMiddleware, async (req, res) => {
-    const inventory = new Inventory(req.body);
-    await inventory.save();
-    res.json(inventory);
-});
-
-app.get('/api/transactions', authMiddleware, async (req, res) => {
-    const transactions = await Transaction.find().sort({ date: -1 }).limit(50);
-    res.json(transactions);
-});
-
-app.post('/api/transactions', authMiddleware, async (req, res) => {
-    const transaction = new Transaction(req.body);
-    await transaction.save();
-    res.json(transaction);
-});
-
-// File upload
-app.post('/api/upload-avatar', authMiddleware, upload.single('avatar'), async (req, res) => {
-    if (req.file) {
-        await User.findByIdAndUpdate(req.user._id, { avatar: `/uploads/${req.file.filename}` });
-        res.json({ avatar: `/uploads/${req.file.filename}` });
-    } else {
-        res.status(400).json({ error: 'No file uploaded' });
-    }
-});
-
-// Serve frontend
-if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, 'client/build')));
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+// ========== DASHBOARD API ENDPOINTS ==========
+app.get('/api/get-stats', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const students = await db.collection('students').find().toArray();
+    const totalStudents = students.length;
+    const totalPoints = students.reduce((sum, s) => sum + (s.points || 0), 0);
+    
+    console.log('Dashboard Stats - Students:', totalStudents, 'Points:', totalPoints);
+    
+    res.json({
+      success: true,
+      totalStudents: totalStudents,
+      totalPoints: totalPoints,
+      totalBottles: 0,
+      totalRedemptions: 0,
+      students: students
     });
-}
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/get-students', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const students = await db.collection('students').find().toArray();
+    res.json({ success: true, students: students });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/get-rewards', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const rewards = await db.collection('rewards').find().toArray();
+    res.json({ success: true, rewards: rewards });
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+// ========== TEST ENDPOINTS ==========
+app.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Backend is working properly!' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', message: 'ReBot API is running', timestamp: new Date().toISOString() });
+});
+
+// ========== API ROUTES ==========
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/rewards', rewardRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/esp32', esp32Routes);
+app.use('/api/canteen', canteenRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/junk', junkShopRoutes);
+app.use('/api/teacher', teacherRoutes);
+app.use('/api/sections', sectionRoutes);  // ADD THIS LINE
+
+app.use('/auth', authRoutes);
+
+// ========== ERROR HANDLERS ==========
+app.use((err, req, res, next) => {
+  console.error('Error:', err.stack);
+  res.status(500).json({ success: false, message: err.message || 'Server Error' });
+});
+
+app.use((req, res) => {
+  console.log('404 - Route not found:', req.method, req.originalUrl);
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 URL: http://localhost:${PORT}`);
-    console.log(`💚 Health check: http://localhost:${PORT}/api/health`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📍 Dashboard Stats: http://localhost:${PORT}/api/dashboard/stats`);
+  console.log(`📍 Login: http://localhost:${PORT}/login`);
 });

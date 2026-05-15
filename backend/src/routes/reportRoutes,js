@@ -1,0 +1,22 @@
+const express = require('express');
+const router = express.Router();
+const authMiddleware = require('../middleware/authMiddleware');
+
+// Report routes
+router.get('/', authMiddleware, (req, res) => {
+  res.json({ success: true, message: 'Reports data', reports: [] });
+});
+
+router.get('/export', authMiddleware, (req, res) => {
+  res.json({ success: true, message: 'Export report' });
+});
+
+router.get('/recycling', authMiddleware, (req, res) => {
+  res.json({ success: true, message: 'Recycling report' });
+});
+
+router.get('/redemptions', authMiddleware, (req, res) => {
+  res.json({ success: true, message: 'Redemptions report' });
+});
+
+module.exports = router;

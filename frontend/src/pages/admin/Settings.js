@@ -11,7 +11,7 @@ export default function AdminSettings() {
     fullName: user?.fullName || 'Admin User',
     email: user?.email || 'admin@rebot.ph',
     phone: '+63 912 345 6789',
-    role: 'admin',
+    role: 'admin',  // This is critical - must be 'admin'
     address: 'Patubig, Marilao, Bulacan',
     bio: 'System Administrator for ReBot Program'
   };

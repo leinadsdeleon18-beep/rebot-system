@@ -11,19 +11,16 @@ import {
   LayoutDashboard,
   Users,
   Gift,
-  Heart,
   Package,
   BarChart3,
   Moon,
   Sun,
-  Home,
   QrCode,
   ShoppingBag,
   Truck,
   GraduationCap,
   Coffee,
   Recycle,
-  Wrench,
   Shield,
   ChevronDown
 } from 'lucide-react';
@@ -45,11 +42,10 @@ export default function Layout() {
     const role = user?.role;
     
     const navItems = {
-      admin: [
+      administrator: [
         { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
         { name: 'User Management', path: '/admin/users', icon: Users },
         { name: 'Rewards Management', path: '/admin/rewards', icon: Gift },
-        { name: 'Donations Management', path: '/admin/donations', icon: Heart },
         { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
         { name: 'Inventory', path: '/admin/inventory', icon: Package },
         { name: 'Settings', path: '/admin/settings', icon: SettingsIcon },
@@ -61,14 +57,14 @@ export default function Layout() {
         { name: 'Rewards', path: '/teacher/rewards', icon: Gift },
         { name: 'Settings', path: '/teacher/settings', icon: SettingsIcon },
       ],
-      canteen: [
+      canteen_staff: [
         { name: 'Dashboard', path: '/canteen', icon: LayoutDashboard },
         { name: 'Scan & Redeem', path: '/canteen/scan', icon: QrCode },
         { name: 'History', path: '/canteen/history', icon: ShoppingBag },
         { name: 'Rewards', path: '/canteen/rewards', icon: Gift },
         { name: 'Settings', path: '/canteen/settings', icon: SettingsIcon },
       ],
-      junk: [
+      junk_shop_personnel: [
         { name: 'Dashboard', path: '/junk', icon: LayoutDashboard },
         { name: 'Collection Status', path: '/junk/status', icon: Truck },
         { name: 'Pickups', path: '/junk/pickups', icon: Recycle },
@@ -81,11 +77,6 @@ export default function Layout() {
         { name: 'History', path: '/student/history', icon: ShoppingBag },
         { name: 'Settings', path: '/student/settings', icon: SettingsIcon },
       ],
-      utility: [
-        { name: 'Dashboard', path: '/utility', icon: LayoutDashboard },
-        { name: 'Tasks', path: '/utility/tasks', icon: Wrench },
-        { name: 'Settings', path: '/utility/settings', icon: SettingsIcon },
-      ],
     };
     
     return navItems[role] || navItems.student;
@@ -94,12 +85,11 @@ export default function Layout() {
   const getRoleIcon = () => {
     const role = user?.role;
     const icons = {
-      admin: <Shield size={20} className="text-green-400" />,
+      administrator: <Shield size={20} className="text-green-400" />,
       teacher: <GraduationCap size={20} className="text-blue-400" />,
-      canteen: <Coffee size={20} className="text-orange-400" />,
-      junk: <Recycle size={20} className="text-green-400" />,
+      canteen_staff: <Coffee size={20} className="text-orange-400" />,
+      junk_shop_personnel: <Recycle size={20} className="text-green-400" />,
       student: <GraduationCap size={20} className="text-teal-400" />,
-      utility: <Wrench size={20} className="text-gray-400" />,
     };
     return icons[role] || <User size={20} />;
   };
@@ -107,14 +97,25 @@ export default function Layout() {
   const getRoleColor = () => {
     const role = user?.role;
     const colors = {
-      admin: 'from-green-600 to-green-800',
+      administrator: 'from-green-600 to-green-800',
       teacher: 'from-blue-600 to-blue-800',
-      canteen: 'from-orange-600 to-orange-800',
-      junk: 'from-green-600 to-green-800',
+      canteen_staff: 'from-orange-600 to-orange-800',
+      junk_shop_personnel: 'from-green-600 to-green-800',
       student: 'from-teal-600 to-teal-800',
-      utility: 'from-gray-600 to-gray-800',
     };
     return colors[role] || 'from-green-600 to-green-800';
+  };
+
+  const getRoleDisplayName = () => {
+    const role = user?.role;
+    const names = {
+      administrator: 'Admin',
+      teacher: 'Teacher',
+      canteen_staff: 'Canteen',
+      junk_shop_personnel: 'Junk Shop',
+      student: 'Student',
+    };
+    return names[role] || 'User';
   };
 
   const navItems = getNavItems();
@@ -150,7 +151,20 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* Navigation Menu - Removed User Info and Dark Mode Toggle */}
+        {/* User Info Section */}
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-lg font-bold">
+              {user?.fullName?.charAt(0) || 'U'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{user?.fullName || 'User'}</p>
+              <p className="text-xs text-white/70 capitalize">{getRoleDisplayName()}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Menu */}
         <nav className="p-4 flex-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = currentPath === item.path || (item.path !== '/admin' && currentPath?.startsWith(item.path));
@@ -177,8 +191,15 @@ export default function Layout() {
           })}
         </nav>
 
-        {/* Footer Actions - Removed Dark Mode Toggle */}
+        {/* Footer Actions */}
         <div className="p-4 border-t border-white/10">
+          <button
+            onClick={toggleDarkMode}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition mb-2"
+          >
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            <span className="font-medium">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+          </button>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition"
@@ -230,7 +251,7 @@ export default function Layout() {
                 </div>
                 <div className="hidden md:block text-left">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{user?.fullName}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.role}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{getRoleDisplayName()}</p>
                 </div>
                 <ChevronDown size={16} className="text-gray-400" />
               </button>

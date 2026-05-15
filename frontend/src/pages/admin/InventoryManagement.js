@@ -1,358 +1,247 @@
-import React, { useState } from 'react';
-import { Package, AlertCircle, Plus, Edit, Trash2, Search, TrendingUp, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Package, 
+  Star, 
+  ShoppingBag, 
+  TrendingUp,
+  TrendingDown,
+  Search,
+  AlertCircle
+} from 'lucide-react';
+import { Line, Bar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { statsAPI, rewardsAPI, studentsAPI } from '../../services/apiService';
 import toast from 'react-hot-toast';
 
-const mockInventory = [
-  { id: 1, item: 'Biscuit', stock: 45, threshold: 20, unit: 'pieces', lastRestocked: '2026-03-25', category: 'Food' },
-  { id: 2, item: 'Chocolate Bar', stock: 30, threshold: 20, unit: 'pieces', lastRestocked: '2026-03-24', category: 'Food' },
-  { id: 3, item: 'Juice Box', stock: 28, threshold: 20, unit: 'pieces', lastRestocked: '2026-03-23', category: 'Beverage' },
-  { id: 4, item: 'Pencil Set', stock: 20, threshold: 15, unit: 'sets', lastRestocked: '2026-03-22', category: 'Supplies' },
-  { id: 5, item: 'Notebook', stock: 15, threshold: 15, unit: 'pieces', lastRestocked: '2026-03-21', category: 'Supplies' },
-  { id: 6, item: 'Eraser', stock: 100, threshold: 30, unit: 'pieces', lastRestocked: '2026-03-20', category: 'Supplies' },
-];
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
-export default function InventoryManagement() {
-  const [inventory, setInventory] = useState(mockInventory);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [showRestockModal, setShowRestockModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [restockQuantity, setRestockQuantity] = useState('');
-  const [formData, setFormData] = useState({ 
-    item: '', 
-    stock: '', 
-    threshold: 20, 
-    unit: 'pieces', 
-    category: 'Supplies' 
+export default function AdminDashboard() {
+  const [stats, setStats] = useState({
+    totalBottles: 0,
+    totalPoints: 0,
+    totalStudents: 0,
+    totalRedemptions: 0
   });
+  const [transactions, setTransactions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [gradePerformance, setGradePerformance] = useState([]);
 
-  const totalItems = inventory.reduce((sum, i) => sum + i.stock, 0);
-  const lowStockItems = inventory.filter(i => i.stock <= i.threshold).length;
-  const totalValue = inventory.reduce((sum, i) => sum + (i.stock * 25), 0);
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const handleSubmit = () => {
-    if (!formData.item) { 
-      toast.error('Please enter item name'); 
-      return; 
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      // Get system stats
+      const statsRes = await statsAPI.getSystemStats();
+      if (statsRes.data.success) {
+        setStats(statsRes.data.stats);
+      }
+
+      // Get recent transactions
+      const transactionsRes = await statsAPI.getRecentTransactions(10);
+      if (transactionsRes.data.success) {
+        const formattedTransactions = transactionsRes.data.transactions.map(t => ({
+          id: t._id,
+          date: new Date(t.createdAt).toLocaleString(),
+          user: t.student?.fullName || 'Unknown',
+          type: t.type === 'recycling' ? 'Recycle' : 'Redemption',
+          amount: t.type === 'recycling' ? `${t.totalPoints} pts earned` : `${t.totalPoints} pts used`,
+          points: t.type === 'recycling' ? `+${t.totalPoints}` : `-${t.totalPoints}`,
+          status: t.status
+        }));
+        setTransactions(formattedTransactions);
+      }
+
+      // Get grade level performance
+      const gradeRes = await statsAPI.getGradeLevelPerformance();
+      if (gradeRes.data.success) {
+        setGradePerformance(gradeRes.data.performance);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
     }
-    if (editingItem) {
-      setInventory(inventory.map(i => i.id === editingItem.id ? { 
-        ...i, 
-        ...formData, 
-        stock: parseInt(formData.stock), 
-        threshold: parseInt(formData.threshold) 
-      } : i));
-      toast.success('Item updated!');
-    } else {
-      setInventory([...inventory, { 
-        id: inventory.length + 1, 
-        ...formData, 
-        stock: parseInt(formData.stock), 
-        threshold: parseInt(formData.threshold), 
-        lastRestocked: new Date().toISOString().split('T')[0] 
-      }]);
-      toast.success('Item added!');
-    }
-    setShowModal(false);
-    setEditingItem(null);
-    setFormData({ item: '', stock: '', threshold: 20, unit: 'pieces', category: 'Supplies' });
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Delete this item?')) {
-      setInventory(inventory.filter(i => i.id !== id));
-      toast.success('Item deleted');
-    }
+  // Points Distribution Chart Data from real API
+  const pointsData = {
+    labels: gradePerformance.map(g => g._id || 'Unknown'),
+    datasets: [
+      {
+        label: 'Points Earned',
+        data: gradePerformance.map(g => g.totalPoints || 0),
+        backgroundColor: '#2e7d32',
+        borderRadius: 8,
+      }
+    ]
   };
 
-  const handleRestock = () => {
-    if (!restockQuantity || restockQuantity <= 0) { 
-      toast.error('Enter valid quantity'); 
-      return; 
-    }
-    setInventory(inventory.map(i => i.id === selectedItem.id ? { 
-      ...i, 
-      stock: i.stock + parseInt(restockQuantity), 
-      lastRestocked: new Date().toISOString().split('T')[0] 
-    } : i));
-    setShowRestockModal(false);
-    setRestockQuantity('');
-    setSelectedItem(null);
-    toast.success(`Added ${restockQuantity} ${selectedItem?.unit} to ${selectedItem?.item}`);
+  // Recycling Trends Chart (mock data - replace with real data when available)
+  const recyclingData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Bottles (x1000)',
+        data: [8.2, 9.5, 11.3, 12.8, 14.2, 15.2],
+        borderColor: '#2e7d32',
+        backgroundColor: 'rgba(46, 125, 50, 0.1)',
+        tension: 0.4,
+        fill: true,
+      }
+    ]
   };
 
-  const filteredInventory = inventory.filter(i => 
-    i.item.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    i.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#1e293b'
+        }
+      },
+    },
+  };
+
+  const filteredTransactions = transactions.filter(t => 
+    t.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStockStatus = (item) => {
-    if (item.stock <= 0) return { text: 'Out of Stock', color: 'bg-red-100 text-red-700', icon: '🔴' };
-    if (item.stock <= item.threshold) return { text: 'Low Stock', color: 'bg-yellow-100 text-yellow-700', icon: '⚠️' };
-    return { text: 'In Stock', color: 'bg-green-100 text-green-700', icon: '✅' };
-  };
+  const StatCard = ({ title, value, icon: Icon, color }) => (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100 dark:border-gray-700">
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-800 dark:text-gray-100">{value.toLocaleString()}</p>
+        </div>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
+          <Icon className="text-white" size={24} />
+        </div>
+      </div>
+    </div>
+  );
 
-  const getCategoryIcon = (category) => {
-    switch(category) {
-      case 'Food': return;
-      case 'Beverage': return;
-      case 'Supplies': return;
-      default: return;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Inventory Management</h1>
-          <p className="text-gray-500 mt-1">Track stock levels and manage inventory</p>
-        </div>
-        <button 
-          onClick={() => setShowModal(true)} 
-          className="px-5 py-2 bg-green-600 text-white rounded-full font-semibold flex items-center gap-2 hover:bg-green-700 transition"
-        >
-          <Plus size={18} /> Add Product
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">
+          Welcome back, Administrator • {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-600">
-          <p className="text-gray-500 text-sm">Total Items in Stock</p>
-          <p className="text-2xl font-bold">{totalItems}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard title="Total Students" value={stats.totalStudents || 0} icon={Package} color="bg-blue-600" />
+        <StatCard title="Total Bottles" value={stats.totalBottles || 0} icon={Package} color="bg-green-600" />
+        <StatCard title="Total Points" value={stats.totalPoints || 0} icon={Star} color="bg-orange-500" />
+        <StatCard title="Rewards Redeemed" value={stats.totalRedemptions || 0} icon={ShoppingBag} color="bg-purple-600" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Points Distribution by Grade Level</h3>
+          <div className="h-80">
+            {gradePerformance.length > 0 ? (
+              <Bar data={pointsData} options={chartOptions} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">No data available</div>
+            )}
+          </div>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-yellow-600">
-          <p className="text-gray-500 text-sm">Low Stock Items</p>
-          <p className="text-2xl font-bold text-yellow-600">{lowStockItems}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-600">
-          <p className="text-gray-500 text-sm">Total Categories</p>
-          <p className="text-2xl font-bold">{new Set(inventory.map(i => i.category)).size}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-600">
-          <p className="text-gray-500 text-sm">Estimated Value</p>
-          <p className="text-2xl font-bold">₱{totalValue.toLocaleString()}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Recycling Trends</h3>
+          <div className="h-80">
+            <Line data={recyclingData} options={chartOptions} />
+          </div>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-        <input 
-          type="text" 
-          placeholder="Search inventory by name or category..." 
-          value={searchTerm} 
-          onChange={(e) => setSearchTerm(e.target.value)} 
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500" 
-        />
-      </div>
-
-      {/* Inventory Table */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      {/* Recent Transactions Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-200">Recent Transactions</h3>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search transactions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-full text-sm w-64 focus:outline-none focus:border-green-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+              />
+            </div>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Threshold</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Restocked</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date & Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Amount</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Points</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredInventory.map((item) => {
-                const status = getStockStatus(item);
-                return (
-                  <tr key={item.id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{getCategoryIcon(item.category)}</span>
-                        <span className="font-medium text-gray-800">{item.item}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">{item.category}</span>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold">
-                      {item.stock} {item.unit}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {item.threshold} {item.unit}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                        <span>{status.icon}</span> {status.text}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 flex items-center gap-1">
-                      <Clock size={14} /> {item.lastRestocked}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => { 
-                            setSelectedItem(item); 
-                            setShowRestockModal(true); 
-                          }} 
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-200 transition"
-                        >
-                          Restock
-                        </button>
-                        <button 
-                          onClick={() => { 
-                            setEditingItem(item); 
-                            setFormData(item); 
-                            setShowModal(true); 
-                          }} 
-                          className="p-1 text-blue-600 hover:bg-blue-50 rounded transition"
-                        >
-                          <Edit size={18} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(item.id)} 
-                          className="p-1 text-red-600 hover:bg-red-50 rounded transition"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {filteredTransactions.map((transaction) => (
+                <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{transaction.date}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-800 dark:text-gray-200">{transaction.user}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{transaction.type}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{transaction.amount}</td>
+                  <td className={`px-6 py-4 text-sm font-medium ${transaction.points.startsWith('+') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {transaction.points}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-medium">
+                      {transaction.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      {/* Add/Edit Product Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800">
-                {editingItem ? 'Edit Product' : 'Add New Product'}
-              </h3>
-              <button 
-                onClick={() => { 
-                  setShowModal(false); 
-                  setEditingItem(null); 
-                  setFormData({ item: '', stock: '', threshold: 20, unit: 'pieces', category: 'Supplies' });
-                }} 
-                className="text-gray-400 hover:text-gray-600 text-2xl"
-              >
-                &times;
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
-                <input 
-                  type="text" 
-                  value={formData.item} 
-                  onChange={(e) => setFormData({ ...formData, item: e.target.value })} 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500" 
-                  placeholder="Enter product name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select 
-                  value={formData.category} 
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })} 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500"
-                >
-                  <option>Food</option>
-                  <option>Beverage</option>
-                  <option>Supplies</option>
-                  <option>Others</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
-                <input 
-                  type="number" 
-                  value={formData.stock} 
-                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })} 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500" 
-                  placeholder="Enter stock quantity"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                <input 
-                  type="text" 
-                  value={formData.unit} 
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })} 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500" 
-                  placeholder="pieces, kg, sets"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Low Stock Threshold</label>
-                <input 
-                  type="number" 
-                  value={formData.threshold} 
-                  onChange={(e) => setFormData({ ...formData, threshold: e.target.value })} 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500" 
-                />
-              </div>
-              <button 
-                onClick={handleSubmit} 
-                className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition"
-              >
-                {editingItem ? 'Save Changes' : 'Add Product'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Restock Modal */}
-      {showRestockModal && selectedItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800">Restock {selectedItem.item}</h3>
-              <button 
-                onClick={() => { 
-                  setShowRestockModal(false); 
-                  setSelectedItem(null); 
-                  setRestockQuantity('');
-                }} 
-                className="text-gray-400 hover:text-gray-600 text-2xl"
-              >
-                &times;
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Stock: <span className="font-bold">{selectedItem.stock} {selectedItem.unit}</span>
-                </label>
-                <input 
-                  type="number" 
-                  value={restockQuantity} 
-                  onChange={(e) => setRestockQuantity(e.target.value)} 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500" 
-                  placeholder="Quantity to add"
-                />
-              </div>
-              <button 
-                onClick={handleRestock} 
-                className="w-full bg-blue-600 text-white py-2 rounded-xl font-semibold hover:bg-blue-700 transition"
-              >
-                Add Stock
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
