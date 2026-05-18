@@ -157,14 +157,15 @@ export default function LandingPage() {
     toast.success(message);
   };
 
-  // ========== LOGIN FUNCTION ==========
+  // ========== FIXED LOGIN FUNCTION ==========
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
     setLoginError('');
 
     try {
-      const response = await fetch('http://localhost:5000/login', {
+      // CHANGE THIS URL - Use the auth routes endpoint
+      const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

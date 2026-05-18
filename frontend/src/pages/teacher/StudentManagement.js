@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, Printer, X 
+  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, Printer, X, AlertCircle, CheckCircle, XCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
-const grades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
+const allGrades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
 const sections = ['Section A', 'Section B', 'Section C'];
 
 export default function StudentManagement() {
@@ -17,26 +17,34 @@ export default function StudentManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [showImportResults, setShowImportResults] = useState(false);
+  const [importResults, setImportResults] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [importPreview, setImportPreview] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
   const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
+  const [userRole, setUserRole] = useState('');
   const [formData, setFormData] = useState({
     name: '',
-    grade: 'Grade 5',
+    grade: '',
     section: 'Section A',
     email: '',
     phone: ''
   });
 
   useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('rebot_user') || '{}');
+    setTeacherAssignedGrades(user.assignedGrades || []);
+    setUserRole(user.role || '');
+    
+    if (user.role === 'teacher' && user.assignedGrades && user.assignedGrades.length > 0) {
+      setFormData(prev => ({ ...prev, grade: user.assignedGrades[0] }));
+    }
+    
     fetchSections();
     fetchStudents();
-    const user = JSON.parse(localStorage.getItem('rebot_user'));
-    setTeacherAssignedGrades(user?.assignedGrades || []);
   }, []);
 
-  // Fetch sections to map ObjectId to actual grade/section names
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -44,7 +52,6 @@ export default function StudentManagement() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      console.log('Sections data:', data);
       
       if (data.success) {
         const sectionMap = {};
@@ -61,23 +68,33 @@ export default function StudentManagement() {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/get-students');
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/students', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await response.json();
-      console.log('Students fetched:', data);
       
       if (data.success) {
         const formattedStudents = data.students.map(s => {
-          const sectionInfo = sectionsData[s.section] || { grade: 'N/A', section: 'N/A' };
+          let sectionName = 'N/A';
+          let gradeLevel = s.grade || 'N/A';
+          
+          if (s.sectionName) {
+            sectionName = s.sectionName;
+          } else if (s.section && typeof s.section === 'object') {
+            sectionName = s.section.sectionName || 'N/A';
+            gradeLevel = s.section.gradeLevel || s.grade || 'N/A';
+          }
+          
           return {
             id: s._id,
             studentId: s.studentId,
             name: s.fullName,
-            grade: s.grade || sectionInfo.grade || 'N/A',
-            section: s.sectionName || sectionInfo.section || s.section || 'N/A',
+            grade: gradeLevel,
+            section: sectionName,
             points: s.points || 0,
-            email: s.email,
-            sectionId: s.section,
-            status: 'active',
+            email: s.email || '',
+            status: s.isActive !== false ? 'active' : 'inactive',
             joinDate: new Date(s.createdAt).toISOString().split('T')[0]
           };
         });
@@ -97,7 +114,10 @@ export default function StudentManagement() {
         const token = localStorage.getItem('token');
         const response = await fetch(`http://localhost:5000/api/students/${id}`, {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
         const data = await response.json();
         
@@ -108,6 +128,7 @@ export default function StudentManagement() {
           toast.error(data.message || 'Failed to delete student');
         }
       } catch (error) {
+        console.error('Delete error:', error);
         toast.error('Failed to delete student');
       }
     }
@@ -129,24 +150,31 @@ export default function StudentManagement() {
         },
         body: JSON.stringify({
           fullName: formData.name,
-          email: formData.email,
+          email: formData.email || '',
           grade: formData.grade,
           section: formData.section,
-          phone: formData.phone
+          phone: formData.phone || ''
         })
       });
       
       const data = await response.json();
       
       if (data.success) {
-        toast.success('Student added successfully!');
+        toast.success(`Student ${formData.name} added successfully!`);
         setShowAddModal(false);
-        setFormData({ name: '', grade: 'Grade 5', section: 'Section A', email: '', phone: '' });
+        setFormData({ 
+          name: '', 
+          grade: teacherAssignedGrades[0] || 'Grade 5', 
+          section: 'Section A', 
+          email: '', 
+          phone: '' 
+        });
         fetchStudents();
       } else {
         toast.error(data.message || 'Failed to add student');
       }
     } catch (error) {
+      console.error('Add student error:', error);
       toast.error('Failed to add student');
     }
   };
@@ -172,21 +200,41 @@ export default function StudentManagement() {
         toast.error(data.message || 'Failed to add points');
       }
     } catch (error) {
+      console.error('Add points error:', error);
       toast.error('Failed to add points');
     }
   };
 
-  const handleViewQR = (student) => {
+  const handleViewQR = async (student) => {
     setSelectedStudent(student);
     setShowQRModal(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/students/${student.id}/qrcode`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success && data.qrCode) {
+        setSelectedStudent(prev => ({ ...prev, qrCodeData: data.qrCode }));
+      }
+    } catch (error) {
+      console.error('Error fetching QR code:', error);
+    }
   };
 
   const downloadTemplate = () => {
     const headers = ['Full Name', 'Grade', 'Section', 'Email', 'Phone'];
+    
+    const sampleGrades = userRole === 'teacher' && teacherAssignedGrades.length > 0 
+      ? teacherAssignedGrades 
+      : allGrades;
+    
     const sampleData = [
-      ['Juan Dela Cruz', 'Grade 5', 'Section A', 'juan@example.com', '09123456789'],
-      ['Maria Santos', 'Grade 5', 'Section A', 'maria@example.com', '09123456790'],
-      ['Jose Rizal', 'Grade 6', 'Section B', 'jose@example.com', '09123456791']
+      ['Juan Dela Cruz', sampleGrades[0] || 'Grade 1', 'Section A', 'juan@example.com', '09123456789'],
+      ['Maria Santos', sampleGrades[0] || 'Grade 1', 'Section A', 'maria@example.com', '09123456790'],
+      ['Jose Rizal', sampleGrades[Math.min(1, sampleGrades.length - 1)] || 'Grade 2', 'Section B', 'jose@example.com', '09123456791']
     ];
     
     const wsData = [headers, ...sampleData];
@@ -209,16 +257,41 @@ export default function StudentManagement() {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
         
-        const previewData = rows.map(row => ({
+        const previewData = rows.map((row, index) => ({
+          id: index,
           name: row['Full Name'] || row['name'] || row['Name'] || '',
-          grade: row['Grade'] || row['grade'] || 'Grade 5',
-          section: row['Section'] || row['section'] || 'Section A',
+          grade: row['Grade'] || row['grade'] || '',
+          section: row['Section'] || row['section'] || '',
           email: row['Email'] || row['email'] || '',
-          phone: row['Phone'] || row['phone'] || ''
+          phone: row['Phone'] || row['phone'] || '',
+          isValid: true,
+          error: null
         })).filter(s => s.name);
         
+        // Validate each row
+        previewData.forEach(student => {
+          const errors = [];
+          if (!student.name) errors.push('Name required');
+          if (!student.grade) errors.push('Grade required');
+          if (!student.section) errors.push('Section required');
+          
+          // Check if grade is allowed for teacher
+          if (userRole === 'teacher' && teacherAssignedGrades.length > 0) {
+            if (!teacherAssignedGrades.includes(student.grade)) {
+              errors.push(`Grade "${student.grade}" not in your assigned grades (${teacherAssignedGrades.join(', ')})`);
+            }
+          }
+          
+          student.isValid = errors.length === 0;
+          student.error = errors.join(', ');
+        });
+        
         setImportPreview(previewData);
-        toast.success(`${previewData.length} records loaded. Review and click Import.`);
+        
+        const validCount = previewData.filter(s => s.isValid).length;
+        const invalidCount = previewData.filter(s => !s.isValid).length;
+        
+        toast.success(`${previewData.length} records loaded. ${validCount} valid, ${invalidCount} invalid.`);
       } catch (error) {
         console.error('Error parsing file:', error);
         toast.error('Failed to parse file. Please use the template format.');
@@ -233,75 +306,64 @@ export default function StudentManagement() {
       return;
     }
 
-    setIsImporting(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const student of importPreview) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5000/api/students', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            fullName: student.name,
-            email: student.email,
-            grade: student.grade,
-            section: student.section,
-            phone: student.phone
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
-      } catch (error) {
-        failCount++;
-        console.error('Error importing student:', student.name, error);
-      }
-    }
-
-    toast.success(`Import completed! ${successCount} students added, ${failCount} failed.`);
-    setShowBulkImportModal(false);
-    setImportPreview([]);
-    fetchStudents();
-    setIsImporting(false);
-  };
-
-  const handleDownloadAllQRCodes = async () => {
-    if (students.length === 0) {
-      toast.error('No students to generate QR codes');
+    const validStudents = importPreview.filter(s => s.isValid);
+    
+    if (validStudents.length === 0) {
+      toast.error('No valid students to import. Please fix the errors.');
       return;
     }
 
-    toast.loading('Generating QR codes...', { duration: 2000 });
+    setIsImporting(true);
     
     try {
-      for (const student of students) {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:5000/api/students/${student.id}/qrcode`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-          const link = document.createElement('a');
-          link.download = `${student.studentId}_qrcode.png`;
-          link.href = data.qrCode;
-          link.click();
-          await new Promise(resolve => setTimeout(resolve, 100));
+      const token = localStorage.getItem('token');
+      const studentsToImport = validStudents.map(s => ({
+        name: s.name,
+        grade: s.grade,
+        section: s.section,
+        email: s.email,
+        phone: s.phone
+      }));
+      
+      console.log('Importing students:', studentsToImport);
+      
+      const response = await fetch('http://localhost:5000/api/students/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ students: studentsToImport })
+      });
+      
+      const data = await response.json();
+      console.log('Bulk import response:', data);
+      
+      setImportResults({
+        success: data.success,
+        count: data.count,
+        totalAttempted: data.totalAttempted,
+        errors: data.errors || []
+      });
+      
+      if (data.success) {
+        if (data.errors && data.errors.length > 0) {
+          toast.warning(`Imported ${data.count} students, ${data.errors.length} failed.`);
+        } else {
+          toast.success(`Successfully imported ${data.count} students!`);
         }
+        
+        setShowImportResults(true);
+        setShowBulkImportModal(false);
+        fetchStudents();
+      } else {
+        toast.error(data.message || 'Failed to import students');
       }
-      toast.success(`Downloaded ${students.length} QR codes`);
     } catch (error) {
-      toast.error('Failed to download QR codes');
+      console.error('Bulk import error:', error);
+      toast.error('Failed to import students. Please try again.');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -353,19 +415,25 @@ export default function StudentManagement() {
     toast.success('Print window opened');
   };
 
-  // Filter students by grade
+  const availableGrades = userRole === 'teacher' ? teacherAssignedGrades : allGrades;
+  
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = searchTerm === '' || 
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrade = selectedGrade === 'all' || student.grade === selectedGrade;
-    return matchesSearch && matchesGrade;
+    
+    let matchesTeacherGrade = true;
+    if (userRole === 'teacher' && teacherAssignedGrades.length > 0) {
+      matchesTeacherGrade = teacherAssignedGrades.includes(student.grade);
+    }
+    
+    return matchesSearch && matchesGrade && matchesTeacherGrade;
   });
 
-  const totalPoints = students.reduce((sum, s) => sum + s.points, 0);
-  const activeStudents = students.filter(s => s.status === 'active').length;
-
-  // Get unique grades for filter
-  const uniqueGrades = ['all', ...new Set(students.map(s => s.grade).filter(g => g !== 'N/A'))];
+  const totalPoints = filteredStudents.reduce((sum, s) => sum + s.points, 0);
+  const activeStudents = filteredStudents.filter(s => s.status === 'active').length;
+  const filterGrades = ['all', ...new Set(filteredStudents.map(s => s.grade).filter(g => g !== 'N/A'))];
 
   if (loading) {
     return (
@@ -375,19 +443,29 @@ export default function StudentManagement() {
     );
   }
 
+  if (userRole === 'teacher' && teacherAssignedGrades.length === 0) {
+    return (
+      <div className="bg-yellow-50 rounded-2xl p-8 text-center">
+        <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Grades Assigned</h2>
+        <p className="text-yellow-700">
+          Please contact the administrator to assign grade levels to your account.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Student Management</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your students and track their progress</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Manage your students - {userRole === 'teacher' && `You have access to: ${teacherAssignedGrades.join(', ')}`}
+          </p>
         </div>
         <div className="flex gap-3">
           <button onClick={() => setShowBulkImportModal(true)} className="px-4 py-2 border border-green-600 text-green-600 rounded-full font-semibold flex items-center gap-2 hover:bg-green-50">
             <Upload size={18} /> Bulk Import
-          </button>
-          <button onClick={handleDownloadAllQRCodes} className="px-4 py-2 border border-purple-600 text-purple-600 rounded-full font-semibold flex items-center gap-2 hover:bg-purple-50">
-            <Download size={18} /> Download All QR
           </button>
           <button onClick={() => setShowAddModal(true)} className="px-5 py-2 bg-green-600 text-white rounded-full font-semibold flex items-center gap-2 hover:bg-green-700 shadow-sm">
             <Plus size={18} /> Add Student
@@ -399,7 +477,7 @@ export default function StudentManagement() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-600">
           <p className="text-gray-500 text-sm">Total Students</p>
-          <p className="text-2xl font-bold text-gray-800">{students.length}</p>
+          <p className="text-2xl font-bold text-gray-800">{filteredStudents.length}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-600">
           <p className="text-gray-500 text-sm">Active Students</p>
@@ -411,11 +489,11 @@ export default function StudentManagement() {
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-600">
           <p className="text-gray-500 text-sm">Average Points</p>
-          <p className="text-2xl font-bold text-purple-600">{Math.round(totalPoints / (students.length || 1))}</p>
+          <p className="text-2xl font-bold text-purple-600">{Math.round(totalPoints / (filteredStudents.length || 1))}</p>
         </div>
       </div>
 
-      {/* Search and Grade Filter */}
+      {/* Search and Filter */}
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -433,7 +511,7 @@ export default function StudentManagement() {
             onChange={(e) => setSelectedGrade(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-xl bg-white"
           >
-            {uniqueGrades.map(grade => (
+            {filterGrades.map(grade => (
               <option key={grade} value={grade}>{grade === 'all' ? 'All Grades' : grade}</option>
             ))}
           </select>
@@ -472,7 +550,7 @@ export default function StudentManagement() {
                       </button>
                       <button onClick={() => {
                         const points = prompt(`Enter points to add for ${student.name}:`, '10');
-                        if (points && !isNaN(points)) {
+                        if (points && !isNaN(points) && parseInt(points) > 0) {
                           handleAddPoints(student, parseInt(points));
                         }
                       }} className="p-1 text-green-600 hover:bg-green-50 rounded-lg" title="Add Points">
@@ -482,9 +560,16 @@ export default function StudentManagement() {
                         <Trash2 size={18} />
                       </button>
                     </div>
-                   </td>
-                 </tr>
+                  </td>
+                </tr>
               ))}
+              {filteredStudents.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                    No students found. Click "Add Student" to get started.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -499,17 +584,49 @@ export default function StudentManagement() {
               <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             </div>
             <div className="space-y-4">
-              <input type="text" placeholder="Full Name *" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
+              <input 
+                type="text" 
+                placeholder="Full Name *" 
+                value={formData.name} 
+                onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500" 
+              />
               <div className="grid grid-cols-2 gap-4">
-                <select value={formData.grade} onChange={(e) => setFormData({...formData, grade: e.target.value})} className="px-4 py-2 border rounded-xl">
-                  {grades.map(g => <option key={g}>{g}</option>)}
+                <select 
+                  value={formData.grade} 
+                  onChange={(e) => setFormData({...formData, grade: e.target.value})} 
+                  className="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  {availableGrades.map(g => <option key={g}>{g}</option>)}
                 </select>
-                <select value={formData.section} onChange={(e) => setFormData({...formData, section: e.target.value})} className="px-4 py-2 border rounded-xl">
+                <select 
+                  value={formData.section} 
+                  onChange={(e) => setFormData({...formData, section: e.target.value})} 
+                  className="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
                   {sections.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
-              <input type="email" placeholder="Email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
-              <button onClick={handleAddStudent} className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700">Add Student</button>
+              <input 
+                type="email" 
+                placeholder="Email (optional)" 
+                value={formData.email} 
+                onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500" 
+              />
+              <input 
+                type="tel" 
+                placeholder="Phone (optional)" 
+                value={formData.phone} 
+                onChange={(e) => setFormData({...formData, phone: e.target.value})} 
+                className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500" 
+              />
+              <button 
+                onClick={handleAddStudent} 
+                className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition"
+              >
+                Add Student
+              </button>
             </div>
           </div>
         </div>
@@ -525,49 +642,197 @@ export default function StudentManagement() {
             </div>
             <div className="space-y-6">
               <div className="bg-blue-50 p-4 rounded-xl">
-                <h4 className="font-semibold text-blue-800 mb-2">How to import:</h4>
+                <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                  <FileUp size={18} /> How to import:
+                </h4>
                 <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
                   <li>Download the Excel/CSV template below</li>
-                  <li>Fill in student information</li>
-                  <li>Upload the file</li>
-                  <li>Review and click Import</li>
+                  <li>Fill in student information (Name, Grade, Section are required)</li>
+                  <li>Save the file as .xlsx or .csv</li>
+                  <li>Upload the file using the button below</li>
+                  <li>Review the preview and click Import</li>
                 </ol>
+                {userRole === 'teacher' && (
+                  <div className="mt-3 p-2 bg-yellow-100 rounded-lg border border-yellow-200">
+                    <p className="text-sm text-yellow-800 flex items-center gap-2">
+                      <AlertCircle size={16} /> You can only import students to your assigned grades: <strong>{teacherAssignedGrades.join(', ')}</strong>
+                    </p>
+                  </div>
+                )}
               </div>
-              <button onClick={downloadTemplate} className="w-full py-3 border-2 border-dashed border-green-600 text-green-600 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-50">
+              
+              <button 
+                onClick={downloadTemplate} 
+                className="w-full py-3 border-2 border-dashed border-green-600 text-green-600 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-50 transition"
+              >
                 <FileDown size={20} /> Download Excel Template
               </button>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
-                <FileUp size={40} className="text-gray-400 mx-auto mb-3" />
-                <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" id="fileUpload" />
-                <label htmlFor="fileUpload" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg cursor-pointer">Choose File</label>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-green-400 transition">
+                <Upload size={40} className="text-gray-400 mx-auto mb-3" />
+                <input 
+                  type="file" 
+                  accept=".xlsx, .xls, .csv" 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                  id="bulkFileUpload" 
+                />
+                <label 
+                  htmlFor="bulkFileUpload" 
+                  className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition"
+                >
+                  Choose File
+                </label>
+                <p className="text-xs text-gray-500 mt-2">Supported formats: .xlsx, .xls, .csv</p>
               </div>
+              
               {importPreview.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3">Preview ({importPreview.length} students)</h4>
-                  <div className="overflow-x-auto max-h-64">
+                  <h4 className="font-semibold mb-3">
+                    Preview ({importPreview.length} students)
+                    <span className="text-sm font-normal text-gray-500 ml-2">
+                      ({importPreview.filter(s => s.isValid).length} valid, {importPreview.filter(s => !s.isValid).length} invalid)
+                    </span>
+                  </h4>
+                  <div className="overflow-x-auto max-h-80 border rounded-lg">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr><th className="p-2">Name</th><th className="p-2">Grade</th><th className="p-2">Section</th><th className="p-2">Email</th></tr>
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="p-2 text-left">Status</th>
+                          <th className="p-2 text-left">Name</th>
+                          <th className="p-2 text-left">Grade</th>
+                          <th className="p-2 text-left">Section</th>
+                          <th className="p-2 text-left">Email</th>
+                        </tr>
                       </thead>
                       <tbody>
-                        {importPreview.slice(0, 10).map((student, idx) => (
-                          <tr key={idx} className="border-t">
-                            <td className="p-2">{student.name}</td>
-                            <td className="p-2">{student.grade}</td>
-                            <td className="p-2">{student.section}</td>
-                            <td className="p-2">{student.email}</td>
+                        {importPreview.map((student, idx) => (
+                          <tr key={idx} className={`border-t ${student.isValid ? 'bg-green-50' : 'bg-red-50'}`}>
+                            <td className="p-2">
+                              {student.isValid ? (
+                                <CheckCircle size={16} className="text-green-600" />
+                              ) : (
+                                <XCircle size={16} className="text-red-600" />
+                              )}
+                            </td>
+                            <td className="p-2 font-medium">{student.name}</td>
+                            <td className="p-2">
+                              <span className={`px-2 py-0.5 rounded text-xs ${
+                                userRole === 'teacher' && teacherAssignedGrades.length > 0 && !teacherAssignedGrades.includes(student.grade)
+                                  ? 'bg-red-200 text-red-800'
+                                  : 'bg-green-200 text-green-800'
+                              }`}>
+                                {student.grade || 'Missing'}
+                              </span>
+                            </td>
+                            <td className="p-2">{student.section || 'Missing'}</td>
+                            <td className="p-2 text-gray-500">{student.email || '-'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  {importPreview.some(s => !s.isValid) && (
+                    <div className="mt-2 p-2 bg-red-50 rounded-lg">
+                      <p className="text-xs text-red-600 flex items-center gap-2">
+                        <AlertCircle size={14} /> Invalid rows will be skipped during import.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="flex gap-3">
-                <button onClick={() => setShowBulkImportModal(false)} className="flex-1 px-4 py-2 border rounded-xl">Cancel</button>
-                <button onClick={handleImportStudents} disabled={importPreview.length === 0 || isImporting} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold disabled:opacity-50">Import</button>
+              
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => {
+                    setShowBulkImportModal(false);
+                    setImportPreview([]);
+                  }} 
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleImportStudents} 
+                  disabled={importPreview.length === 0 || importPreview.filter(s => s.isValid).length === 0 || isImporting} 
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isImporting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Importing...
+                    </span>
+                  ) : (
+                    `Import ${importPreview.filter(s => s.isValid).length} Valid Students`
+                  )}
+                </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Results Modal */}
+      {showImportResults && importResults && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Import Results</h3>
+              <button 
+                onClick={() => {
+                  setShowImportResults(false);
+                  setImportResults(null);
+                }} 
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="text-center mb-6">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                importResults.count > 0 ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {importResults.count > 0 ? (
+                  <CheckCircle size={32} className="text-green-600" />
+                ) : (
+                  <XCircle size={32} className="text-red-600" />
+                )}
+              </div>
+              <h4 className="text-lg font-semibold">
+                {importResults.count} of {importResults.totalAttempted} students imported successfully
+              </h4>
+              <p className="text-sm text-gray-500 mt-1">
+                {importResults.count} created, {importResults.errors?.length || 0} failed
+              </p>
+            </div>
+            
+            {importResults.errors && importResults.errors.length > 0 && (
+              <div>
+                <h5 className="font-semibold text-red-600 mb-2 flex items-center gap-2">
+                  <AlertCircle size={16} /> Failed Imports ({importResults.errors.length})
+                </h5>
+                <div className="bg-red-50 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  {importResults.errors.map((err, idx) => (
+                    <div key={idx} className="text-sm py-1 border-b border-red-100 last:border-0">
+                      <span className="font-mono text-red-700">Row {err.row}:</span>
+                      <span className="text-red-600 ml-2">{err.name}</span>
+                      <p className="text-xs text-red-500 mt-0.5">{err.error}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <button 
+              onClick={() => {
+                setShowImportResults(false);
+                setImportResults(null);
+              }} 
+              className="w-full mt-6 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}
@@ -582,17 +847,41 @@ export default function StudentManagement() {
             </div>
             <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8">
               <div className="bg-white rounded-xl p-4">
-                <div className="w-32 h-32 mx-auto flex items-center justify-center">
-                  <QrCode size={120} className="text-green-600" />
-                </div>
+                {selectedStudent.qrCodeData ? (
+                  <img src={selectedStudent.qrCodeData} alt="QR Code" className="w-32 h-32 mx-auto" />
+                ) : (
+                  <div className="w-32 h-32 mx-auto flex items-center justify-center">
+                    <QrCode size={120} className="text-green-600" />
+                  </div>
+                )}
                 <p className="text-xs text-gray-500 mt-2 font-mono">{selectedStudent.studentId}</p>
               </div>
             </div>
             <p className="mt-4 font-semibold">{selectedStudent.name}</p>
             <p className="text-sm text-gray-500">{selectedStudent.grade} - {selectedStudent.section}</p>
             <div className="flex gap-3 mt-6">
-              <button className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold">Download QR</button>
-              <button className="flex-1 px-4 py-2 border rounded-xl">Print</button>
+              <button 
+                onClick={() => {
+                  if (selectedStudent.qrCodeData) {
+                    const link = document.createElement('a');
+                    link.download = `${selectedStudent.studentId}_qrcode.png`;
+                    link.href = selectedStudent.qrCodeData;
+                    link.click();
+                    toast.success('QR code downloaded');
+                  } else {
+                    toast.error('QR code not available');
+                  }
+                }} 
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold"
+              >
+                Download QR
+              </button>
+              <button 
+                onClick={() => window.print()} 
+                className="flex-1 px-4 py-2 border rounded-xl"
+              >
+                Print
+              </button>
             </div>
           </div>
         </div>

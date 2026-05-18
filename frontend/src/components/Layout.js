@@ -54,7 +54,7 @@ export default function Layout() {
         { name: 'Dashboard', path: '/teacher', icon: LayoutDashboard },
         { name: 'Students', path: '/teacher/students', icon: GraduationCap },
         { name: 'QR Codes', path: '/teacher/qr-codes', icon: QrCode },
-        { name: 'Rewards', path: '/teacher/rewards', icon: Gift },
+        // REMOVED: Rewards menu item for teacher
         { name: 'Settings', path: '/teacher/settings', icon: SettingsIcon },
       ],
       canteen_staff: [

@@ -194,19 +194,19 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     setPasswordStrength({ strength, text, color });
   };
 
-  // Handle current password change - SIMPLE direct update
+  // Handle current password change
   const handleCurrentPasswordChange = (e) => {
     setCurrentPassword(e.target.value);
   };
 
-  // Handle new password change - update state and feedback
+  // Handle new password change
   const handleNewPasswordChange = (e) => {
     const value = e.target.value;
     setNewPassword(value);
     updatePasswordFeedback(value);
   };
 
-  // Handle confirm password change - SIMPLE direct update
+  // Handle confirm password change
   const handleConfirmPasswordChange = (e) => {
     setConfirmPassword(e.target.value);
   };
@@ -218,8 +218,9 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     setSaving(false);
   };
   
-  // PASSWORD CHANGE FUNCTION
+  // ========== FIXED PASSWORD CHANGE FUNCTION ==========
   const handlePasswordChange = async () => {
+    // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error('Please fill all password fields');
       return;
@@ -245,6 +246,40 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     
     try {
       const token = localStorage.getItem('token');
+      
+      // Get the current user from localStorage to get the user ID
+      const storedUser = localStorage.getItem('rebot_user');
+      let userId = null;
+      
+      if (storedUser) {
+        try {
+          const userObj = JSON.parse(storedUser);
+          userId = userObj.id;
+        } catch (e) {
+          console.error('Error parsing user:', e);
+        }
+      }
+      
+      // If no userId in localStorage, try to get it from the token
+      if (!userId && token) {
+        try {
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          const tokenData = JSON.parse(jsonPayload);
+          userId = tokenData.id;
+        } catch (e) {
+          console.error('Error decoding token:', e);
+        }
+      }
+      
+      console.log('Changing password for user ID:', userId);
+      console.log('Current password entered:', currentPassword ? '***' : 'empty');
+      console.log('New password length:', newPassword.length);
+      
+      // Make the API call with userId
       const response = await fetch('http://localhost:5000/api/auth/change-password', {
         method: 'PUT',
         headers: {
@@ -252,15 +287,18 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
+          userId: userId,
           currentPassword: currentPassword,
           newPassword: newPassword
         })
       });
       
       const data = await response.json();
+      console.log('Password change response:', data);
       
       if (data.success) {
         toast.success('Password changed successfully!');
+        // Clear password fields
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -277,7 +315,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
       }
     } catch (error) {
       console.error('Password change error:', error);
-      toast.error('Failed to change password. Please try again.');
+      toast.error(error.response?.data?.message || 'Failed to change password. Please try again.');
     } finally {
       setSaving(false);
     }
