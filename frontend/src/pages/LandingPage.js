@@ -2,39 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import LoadingScreen from '../components/LoadingScreen';
 
 export default function LandingPage() {
   const auth = useAuth();
   const { user, login } = auth || {};
   const navigate = useNavigate();
 
-  useEffect(() => {
-    document.documentElement.classList.remove('dark');
-    document.body.setAttribute('data-landing', 'true');
-    
-    // Check if user is already logged in
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('rebot_user');
-    if (token && storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        const roleMap = {
-          'administrator': '/admin',
-          'teacher': '/teacher',
-          'canteen_staff': '/canteen',
-          'junk_shop_personnel': '/junk',
-          'student': '/student'
-        };
-        const redirectPath = roleMap[userData.role] || '/';
-        window.location.href = redirectPath;
-      } catch (e) {
-        console.error('Error parsing user:', e);
-      }
-    }
-    
-    return () => document.body.removeAttribute('data-landing');
-  }, []);
-
+  // ========== ALL HOOKS FIRST (BEFORE ANY CONDITIONAL RETURN) ==========
   const [scrolled, setScrolled] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
@@ -44,6 +19,7 @@ export default function LandingPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
 
   const [resetStep, setResetStep] = useState(1);
   const [resetEmail, setResetEmail] = useState('');
@@ -83,6 +59,39 @@ export default function LandingPage() {
     { value: 'admin', label: 'Admin', icon: 'fas fa-user-shield', desc: 'Full system management' }
   ];
 
+  // ========== useEffect HOOKS ==========
+  useEffect(() => {
+    document.documentElement.classList.remove('dark');
+    document.body.setAttribute('data-landing', 'true');
+    
+    // Simulate loading to show loading screen
+    setTimeout(() => {
+      setPageLoading(false);
+    }, 500);
+    
+    // Check if user is already logged in
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('rebot_user');
+    if (token && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        const roleMap = {
+          'administrator': '/admin',
+          'teacher': '/teacher',
+          'canteen_staff': '/canteen',
+          'junk_shop_personnel': '/junk',
+          'student': '/student'
+        };
+        const redirectPath = roleMap[userData.role] || '/';
+        window.location.href = redirectPath;
+      } catch (e) {
+        console.error('Error parsing user:', e);
+      }
+    }
+    
+    return () => document.body.removeAttribute('data-landing');
+  }, []);
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 30);
     window.addEventListener('scroll', handleScroll);
@@ -105,6 +114,7 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, [resetStep, timer, canResend]);
 
+  // ========== FUNCTIONS ==========
   const checkPasswordStrength = (password) => {
     const hasLower = /[a-z]/.test(password);
     const hasUpper = /[A-Z]/.test(password);
@@ -157,14 +167,12 @@ export default function LandingPage() {
     toast.success(message);
   };
 
-  // ========== FIXED LOGIN FUNCTION ==========
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
     setLoginError('');
 
     try {
-      // CHANGE THIS URL - Use the auth routes endpoint
       const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: {
@@ -180,16 +188,9 @@ export default function LandingPage() {
       console.log('Login response:', data);
       
       if (data.success) {
-        // Clear existing data first
         localStorage.clear();
-        
-        // Store new data
         localStorage.setItem('token', data.token);
         localStorage.setItem('rebot_user', JSON.stringify(data.user));
-        
-        // Verify storage
-        console.log('Token stored:', localStorage.getItem('token'));
-        console.log('User stored:', localStorage.getItem('rebot_user'));
         
         toast.success(`Welcome back, ${data.user.fullName}!`);
         
@@ -197,9 +198,7 @@ export default function LandingPage() {
         setLoginUsername('');
         setLoginPassword('');
         setLoginError('');
-        setIsLoggingIn(false);
         
-        // Role to path mapping
         const roleMap = {
           'administrator': '/admin',
           'teacher': '/teacher',
@@ -209,21 +208,18 @@ export default function LandingPage() {
         };
         
         const redirectPath = roleMap[data.user.role] || '/';
-        console.log('Redirecting to:', redirectPath);
-        
-        // Force hard redirect
         window.location.href = redirectPath;
         
       } else {
-        setIsLoggingIn(false);
         setLoginError(data.message || 'Login failed');
         toast.error(data.message || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
-      setIsLoggingIn(false);
       setLoginError('Network error. Please make sure the backend server is running on port 5000');
-      toast.error('Network error. Please check if backend is running');
+      toast.error('Network error');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -339,6 +335,12 @@ export default function LandingPage() {
 
   const selectedRoleInfo = roles.find((role) => role.value === selectedRole);
 
+  // ========== CONDITIONAL RETURN AT THE VERY END ==========
+  if (pageLoading) {
+    return <LoadingScreen message="Welcome to ReBot..." />;
+  }
+
+  // ========== REST OF YOUR JSX RETURN ==========
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f7fbf7] font-sans text-slate-800">
       <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 shadow-lg shadow-green-900/5 backdrop-blur-xl' : 'bg-white/70 backdrop-blur-md'}`}>

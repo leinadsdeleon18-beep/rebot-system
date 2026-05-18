@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Role = require('../models/Role');
+const authMiddleware = require('../middleware/authMiddleware'); // IMPORTANT: Add this
 
 router.post('/login', async (req, res) => {
   try {
@@ -12,7 +13,6 @@ router.post('/login', async (req, res) => {
     console.log('LOGIN ATTEMPT:');
     console.log('Username:', username);
     
-    // Try to find user and populate role, but also handle case where role population fails
     let user = await User.findOne({ username }).populate('role');
     
     if (!user) {
@@ -20,21 +20,17 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
     
-    // If role is not populated (null), try to get roleName from field or fetch it manually
     let roleName = user.role?.name;
     
     if (!roleName && user.role) {
-      // Try to fetch role manually if populate didn't work
       const roleDoc = await Role.findById(user.role);
       roleName = roleDoc?.name;
     }
     
-    // If still no role name, check if user has roleName field directly
     if (!roleName && user.roleName) {
       roleName = user.roleName;
     }
     
-    // Default to teacher if no role found
     if (!roleName) {
       roleName = 'teacher';
       console.log('⚠️ No role found, defaulting to:', roleName);
@@ -52,7 +48,6 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
     
-    // Check if user is active
     if (!user.isActive) {
       console.log('❌ User account is disabled');
       return res.status(401).json({ success: false, message: 'Account is disabled. Please contact administrator.' });
@@ -80,6 +75,7 @@ router.post('/login', async (req, res) => {
         fullName: user.fullName,
         role: roleName,
         assignedGrades: user.assignedGrades || [],
+        avatar: user.avatar || null,
         isActive: user.isActive
       }
     });
@@ -104,14 +100,13 @@ router.post('/register', async (req, res) => {
       role = await Role.create({ name: roleName || 'teacher', permissions: [] });
     }
     
-    // Don't hash here - let the pre-save hook handle it
     const user = new User({
       username,
       email,
-      password: password, // Raw password - pre-save will hash
+      password: password,
       fullName,
       role: role._id,
-      roleName: role.name, // Save role name directly
+      roleName: role.name,
       isActive: true
     });
     
@@ -133,6 +128,7 @@ router.post('/register', async (req, res) => {
         fullName: user.fullName,
         role: role.name,
         assignedGrades: user.assignedGrades || [],
+        avatar: null,
         isActive: true
       }
     });
@@ -178,7 +174,6 @@ router.post('/reset-password', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
-    // Set raw password - pre-save hook will hash it
     user.password = newPassword;
     await user.save();
     
@@ -202,12 +197,41 @@ router.put('/change-password', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Current password is incorrect' });
     }
     
-    // Set raw password - pre-save hook will hash it
     user.password = newPassword;
     await user.save();
     
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// UPDATE PROFILE ENDPOINT - FIXED with authMiddleware
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { fullName, email, phone, address, bio } = req.body;
+    
+    const updateData = { 
+      fullName, 
+      email, 
+      phone: phone || '', 
+      address: address || '', 
+      bio: bio || '' 
+    };
+    
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    res.json({ success: true, user, message: 'Profile updated successfully' });
+  } catch (error) {
+    console.error('Profile update error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -226,7 +250,6 @@ router.get('/profile', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
-    // Get role name from populated role or roleName field
     let roleName = user.role?.name || user.roleName || 'teacher';
     
     res.json({
@@ -238,6 +261,10 @@ router.get('/profile', async (req, res) => {
         fullName: user.fullName,
         role: roleName,
         assignedGrades: user.assignedGrades || [],
+        avatar: user.avatar || null,
+        phone: user.phone || '',
+        address: user.address || '',
+        bio: user.bio || '',
         isActive: user.isActive
       }
     });

@@ -32,6 +32,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  avatar: {
+    type: String,
+    default: null
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
+  address: {
+    type: String,
+    default: ''
+  },
+  bio: {
+    type: String,
+    default: ''
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -54,24 +70,18 @@ userSchema.methods.comparePassword = async function(password) {
   return await bcrypt.compare(password, this.password);
 };
 
-// FIXED: Only hash if password is not already a bcrypt hash
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
   try {
-    // Check if password is already a bcrypt hash (starts with $2a$ and length 60)
     if (this.password && this.password.startsWith('$2a$') && this.password.length === 60) {
-      console.log('⚠️ Password already hashed, skipping pre-save hook');
       return next();
     }
     
-    console.log(`🔐 Hashing password for user: ${this.username}`);
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    console.log('✅ Password hashed successfully');
     next();
   } catch (error) {
-    console.error('Error in pre-save hook:', error);
     next(error);
   }
 });

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, Printer, X, AlertCircle, CheckCircle, XCircle
+  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, Printer, X, AlertCircle, CheckCircle, XCircle, RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import LoadingScreen from '../../components/LoadingScreen';
 
 const allGrades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
 const sections = ['Section A', 'Section B', 'Section C'];
@@ -14,6 +15,7 @@ export default function StudentManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
@@ -22,6 +24,9 @@ export default function StudentManagement() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [importPreview, setImportPreview] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+  const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
   const [userRole, setUserRole] = useState('');
   const [formData, setFormData] = useState({
@@ -84,6 +89,9 @@ export default function StudentManagement() {
           } else if (s.section && typeof s.section === 'object') {
             sectionName = s.section.sectionName || 'N/A';
             gradeLevel = s.section.gradeLevel || s.grade || 'N/A';
+          } else if (s.section && sectionsData[s.section]) {
+            sectionName = sectionsData[s.section].section;
+            gradeLevel = sectionsData[s.section].grade;
           }
           
           return {
@@ -94,6 +102,7 @@ export default function StudentManagement() {
             section: sectionName,
             points: s.points || 0,
             email: s.email || '',
+            sectionId: s.section,
             status: s.isActive !== false ? 'active' : 'inactive',
             joinDate: new Date(s.createdAt).toISOString().split('T')[0]
           };
@@ -108,29 +117,39 @@ export default function StudentManagement() {
     }
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchStudents();
+    setIsRefreshing(false);
+    toast.success('Student list refreshed!');
+  };
+
   const handleDeleteStudent = async (id) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:5000/api/students/${id}`, {
-          method: 'DELETE',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-          toast.success('Student deleted successfully!');
-          fetchStudents();
-        } else {
-          toast.error(data.message || 'Failed to delete student');
+    if (!window.confirm('Are you sure you want to delete this student?')) return;
+    
+    setIsDeletingStudent(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/students/${id}`, {
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (error) {
-        console.error('Delete error:', error);
-        toast.error('Failed to delete student');
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Student deleted successfully!');
+        fetchStudents();
+      } else {
+        toast.error(data.message || 'Failed to delete student');
       }
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete student');
+    } finally {
+      setIsDeletingStudent(false);
     }
   };
 
@@ -140,6 +159,7 @@ export default function StudentManagement() {
       return;
     }
 
+    setIsAddingStudent(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5000/api/students', {
@@ -176,10 +196,13 @@ export default function StudentManagement() {
     } catch (error) {
       console.error('Add student error:', error);
       toast.error('Failed to add student');
+    } finally {
+      setIsAddingStudent(false);
     }
   };
 
   const handleAddPoints = async (student, points) => {
+    setIsAddingPoints(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`http://localhost:5000/api/students/${student.id}/points`, {
@@ -202,6 +225,8 @@ export default function StudentManagement() {
     } catch (error) {
       console.error('Add points error:', error);
       toast.error('Failed to add points');
+    } finally {
+      setIsAddingPoints(false);
     }
   };
 
@@ -234,7 +259,6 @@ export default function StudentManagement() {
     const sampleData = [
       ['Juan Dela Cruz', sampleGrades[0] || 'Grade 1', 'Section A', 'juan@example.com', '09123456789'],
       ['Maria Santos', sampleGrades[0] || 'Grade 1', 'Section A', 'maria@example.com', '09123456790'],
-      ['Jose Rizal', sampleGrades[Math.min(1, sampleGrades.length - 1)] || 'Grade 2', 'Section B', 'jose@example.com', '09123456791']
     ];
     
     const wsData = [headers, ...sampleData];
@@ -275,7 +299,6 @@ export default function StudentManagement() {
           if (!student.grade) errors.push('Grade required');
           if (!student.section) errors.push('Section required');
           
-          // Check if grade is allowed for teacher
           if (userRole === 'teacher' && teacherAssignedGrades.length > 0) {
             if (!teacherAssignedGrades.includes(student.grade)) {
               errors.push(`Grade "${student.grade}" not in your assigned grades (${teacherAssignedGrades.join(', ')})`);
@@ -325,8 +348,6 @@ export default function StudentManagement() {
         phone: s.phone
       }));
       
-      console.log('Importing students:', studentsToImport);
-      
       const response = await fetch('http://localhost:5000/api/students/bulk', {
         method: 'POST',
         headers: {
@@ -337,7 +358,6 @@ export default function StudentManagement() {
       });
       
       const data = await response.json();
-      console.log('Bulk import response:', data);
       
       setImportResults({
         success: data.success,
@@ -435,12 +455,9 @@ export default function StudentManagement() {
   const activeStudents = filteredStudents.filter(s => s.status === 'active').length;
   const filterGrades = ['all', ...new Set(filteredStudents.map(s => s.grade).filter(g => g !== 'N/A'))];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
+  // Show loading screen while data is loading
+  if (loading && students.length === 0) {
+    return <LoadingScreen message="Loading students..." />;
   }
 
   if (userRole === 'teacher' && teacherAssignedGrades.length === 0) {
@@ -464,6 +481,14 @@ export default function StudentManagement() {
           </p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={handleRefresh} 
+            disabled={isRefreshing}
+            className="px-4 py-2 border border-blue-600 text-blue-600 rounded-full font-semibold flex items-center gap-2 hover:bg-blue-50 transition"
+          >
+            <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
           <button onClick={() => setShowBulkImportModal(true)} className="px-4 py-2 border border-green-600 text-green-600 rounded-full font-semibold flex items-center gap-2 hover:bg-green-50">
             <Upload size={18} /> Bulk Import
           </button>
@@ -493,7 +518,7 @@ export default function StudentManagement() {
         </div>
       </div>
 
-      {/* Search and Filter */}
+      {/* Search and Grade Filter */}
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -522,56 +547,66 @@ export default function StudentManagement() {
       </div>
 
       {/* Students Table */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredStudents.map((student) => (
-                <tr key={student.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 text-sm font-mono text-gray-600">{student.studentId}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-800">{student.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{student.grade}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{student.section}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-green-600">{student.points} pts</td>
-                  <td className="px-6 py-4">
-                    <div className="flex gap-2">
-                      <button onClick={() => handleViewQR(student)} className="p-1 text-purple-600 hover:bg-purple-50 rounded-lg" title="View QR Code">
-                        <QrCode size={18} />
-                      </button>
-                      <button onClick={() => {
-                        const points = prompt(`Enter points to add for ${student.name}:`, '10');
-                        if (points && !isNaN(points) && parseInt(points) > 0) {
-                          handleAddPoints(student, parseInt(points));
-                        }
-                      }} className="p-1 text-green-600 hover:bg-green-50 rounded-lg" title="Add Points">
-                        <Star size={18} />
-                      </button>
-                      <button onClick={() => handleDeleteStudent(student.id)} className="p-1 text-red-600 hover:bg-red-50 rounded-lg" title="Delete Student">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredStudents.length === 0 && (
+      <div className="relative">
+        {loading && (
+          <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl z-10 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
+              <p className="text-sm text-gray-500">Loading students...</p>
+            </div>
+          </div>
+        )}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                    No students found. Click "Add Student" to get started.
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredStudents.map((student) => (
+                  <tr key={student.id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-4 text-sm font-mono text-gray-600">{student.studentId}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-800">{student.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{student.grade}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{student.section}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-green-600">{student.points} pts</td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button onClick={() => handleViewQR(student)} className="p-1 text-purple-600 hover:bg-purple-50 rounded-lg" title="View QR Code">
+                          <QrCode size={18} />
+                        </button>
+                        <button onClick={() => {
+                          const points = prompt(`Enter points to add for ${student.name}:`, '10');
+                          if (points && !isNaN(points) && parseInt(points) > 0) {
+                            handleAddPoints(student, parseInt(points));
+                          }
+                        }} className="p-1 text-green-600 hover:bg-green-50 rounded-lg" title="Add Points" disabled={isAddingPoints}>
+                          {isAddingPoints ? <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div> : <Star size={18} />}
+                        </button>
+                        <button onClick={() => handleDeleteStudent(student.id)} className="p-1 text-red-600 hover:bg-red-50 rounded-lg" title="Delete Student" disabled={isDeletingStudent}>
+                          {isDeletingStudent ? <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={18} />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredStudents.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                      No students found. Click "Add Student" to get started.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -623,9 +658,10 @@ export default function StudentManagement() {
               />
               <button 
                 onClick={handleAddStudent} 
-                className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition"
+                disabled={isAddingStudent}
+                className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50"
               >
-                Add Student
+                {isAddingStudent ? 'Adding...' : 'Add Student'}
               </button>
             </div>
           </div>
@@ -755,7 +791,7 @@ export default function StudentManagement() {
                 <button 
                   onClick={handleImportStudents} 
                   disabled={importPreview.length === 0 || importPreview.filter(s => s.isValid).length === 0 || isImporting} 
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50"
                 >
                   {isImporting ? (
                     <span className="flex items-center justify-center gap-2">

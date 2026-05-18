@@ -11,20 +11,18 @@ const authMiddleware = async (req, res, next) => {
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
     
-    // Fix: Find user by id from token
     const user = await User.findById(decoded.id).populate('role');
     
     if (!user) {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
     
-    // Set the role name for easy access
     req.user = {
       id: user._id,
       username: user.username,
       email: user.email,
       fullName: user.fullName,
-      role: user.role?.name || 'teacher',
+      role: user.role?.name || user.roleName || 'teacher',
       isActive: user.isActive
     };
     

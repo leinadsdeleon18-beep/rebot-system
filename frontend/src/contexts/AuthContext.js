@@ -35,12 +35,12 @@ export const AuthProvider = ({ children }) => {
     
     checkAuth();
     
-    // Listen for storage changes
     window.addEventListener('storage', checkAuth);
     return () => window.removeEventListener('storage', checkAuth);
   }, []);
 
   const login = async (username, password) => {
+    setLoading(true);
     try {
       const response = await authAPI.login(username, password);
       const { token, user: userData } = response.data;
@@ -58,14 +58,18 @@ export const AuthProvider = ({ children }) => {
       const message = error.response?.data?.message || 'Login failed';
       toast.error(message);
       return { success: false, error: message };
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = () => {
+    setLoading(true);
     localStorage.removeItem('token');
     localStorage.removeItem('rebot_user');
     setUser(null);
     toast.success('Logged out successfully');
+    setLoading(false);
     window.location.href = '/';
   };
 

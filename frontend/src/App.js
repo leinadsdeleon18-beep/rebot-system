@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
+import LoadingScreen from './components/LoadingScreen';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -79,14 +80,7 @@ function ProtectedRoute({ children, allowedRoles }) {
   const location = useLocation();
   
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Verifying your credentials..." />;
   }
   
   if (!user) {
@@ -115,21 +109,13 @@ function RoleRedirect() {
         'student': '/student'
       };
       const redirectPath = roleMap[user.role] || '/';
-      console.log('RoleRedirect - Redirecting to:', redirectPath);
       navigate(redirectPath, { replace: true });
     } else if (!loading && !user) {
       navigate('/', { replace: true });
     }
   }, [user, loading, navigate]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600 dark:text-gray-400">Redirecting...</p>
-      </div>
-    </div>
-  );
+  return <LoadingScreen message="Redirecting to your dashboard..." />;
 }
 
 // ========== THEME HANDLER ==========
@@ -151,6 +137,12 @@ function ThemeHandler() {
 
 // ========== MAIN APP CONTENT ==========
 function AppContent() {
+  const { loading } = useAuth();
+  
+  if (loading) {
+    return <LoadingScreen message="Loading your dashboard..." />;
+  }
+  
   return (
     <>
       <ThemeHandler />
