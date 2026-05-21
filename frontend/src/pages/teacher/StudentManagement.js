@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, Printer, X, AlertCircle, CheckCircle, XCircle, RefreshCw, School, Users
+  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, 
+  Printer, X, AlertCircle, CheckCircle, XCircle, RefreshCw, School, Users, 
+  Info, HelpCircle, UserX, BookOpen, Lock, ShieldAlert, AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -29,6 +31,7 @@ export default function StudentManagement() {
   const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
   const [teacherAssignedSections, setTeacherAssignedSections] = useState([]);
+  const [teacherName, setTeacherName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [userLoaded, setUserLoaded] = useState(false);
   const [formData, setFormData] = useState({
@@ -46,6 +49,7 @@ export default function StudentManagement() {
     
     setTeacherAssignedGrades(user.assignedGrades || []);
     setTeacherAssignedSections(user.assignedSections || []);
+    setTeacherName(user.fullName || 'Teacher');
     setUserRole(user.role || '');
     setUserLoaded(true);
     
@@ -93,9 +97,6 @@ export default function StudentManagement() {
     try {
       const token = localStorage.getItem('token');
       console.log('🔍 Fetching sections from API...');
-      console.log('👤 Current user role:', userRole);
-      console.log('👤 Teacher assigned sections:', teacherAssignedSections);
-      console.log('👤 Teacher assigned grades:', teacherAssignedGrades);
       
       const response = await fetch('http://localhost:5000/api/sections', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -126,28 +127,19 @@ export default function StudentManagement() {
         
         if (userRole === 'teacher') {
           if (teacherAssignedSections && teacherAssignedSections.length > 0) {
-            // Filter by assigned section IDs
             filteredSections = sectionArray.filter(section => 
               teacherAssignedSections.includes(section.id)
             );
-            console.log('🔍 Filtering by section IDs:', teacherAssignedSections);
-            console.log('✅ Sections after ID filter:', filteredSections.map(s => `${s.gradeLevel} - ${s.sectionName}`));
           } else if (teacherAssignedGrades && teacherAssignedGrades.length > 0) {
-            // Filter by assigned grades
             filteredSections = sectionArray.filter(section => 
               teacherAssignedGrades.includes(section.gradeLevel)
             );
-            console.log('🔍 Filtering by grades:', teacherAssignedGrades);
-            console.log('✅ Sections after grade filter:', filteredSections.map(s => `${s.gradeLevel} - ${s.sectionName}`));
           }
         }
         
         setSectionsList(filteredSections);
         console.log('✅ Total sections in DB:', sectionArray.length);
         console.log('✅ Sections available for user:', filteredSections.length);
-        console.log('📋 Available sections list:', filteredSections.map(s => `${s.gradeLevel} - ${s.sectionName}`));
-      } else {
-        console.error('❌ Failed to load sections:', data.message);
       }
     } catch (error) {
       console.error('❌ Error fetching sections:', error);
@@ -338,12 +330,24 @@ export default function StudentManagement() {
   };
 
   const downloadTemplate = () => {
+    const sampleSections = sectionsList.slice(0, 3);
     const headers = ['Full Name', 'Grade', 'Section', 'Email', 'Phone'];
     
-    const sampleData = [
-      ['Juan Dela Cruz', 'Grade 1', 'Section A', 'juan@example.com', '09123456789'],
-      ['Maria Santos', 'Grade 1', 'Section A', 'maria@example.com', '09123456790'],
-    ];
+    let sampleData = [];
+    if (sampleSections.length > 0) {
+      sampleData = sampleSections.map(section => [
+        `Sample Student ${section.sectionName}`,
+        section.gradeLevel,
+        section.sectionName,
+        `student@example.com`,
+        '09123456789'
+      ]);
+    } else {
+      sampleData = [
+        ['Juan Dela Cruz', 'Grade 1', 'Section A', 'juan@example.com', '09123456789'],
+        ['Maria Santos', 'Grade 1', 'Section A', 'maria@example.com', '09123456790'],
+      ];
+    }
     
     const wsData = [headers, ...sampleData];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -351,6 +355,41 @@ export default function StudentManagement() {
     XLSX.utils.book_append_sheet(wb, ws, 'Students Template');
     XLSX.writeFile(wb, `student_import_template_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success('Template downloaded!');
+  };
+
+  const checkTeacherAccess = (grade, sectionName) => {
+    if (userRole !== 'teacher') return { hasAccess: true, reason: null };
+    
+    // Check if teacher has assigned sections
+    if (teacherAssignedSections.length > 0) {
+      const sectionObj = allSections.find(s => s.sectionName === sectionName && s.gradeLevel === grade);
+      if (sectionObj && teacherAssignedSections.includes(sectionObj.id)) {
+        return { hasAccess: true, reason: null };
+      } else {
+        const availableSections = allSections
+          .filter(s => teacherAssignedSections.includes(s.id))
+          .map(s => `${s.gradeLevel} - ${s.sectionName}`);
+        
+        return { 
+          hasAccess: false, 
+          reason: `❌ You are not assigned to "${sectionName}" in ${grade}. Your assigned sections are: ${availableSections.join(', ') || 'none'}.`
+        };
+      }
+    }
+    
+    // Check if teacher has assigned grades
+    if (teacherAssignedGrades.length > 0) {
+      if (teacherAssignedGrades.includes(grade)) {
+        return { hasAccess: true, reason: null };
+      } else {
+        return { 
+          hasAccess: false, 
+          reason: `❌ You are not assigned to ${grade}. Your assigned grades are: ${teacherAssignedGrades.join(', ')}.`
+        };
+      }
+    }
+    
+    return { hasAccess: true, reason: null };
   };
 
   const handleFileUpload = (e) => {
@@ -365,32 +404,85 @@ export default function StudentManagement() {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
         
-        const previewData = rows.map((row, index) => ({
-          id: index,
-          name: row['Full Name'] || row['name'] || row['Name'] || '',
-          grade: row['Grade'] || row['grade'] || '',
-          section: row['Section'] || row['section'] || '',
-          email: row['Email'] || row['email'] || '',
-          phone: row['Phone'] || row['phone'] || '',
-          isValid: true,
-          error: null
-        })).filter(s => s.name);
+        console.log('📊 Parsed rows from Excel:', rows);
         
+        const previewData = rows.map((row, index) => {
+          const name = row['Full Name'] || row['fullName'] || row['name'] || row['Name'] || '';
+          const grade = row['Grade'] || row['grade'] || '';
+          const section = row['Section'] || row['section'] || '';
+          const email = row['Email'] || row['email'] || '';
+          const phone = row['Phone'] || row['phone'] || '';
+          
+          return {
+            id: index,
+            name: name.toString().trim(),
+            grade: grade.toString().trim(),
+            section: section.toString().trim(),
+            email: email.toString().trim(),
+            phone: phone.toString().trim(),
+            isValid: true,
+            error: null,
+            errorType: null
+          };
+        }).filter(s => s.name);
+        
+        if (previewData.length === 0) {
+          toast.error('No valid data found in file. Please check the template format.');
+          return;
+        }
+        
+        // Validate each student with user-friendly messages
         previewData.forEach(student => {
           const errors = [];
-          if (!student.name) errors.push('Name required');
-          if (!student.grade) errors.push('Grade required');
-          if (!student.section) errors.push('Section required');
+          let errorType = null;
           
-          const sectionExists = allSections.some(s => 
-            s.sectionName === student.section && s.gradeLevel === student.grade
-          );
-          if (!sectionExists) {
-            errors.push(`Section "${student.section}" not found in ${student.grade}.`);
+          // Check required fields
+          if (!student.name) {
+            errors.push('❌ Student name is required');
+            errorType = 'missing_name';
+          }
+          if (!student.grade) {
+            errors.push('❌ Grade level is required');
+            errorType = 'missing_grade';
+          }
+          if (!student.section) {
+            errors.push('❌ Section name is required');
+            errorType = 'missing_section';
+          }
+          
+          // If name, grade, and section are provided, validate they exist
+          if (student.name && student.grade && student.section) {
+            // Check if section exists in the system
+            const sectionExists = allSections.some(s => 
+              s.sectionName.toLowerCase() === student.section.toLowerCase() && 
+              s.gradeLevel === student.grade
+            );
+            
+            if (!sectionExists) {
+              const availableSectionsForGrade = allSections
+                .filter(s => s.gradeLevel === student.grade)
+                .map(s => s.sectionName);
+              
+              if (availableSectionsForGrade.length > 0) {
+                errors.push(`❌ Section "${student.section}" does not exist in ${student.grade}. Available sections: ${availableSectionsForGrade.join(', ')}`);
+                errorType = 'section_not_found';
+              } else {
+                errors.push(`❌ No sections found for ${student.grade}. Please create sections first in Section Management.`);
+                errorType = 'no_sections';
+              }
+            } else {
+              // Check if teacher has access to this grade/section
+              const accessCheck = checkTeacherAccess(student.grade, student.section);
+              if (!accessCheck.hasAccess) {
+                errors.push(accessCheck.reason);
+                errorType = 'access_denied';
+              }
+            }
           }
           
           student.isValid = errors.length === 0;
-          student.error = errors.join(', ');
+          student.error = errors.join(' | ');
+          student.errorType = errorType;
         });
         
         setImportPreview(previewData);
@@ -398,13 +490,60 @@ export default function StudentManagement() {
         const validCount = previewData.filter(s => s.isValid).length;
         const invalidCount = previewData.filter(s => !s.isValid).length;
         
-        toast.success(`${previewData.length} records loaded. ${validCount} valid, ${invalidCount} invalid.`);
+        if (invalidCount > 0) {
+          toast.custom((t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5`}>
+              <div className="p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-0.5">
+                    <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      File Analysis Complete
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Found {previewData.length} records: {validCount} valid, {invalidCount} invalid
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Invalid rows are highlighted in red with error messages below.
+                    </p>
+                  </div>
+                  <div className="ml-4 flex-shrink-0 flex">
+                    <button
+                      onClick={() => toast.dismiss(t.id)}
+                      className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ), { duration: 5000 });
+        } else {
+          toast.success(`✅ All ${previewData.length} records are valid and ready to import!`);
+        }
+        
+        console.log('Invalid students:', previewData.filter(s => !s.isValid));
       } catch (error) {
         console.error('Error parsing file:', error);
         toast.error('Failed to parse file. Please use the template format.');
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  const getErrorIcon = (errorType) => {
+    switch (errorType) {
+      case 'missing_name': return <UserX size={14} className="text-red-500" />;
+      case 'missing_grade': return <School size={14} className="text-red-500" />;
+      case 'missing_section': return <BookOpen size={14} className="text-red-500" />;
+      case 'section_not_found': return <AlertCircle size={14} className="text-red-500" />;
+      case 'no_sections': return <Info size={14} className="text-red-500" />;
+      case 'access_denied': return <ShieldAlert size={14} className="text-red-500" />;
+      default: return <AlertCircle size={14} className="text-red-500" />;
+    }
   };
 
   const handleImportStudents = async () => {
@@ -416,7 +555,10 @@ export default function StudentManagement() {
     const validStudents = importPreview.filter(s => s.isValid);
     
     if (validStudents.length === 0) {
-      toast.error('No valid students to import. Please fix the errors.');
+      toast.error('No valid students to import. Please fix the errors in your file.', {
+        duration: 5000,
+        icon: '⚠️'
+      });
       return;
     }
 
@@ -424,15 +566,18 @@ export default function StudentManagement() {
     
     try {
       const token = localStorage.getItem('token');
+      
       const studentsToImport = validStudents.map(s => ({
         name: s.name,
         grade: s.grade,
         section: s.section,
-        email: s.email,
-        phone: s.phone
+        email: s.email || '',
+        phone: s.phone || ''
       }));
       
-      const response = await fetch('http://localhost:5000/api/students/bulk', {
+      console.log('📤 Importing students:', studentsToImport);
+      
+      const response = await fetch('http://localhost:5000/api/students/bulk/advanced', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -442,23 +587,60 @@ export default function StudentManagement() {
       });
       
       const data = await response.json();
+      console.log('📥 Import response:', data);
+      
+      const failedCount = (data.errors || []).length;
+      const successCount = data.count || 0;
       
       setImportResults({
         success: data.success,
-        count: data.count,
+        count: successCount,
         totalAttempted: studentsToImport.length,
         errors: data.errors || []
       });
       
       if (data.success) {
-        if (data.errors && data.errors.length > 0) {
-          toast.warning(`Imported ${data.count} students, ${data.errors.length} failed.`);
+        if (failedCount > 0) {
+          toast.custom((t) => (
+            <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5`}>
+              <div className="p-4">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-0.5">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      Import Completed with Warnings
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      ✅ {successCount} students imported successfully
+                    </p>
+                    <p className="text-sm text-red-500">
+                      ❌ {failedCount} students failed
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Check the results modal for details on failed imports.
+                    </p>
+                  </div>
+                  <div className="ml-4 flex-shrink-0 flex">
+                    <button
+                      onClick={() => toast.dismiss(t.id)}
+                      className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ), { duration: 5000 });
         } else {
-          toast.success(`Successfully imported ${data.count} students!`);
+          toast.success(`🎉 Successfully imported all ${successCount} students!`);
         }
         
         setShowImportResults(true);
         setShowBulkImportModal(false);
+        setImportPreview([]);
         fetchStudents();
       } else {
         toast.error(data.message || 'Failed to import students');
@@ -540,10 +722,18 @@ export default function StudentManagement() {
   if (userRole === 'teacher' && teacherAssignedGrades.length === 0 && teacherAssignedSections.length === 0 && userLoaded) {
     return (
       <div className="bg-yellow-50 rounded-2xl p-8 text-center">
-        <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Grades or Sections Assigned</h2>
-        <p className="text-yellow-700">
-          Please contact the administrator to assign grade levels or sections to your account.
-        </p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+            <School size={32} className="text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-yellow-800">No Grades or Sections Assigned</h2>
+          <p className="text-yellow-700 max-w-md">
+            You don't have any grades or sections assigned to your account yet.
+          </p>
+          <p className="text-sm text-yellow-600">
+            Please contact the administrator to assign grade levels or sections to your account.
+          </p>
+        </div>
       </div>
     );
   }
@@ -639,19 +829,19 @@ export default function StudentManagement() {
           <span>
             {loadingSections ? 'Loading sections...' : 
               userRole === 'teacher' 
-                ? `You have access to ${availableSections.length} section(s) based on your assigned grades/sections`
-                : `Total ${allSections.length} section(s) in system.`
+                ? `You have access to ${availableSections.length} section(s)`
+                : `Total ${allSections.length} section(s) in system`
             }
           </span>
         </div>
         <button 
           onClick={async () => {
             await fetchSections();
-            toast.success(`Found ${allSections.length} total sections in database. You have access to ${availableSections.length}.`);
+            toast.success(`Found ${allSections.length} total sections`);
           }}
           className="text-xs text-blue-600 hover:text-blue-800 underline"
         >
-          Check sections ({allSections.length} total)
+          Refresh ({allSections.length})
         </button>
       </div>
 
@@ -711,7 +901,7 @@ export default function StudentManagement() {
                     <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                       No students found. Click "Add Student" to get started.
                     </td>
-                   </tr>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -736,7 +926,6 @@ export default function StudentManagement() {
                 className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500" 
               />
               
-              {/* Section Dropdown */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Section *</label>
                 <div className="relative">
@@ -768,7 +957,7 @@ export default function StudentManagement() {
                     type="button"
                     onClick={async () => {
                       await fetchSections();
-                      toast.success(`Loaded ${allSections.length} total sections, ${availableSections.length} available for you`);
+                      toast.success(`Loaded ${allSections.length} sections`);
                     }}
                     className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-green-500 transition"
                     title="Refresh sections"
@@ -776,33 +965,33 @@ export default function StudentManagement() {
                     <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
                   </button>
                 </div>
-                {!loadingSections && availableSections.length === 0 ? (
-                  <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <p className="text-xs text-yellow-700 flex items-center gap-1">
-                      <AlertCircle size={12} /> No sections available. 
-                      {userRole === 'teacher' ? (
-                        <span>You don't have any sections assigned. Contact admin to assign sections to your account.</span>
-                      ) : (
-                        <button 
-                          onClick={() => window.location.href = '/admin/sections'} 
-                          className="text-blue-600 hover:underline ml-1"
-                        >
-                          Create sections first →
-                        </button>
-                      )}
-                    </p>
+                {userRole === 'teacher' && availableSections.length === 0 && !loadingSections && (
+                  <div className="mt-2 p-3 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-start gap-2">
+                      <ShieldAlert size={16} className="text-red-500 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-red-800">No Sections Available</p>
+                        <p className="text-xs text-red-700 mt-1">
+                          You don't have any sections assigned to your account. 
+                          Please contact the administrator to assign sections to you.
+                        </p>
+                        {teacherAssignedGrades.length > 0 && (
+                          <p className="text-xs text-red-600 mt-2">
+                            You are assigned to grades: {teacherAssignedGrades.join(', ')}. 
+                            However, no sections exist in these grades yet. Create sections first.
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : !loadingSections && (
-                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-2">
-                    <School size={12} /> Showing {availableSections.length} section(s)
-                    {userRole === 'teacher' && teacherAssignedSections.length > 0 && (
-                      <span className="text-blue-500">(only your assigned sections)</span>
-                    )}
+                )}
+                {userRole === 'teacher' && availableSections.length > 0 && (
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <CheckCircle size={12} /> You have access to {availableSections.length} section(s)
                   </p>
                 )}
               </div>
               
-              {/* Grade Display */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
                 <input 
@@ -830,7 +1019,7 @@ export default function StudentManagement() {
               />
               <button 
                 onClick={handleAddStudent} 
-                disabled={isAddingStudent || availableSections.length === 0 || loadingSections}
+                disabled={isAddingStudent || availableSections.length === 0}
                 className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50"
               >
                 {isAddingStudent ? 'Adding...' : 'Add Student'}
@@ -840,7 +1029,7 @@ export default function StudentManagement() {
         </div>
       )}
 
-      {/* Bulk Import Modal - Keep same as before */}
+      {/* Bulk Import Modal */}
       {showBulkImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -848,29 +1037,49 @@ export default function StudentManagement() {
               <h3 className="text-xl font-bold">Bulk Import Students</h3>
               <button onClick={() => setShowBulkImportModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
             </div>
+            
             <div className="space-y-6">
-              <div className="bg-blue-50 p-4 rounded-xl">
-                <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                  <FileUp size={18} /> How to import:
-                </h4>
-                <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-                  <li>Download the Excel/CSV template below</li>
-                  <li>Fill in student information (Name, Grade, Section are required)</li>
-                  <li>Make sure the Grade and Section match existing sections in the system</li>
-                  <li>Save the file as .xlsx or .csv</li>
-                  <li>Upload the file using the button below</li>
-                  <li>Review the preview and click Import</li>
-                </ol>
-                <div className="mt-3 p-2 bg-yellow-100 rounded-lg border border-yellow-200">
-                  <p className="text-sm text-yellow-800 flex items-center gap-2">
-                    <AlertCircle size={16} /> Available sections in system: {allSections.length}
-                  </p>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    {allSections.map(s => `${s.gradeLevel}-${s.sectionName}`).join(', ')}
-                  </p>
+              {/* Help Section */}
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                <div className="flex items-start gap-3">
+                  <HelpCircle size={20} className="text-blue-600 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-blue-800 mb-2">How to Import Students</h4>
+                    <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                      <li>Click "Download Excel Template" to get the correct format</li>
+                      <li>Fill in student information (Name, Grade, Section are required)</li>
+                      <li><strong>Grade and Section must match existing sections</strong> in the system</li>
+                      <li>Save the file as .xlsx</li>
+                      <li>Upload the file below</li>
+                      <li>Review the preview - <span className="text-green-600">Green rows</span> are valid, <span className="text-red-600">red rows</span> have errors</li>
+                      <li>Click "Import Valid Students"</li>
+                    </ol>
+                  </div>
                 </div>
               </div>
               
+              {/* Teacher Access Info */}
+              {userRole === 'teacher' && (
+                <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                  <div className="flex items-start gap-2">
+                    <ShieldAlert size={16} className="text-purple-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-purple-800">Your Access Permissions</p>
+                      <p className="text-xs text-purple-700 mt-1">
+                        {teacherAssignedSections.length > 0 ? (
+                          <>You have access to {teacherAssignedSections.length} specific section(s). Only students in these sections can be imported.</>
+                        ) : teacherAssignedGrades.length > 0 ? (
+                          <>You have access to grades: <strong>{teacherAssignedGrades.join(', ')}</strong>. All sections in these grades are available.</>
+                        ) : (
+                          <>You don't have any grades or sections assigned. Please contact administrator.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Template Download */}
               <button 
                 onClick={downloadTemplate} 
                 className="w-full py-3 border-2 border-dashed border-green-600 text-green-600 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-50 transition"
@@ -878,6 +1087,7 @@ export default function StudentManagement() {
                 <FileDown size={20} /> Download Excel Template
               </button>
               
+              {/* File Upload */}
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-green-400 transition">
                 <Upload size={40} className="text-gray-400 mx-auto mb-3" />
                 <input 
@@ -896,38 +1106,99 @@ export default function StudentManagement() {
                 <p className="text-xs text-gray-500 mt-2">Supported formats: .xlsx, .xls, .csv</p>
               </div>
               
+              {/* Preview Table with Visible Error Messages */}
               {importPreview.length > 0 && (
                 <div>
-                  <h4 className="font-semibold mb-3">
-                    Preview ({importPreview.length} students)
-                    <span className="text-sm font-normal text-gray-500 ml-2">
-                      ({importPreview.filter(s => s.isValid).length} valid, {importPreview.filter(s => !s.isValid).length} invalid)
-                    </span>
-                  </h4>
-                  <div className="overflow-x-auto max-h-80 border rounded-lg">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-semibold">Preview</h4>
+                    <div className="flex gap-3 text-xs">
+                      <span className="flex items-center gap-1"><CheckCircle size={12} className="text-green-600" /> Valid: {importPreview.filter(s => s.isValid).length}</span>
+                      <span className="flex items-center gap-1"><XCircle size={12} className="text-red-600" /> Invalid: {importPreview.filter(s => !s.isValid).length}</span>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto max-h-96 border rounded-lg">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0">
-                        <tr><th className="p-2 text-left">Status</th><th className="p-2 text-left">Name</th><th className="p-2 text-left">Grade</th><th className="p-2 text-left">Section</th><th className="p-2 text-left">Email</th></tr></thead>
+                        <tr>
+                          <th className="p-2 text-left w-10">Status</th>
+                          <th className="p-2 text-left">Name</th>
+                          <th className="p-2 text-left">Grade</th>
+                          <th className="p-2 text-left">Section</th>
+                          <th className="p-2 text-left">Email</th>
+                          <th className="p-2 text-left">Error Message</th>
+                        </tr>
+                      </thead>
                       <tbody>
                         {importPreview.map((student, idx) => (
                           <tr key={idx} className={`border-t ${student.isValid ? 'bg-green-50' : 'bg-red-50'}`}>
-                            <td className="p-2">{student.isValid ? <CheckCircle size={16} className="text-green-600" /> : <XCircle size={16} className="text-red-600" />}</td>
-                            <td className="p-2 font-medium">{student.name}</td>
-                            <td className="p-2">{student.grade || 'Missing'}</td>
-                            <td className="p-2">{student.section || 'Missing'}</td>
+                            <td className="p-2">
+                              {student.isValid ? (
+                                <CheckCircle size={16} className="text-green-600" />
+                              ) : (
+                                getErrorIcon(student.errorType)
+                              )}
+                            </td>
+                            <td className="p-2 font-medium">{student.name || <span className="text-red-500">Missing</span>}</td>
+                            <td className="p-2">{student.grade || <span className="text-red-500">Missing</span>}</td>
+                            <td className="p-2">{student.section || <span className="text-red-500">Missing</span>}</td>
                             <td className="p-2 text-gray-500">{student.email || '-'}</td>
+                            <td className="p-2">
+                              {!student.isValid && (
+                                <div className="text-red-600 text-xs max-w-xs">
+                                  {student.error}
+                                </div>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  {importPreview.some(s => !s.isValid) && (
+                    <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle size={16} className="text-yellow-600 mt-0.5" />
+                        <div className="text-xs text-yellow-700">
+                          <p className="font-semibold mb-1">How to fix invalid rows:</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li><strong>Missing fields:</strong> Fill in the required information</li>
+                            <li><strong>Section not found:</strong> Create the section in Section Management first, or use an existing section</li>
+                            <li><strong>Access denied:</strong> You are not assigned to this grade/section. Contact admin to get access.</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
+              {/* Action Buttons */}
               <div className="flex gap-3 pt-2">
-                <button onClick={() => { setShowBulkImportModal(false); setImportPreview([]); }} className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition">Cancel</button>
-                <button onClick={handleImportStudents} disabled={importPreview.length === 0 || importPreview.filter(s => s.isValid).length === 0 || isImporting} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">
-                  {isImporting ? 'Importing...' : `Import ${importPreview.filter(s => s.isValid).length} Students`}
+                <button 
+                  onClick={() => {
+                    setShowBulkImportModal(false);
+                    setImportPreview([]);
+                  }} 
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleImportStudents} 
+                  disabled={importPreview.length === 0 || importPreview.filter(s => s.isValid).length === 0 || isImporting} 
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isImporting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={16} />
+                      Import {importPreview.filter(s => s.isValid).length} Valid Students
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -947,18 +1218,34 @@ export default function StudentManagement() {
               <div className={`w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center ${importResults.count > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
                 {importResults.count > 0 ? <CheckCircle size={32} className="text-green-600" /> : <XCircle size={32} className="text-red-600" />}
               </div>
-              <h4 className="text-lg font-semibold">{importResults.count} of {importResults.totalAttempted} students imported</h4>
+              <h4 className="text-lg font-semibold">
+                {importResults.count === importResults.totalAttempted 
+                  ? 'All Students Imported Successfully!' 
+                  : `${importResults.count} of ${importResults.totalAttempted} students imported`}
+              </h4>
               {importResults.errors?.length > 0 && (
                 <div className="mt-4 text-left">
-                  <p className="text-red-600 font-semibold mb-2">Errors:</p>
-                  <div className="max-h-48 overflow-y-auto">
+                  <p className="text-red-600 font-semibold mb-2 flex items-center gap-2">
+                    <AlertCircle size={16} /> Failed Imports ({importResults.errors.length})
+                  </p>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
                     {importResults.errors.map((err, idx) => (
-                      <p key={idx} className="text-sm text-red-500">• {err.name}: {err.error}</p>
+                      <div key={idx} className="bg-red-50 p-2 rounded-lg border border-red-200">
+                        <p className="text-sm font-medium text-red-800">Student: {err.name}</p>
+                        <p className="text-xs text-red-600 mt-1">{err.error}</p>
+                      </div>
                     ))}
+                  </div>
+                  <div className="mt-3 p-2 bg-yellow-50 rounded-lg">
+                    <p className="text-xs text-yellow-700">
+                      💡 Tip: Fix the errors above and try importing only the failed students again.
+                    </p>
                   </div>
                 </div>
               )}
-              <button onClick={() => setShowImportResults(false)} className="mt-6 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Close</button>
+              <button onClick={() => setShowImportResults(false)} className="mt-6 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                Close
+              </button>
             </div>
           </div>
         </div>
@@ -982,7 +1269,17 @@ export default function StudentManagement() {
             </div>
             <p className="mt-4 font-semibold">{selectedStudent.name}</p>
             <p className="text-sm text-gray-500">{selectedStudent.grade} - {selectedStudent.section}</p>
-            <button onClick={() => { const link = document.createElement('a'); link.download = `${selectedStudent.studentId}_qrcode.png`; link.href = selectedStudent.qrCodeData; link.click(); }} className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Download QR Code</button>
+            <button 
+              onClick={() => {
+                const link = document.createElement('a');
+                link.download = `${selectedStudent.studentId}_qrcode.png`;
+                link.href = selectedStudent.qrCodeData;
+                link.click();
+              }}
+              className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              Download QR Code
+            </button>
           </div>
         </div>
       )}
