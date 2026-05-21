@@ -1,85 +1,51 @@
+// backend/src/routes/esp32Routes.js
 const express = require('express');
 const router = express.Router();
 const Student = require('../models/Student');
 const Transaction = require('../models/Transaction');
 
-// ESP32 - RFID Scan endpoint
+// ESP32 QR Code Scan endpoint
 router.post('/scan', async (req, res) => {
   try {
-    const { rfid, action, points = 10 } = req.body;
+    const { qrCode, deviceId } = req.body;
     
-    console.log(`ESP32 Scan: RFID=${rfid}, Action=${action}`);
+    console.log(`📷 ESP32 Scan: QR=${qrCode}, Device=${deviceId}`);
     
-    // Find student by RFID
-    const student = await Student.findOne({ rfid: rfid });
+    // Find student by QR code
+    const student = await Student.findOne({ qrCode: qrCode }).populate('section');
     
     if (!student) {
       return res.status(404).json({
         success: false,
         message: 'Student not found',
-        error: 'INVALID_RFID'
+        error: 'INVALID_QR'
       });
     }
     
-    let responseMessage = '';
-    let newPoints = student.points;
-    
-    switch(action) {
-      case 'check_in':
-        // Add points for check-in
-        newPoints = student.points + points;
-        student.points = newPoints;
-        await student.save();
-        
-        // Create transaction record
-        const transaction = new Transaction({
-          studentId: student._id,
-          pointsEarned: points,
-          reason: 'Daily check-in',
-          type: 'earn',
-          status: 'completed'
-        });
-        await transaction.save();
-        
-        responseMessage = `Welcome ${student.name}! You earned ${points} points. Total: ${newPoints}`;
-        break;
-        
-      case 'check_balance':
-        responseMessage = `${student.name} has ${student.points} points`;
-        break;
-        
-      case 'deduct_points':
-        if (req.body.deductPoints) {
-          newPoints = student.points - req.body.deductPoints;
-          if (newPoints < 0) {
-            return res.status(400).json({
-              success: false,
-              message: 'Insufficient points',
-              error: 'INSUFFICIENT_POINTS'
-            });
-          }
-          student.points = newPoints;
-          await student.save();
-          responseMessage = `${student.name} spent ${req.body.deductPoints} points. Remaining: ${newPoints}`;
-        }
-        break;
-        
-      default:
-        responseMessage = `${student.name} - Points: ${student.points}`;
+    // Check if student is active
+    if (!student.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Student account is inactive',
+        error: 'INACTIVE_ACCOUNT'
+      });
     }
     
+    // Return student info (for display on scanner screen)
     res.json({
       success: true,
-      message: responseMessage,
+      message: 'Student found',
       student: {
-        name: student.name,
+        id: student._id,
+        name: student.fullName,
         points: student.points,
-        rfid: student.rfid
+        grade: student.grade,
+        section: student.section?.sectionName || 'N/A'
       }
     });
     
   } catch (error) {
-    console.error('ESP32 route error:', error);
+    console.error('ESP32 scan error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -88,55 +54,12 @@ router.post('/scan', async (req, res) => {
   }
 });
 
-// ESP32 - Register new student via RFID
-router.post('/register-rfid', async (req, res) => {
+// ESP32 Add Points endpoint (for bottle recycling)
+router.post('/add-points', async (req, res) => {
   try {
-    const { rfid, name, className } = req.body;
+    const { qrCode, points, materialType } = req.body;
     
-    // Check if RFID already exists
-    const existingStudent = await Student.findOne({ rfid });
-    if (existingStudent) {
-      return res.status(400).json({
-        success: false,
-        message: 'RFID already registered',
-        error: 'RFID_EXISTS'
-      });
-    }
-    
-    // Create new student
-    const student = new Student({
-      name,
-      rfid,
-      className: className || 'Unassigned',
-      points: 0
-    });
-    
-    await student.save();
-    
-    res.json({
-      success: true,
-      message: 'Student registered successfully',
-      student: {
-        id: student._id,
-        name: student.name,
-        rfid: student.rfid,
-        points: student.points
-      }
-    });
-    
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Registration failed',
-      error: error.message
-    });
-  }
-});
-
-// ESP32 - Get student info
-router.get('/student/:rfid', async (req, res) => {
-  try {
-    const student = await Student.findOne({ rfid: req.params.rfid });
+    const student = await Student.findOne({ qrCode: qrCode });
     
     if (!student) {
       return res.status(404).json({
@@ -145,17 +68,35 @@ router.get('/student/:rfid', async (req, res) => {
       });
     }
     
+    // Add points
+    const pointsToAdd = points || 10; // Default 10 points per bottle
+    student.points += pointsToAdd;
+    student.totalPointsEarned += pointsToAdd;
+    student.totalBottlesRecycled += 1;
+    await student.save();
+    
+    // Create transaction record
+    const transaction = new Transaction({
+      studentId: student._id,
+      pointsEarned: pointsToAdd,
+      reason: `Recycled ${materialType || 'item'}`,
+      type: 'earn',
+      status: 'completed'
+    });
+    await transaction.save();
+    
     res.json({
       success: true,
+      message: `Added ${pointsToAdd} points to ${student.fullName}`,
       student: {
-        name: student.name,
+        name: student.fullName,
         points: student.points,
-        className: student.className,
-        rfid: student.rfid
+        totalBottles: student.totalBottlesRecycled
       }
     });
     
   } catch (error) {
+    console.error('Add points error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -163,12 +104,11 @@ router.get('/student/:rfid', async (req, res) => {
   }
 });
 
-// ESP32 - Health check (for device connectivity)
+// ESP32 Health check
 router.get('/health', (req, res) => {
   res.json({
     success: true,
     status: 'online',
-    message: 'ESP32 endpoint is ready',
     timestamp: new Date().toISOString()
   });
 });

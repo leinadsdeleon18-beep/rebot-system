@@ -3,7 +3,8 @@ import {
   Users, UserPlus, FileText, Star, Calendar, 
   TrendingUp, Award, BarChart3, PieChart, Trophy, Target, 
   Activity, Crown, Medal, AlertCircle, CheckCircle,
-  RefreshCw, Printer, Download, Eye, BadgeCheck, Sparkles, X, Settings, Save
+  RefreshCw, Printer, Download, Eye, BadgeCheck, Sparkles, X, Settings, Save,
+  School
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -52,7 +53,7 @@ export default function TeacherDashboard() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [pointsToAdd, setPointsToAdd] = useState('');
-  const [formData, setFormData] = useState({ name: '', grade: '', section: 'Section A', email: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', grade: '', section: '', email: '', phone: '' });
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [classGoal, setClassGoal] = useState(1000);
   const [goalInput, setGoalInput] = useState(1000);
@@ -60,8 +61,8 @@ export default function TeacherDashboard() {
   const [showBadgesModal, setShowBadgesModal] = useState(false);
   const [selectedBadgeStudent, setSelectedBadgeStudent] = useState(null);
   const [teacherId, setTeacherId] = useState(null);
-
-  const sections = ['Section A', 'Section B', 'Section C'];
+  const [teacherSections, setTeacherSections] = useState([]);
+  const [availableSections, setAvailableSections] = useState([]);
 
   // Badge definitions
   const badges = [
@@ -299,12 +300,17 @@ export default function TeacherDashboard() {
         ${Object.entries(gradeDistribution).map(([grade, count]) => `<div class="grade-item"><div class="grade-name">${grade}</div><div class="grade-count">${count} students</div></div>`).join('')}
       </div>
       <h3>🏆 Student Performance Ranking</h3>
-      </table>
+      <table>
         <thead><tr><th>Rank</th><th>Student Name</th><th>Grade & Section</th><th>Points</th><th>Badges Earned</th></tr></thead>
         <tbody>
           ${classData.sort((a,b) => b.points - a.points).map((student, index) => {
             const earnedBadges = getStudentBadges(student.points);
-            return `<tr><td class="rank-cell"><span class="${index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : ''}" style="display: inline-block; width: 30px; text-align: center; padding: 4px 8px; border-radius: 20px;">${index + 1}</span></td><td><strong>${student.name}</strong></td><td>${student.grade} - ${student.section}</td><td class="points-cell">${student.points} pts</td><td class="badge-icons">${earnedBadges.map(b => b.icon).join(' ')} (${earnedBadges.length})</td></tr>`;
+            return `<tr><td class="rank-cell"><span class="${index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : ''}" style="display: inline-block; width: 30px; text-align: center; padding: 4px 8px; border-radius: 20px;">${index + 1}</span></td>
+              <td><strong>${student.name}</strong></td>
+              <td>${student.grade} - ${student.section}</td>
+              <td class="points-cell">${student.points} pts</td>
+              <td class="badge-icons">${earnedBadges.map(b => b.icon).join(' ')} (${earnedBadges.length})</td>
+            </tr>`;
           }).join('')}
         </tbody>
       </table>
@@ -321,6 +327,108 @@ export default function TeacherDashboard() {
 </body>
 </html>`;
   };
+
+  // Fetch teacher's assigned sections
+  const fetchTeacherSections = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/students/teacher/sections', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setTeacherSections(data.sections);
+        setAvailableSections(data.sections);
+      }
+    } catch (error) {
+      console.error('Error fetching teacher sections:', error);
+    }
+  }, []);
+
+  // Fetch students
+  const fetchStudents = useCallback(async () => {
+    if (!isDataLoaded) return;
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/students', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        const formatted = data.students.map(s => {
+          let sectionName = 'N/A';
+          let gradeLevel = s.grade || 'N/A';
+          let sectionId = null;
+          
+          // Check if section is populated as an object
+          if (s.section && typeof s.section === 'object') {
+            sectionName = s.section.sectionName || 'N/A';
+            gradeLevel = s.section.gradeLevel || s.grade || 'N/A';
+            sectionId = s.section._id;
+          } 
+          // Check if sectionName is directly provided
+          else if (s.sectionName) {
+            sectionName = s.sectionName;
+          }
+          
+          return {
+            id: s._id,
+            name: s.fullName,
+            grade: gradeLevel,
+            section: sectionName,
+            sectionId: sectionId,
+            points: s.points || 0,
+            studentId: s.studentId,
+            email: s.email,
+            lastActive: new Date(s.createdAt).toISOString().split('T')[0]
+          };
+        });
+        setStudents(formatted);
+        
+        const totalPoints = formatted.reduce((sum, s) => sum + s.points, 0);
+        setStats({
+          totalStudents: formatted.length,
+          totalPoints: totalPoints,
+          activeStudents: formatted.length
+        });
+        
+        if (teacherId) {
+          loadClassGoal();
+        }
+        
+        // Fetch teacher sections after students are loaded
+        await fetchTeacherSections();
+        
+        const activities = [
+          { icon: '⭐', message: 'earned points', color: 'bg-yellow-100 text-yellow-700' },
+          { icon: '♻️', message: 'recycled items', color: 'bg-green-100 text-green-700' },
+          { icon: '🏆', message: 'reached a milestone!', color: 'bg-purple-100 text-purple-700' },
+        ];
+        const recent = [];
+        for (let i = 0; i < 5; i++) {
+          const randomStudent = formatted[Math.floor(Math.random() * formatted.length)];
+          const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+          if (randomStudent) {
+            recent.push({
+              id: i,
+              studentName: randomStudent.name,
+              ...randomActivity,
+              time: `${Math.floor(Math.random() * 60)} minutes ago`
+            });
+          }
+        }
+        setRecentActivities(recent);
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      toast.error('Failed to load students');
+    } finally {
+      setLoading(false);
+    }
+  }, [isDataLoaded, teacherId, fetchTeacherSections]);
 
   // Load user data
   useEffect(() => {
@@ -357,78 +465,32 @@ export default function TeacherDashboard() {
     loadUserData();
   }, []);
 
-  // Fetch students
-  const fetchStudents = useCallback(async () => {
-    if (!isDataLoaded) return;
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        const formatted = data.students.map(s => ({
-          id: s._id,
-          name: s.fullName,
-          grade: s.grade || 'N/A',
-          section: s.sectionName || s.section || 'N/A',
-          points: s.points || 0,
-          studentId: s.studentId,
-          email: s.email,
-          lastActive: new Date(s.createdAt).toISOString().split('T')[0]
-        }));
-        setStudents(formatted);
-        
-        const totalPoints = formatted.reduce((sum, s) => sum + s.points, 0);
-        setStats({
-          totalStudents: formatted.length,
-          totalPoints: totalPoints,
-          activeStudents: formatted.length
-        });
-        
-        if (teacherId) {
-          loadClassGoal();
-        }
-        
-        const activities = [
-          { icon: '⭐', message: 'earned points', color: 'bg-yellow-100 text-yellow-700' },
-          { icon: '♻️', message: 'recycled items', color: 'bg-green-100 text-green-700' },
-          { icon: '🏆', message: 'reached a milestone!', color: 'bg-purple-100 text-purple-700' },
-        ];
-        const recent = [];
-        for (let i = 0; i < 5; i++) {
-          const randomStudent = formatted[Math.floor(Math.random() * formatted.length)];
-          const randomActivity = activities[Math.floor(Math.random() * activities.length)];
-          if (randomStudent) {
-            recent.push({
-              id: i,
-              studentName: randomStudent.name,
-              ...randomActivity,
-              time: `${Math.floor(Math.random() * 60)} minutes ago`
-            });
-          }
-        }
-        setRecentActivities(recent);
-      }
-    } catch (error) {
-      console.error('Error fetching students:', error);
-      toast.error('Failed to load students');
-    } finally {
-      setLoading(false);
-    }
-  }, [isDataLoaded, teacherId]);
-
   useEffect(() => {
     if (isDataLoaded) {
       fetchStudents();
     }
   }, [isDataLoaded, fetchStudents]);
 
+  // Listen for section updates
+  useEffect(() => {
+    const handleSectionsUpdate = (event) => {
+      console.log('🔄 TeacherDashboard: sectionsUpdated event received!');
+      if (event?.detail?.section) {
+        console.log('Updated section:', event.detail.section);
+      }
+      console.log('🔄 Refreshing dashboard data...');
+      fetchStudents();
+      fetchTeacherSections();
+    };
+    
+    window.addEventListener('sectionsUpdated', handleSectionsUpdate);
+    return () => window.removeEventListener('sectionsUpdated', handleSectionsUpdate);
+  }, [fetchStudents, fetchTeacherSections]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchStudents();
+    await fetchTeacherSections();
     setIsRefreshing(false);
     toast.success('Dashboard refreshed!');
   };
@@ -448,7 +510,7 @@ export default function TeacherDashboard() {
           fullName: formData.name,
           email: formData.email,
           grade: formData.grade,
-          section: formData.section,
+          sectionId: formData.section,
           phone: formData.phone
         })
       });
@@ -456,7 +518,7 @@ export default function TeacherDashboard() {
       if (data.success) {
         toast.success(`Student ${formData.name} added successfully!`);
         setShowAddStudentModal(false);
-        setFormData({ name: '', grade: teacherInfo.assignedGrades[0] || '', section: 'Section A', email: '', phone: '' });
+        setFormData({ name: '', grade: teacherInfo.assignedGrades[0] || '', section: '', email: '', phone: '' });
         await fetchStudents();
       } else {
         toast.error(data.message || 'Failed to add student');
@@ -700,6 +762,66 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
+      {/* Teacher's Assigned Sections */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <School size={20} className="text-green-600" />
+            Your Assigned Sections
+          </h3>
+          <span className="text-sm text-gray-500">{teacherSections.length} sections</span>
+        </div>
+        
+        {teacherSections.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <School size={48} className="mx-auto mb-3 text-gray-300" />
+            <p>No sections assigned yet.</p>
+            <p className="text-sm mt-1">Please contact the administrator.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {teacherSections.map(section => {
+              const sectionStudents = students.filter(s => s.sectionId === section._id);
+              const totalPoints = sectionStudents.reduce((sum, s) => sum + (s.points || 0), 0);
+              const averagePoints = sectionStudents.length > 0 ? Math.round(totalPoints / sectionStudents.length) : 0;
+              
+              return (
+                <div key={section._id} className="border rounded-xl p-4 hover:shadow-lg transition-all duration-200 hover:border-green-300">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-2xl">{section.gradeLevel === 'Kindergarten' ? '🎓' : '📚'}</span>
+                        <h4 className="font-bold text-lg text-green-700">{section.sectionName}</h4>
+                      </div>
+                      <p className="text-sm text-gray-500">{section.gradeLevel}</p>
+                    </div>
+                    <div className="bg-green-100 rounded-full px-2.5 py-1">
+                      <span className="text-xs font-semibold text-green-700">
+                        <Users size={12} className="inline mr-1" />
+                        {sectionStudents.length} students
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-orange-600">{totalPoints}</p>
+                        <p className="text-xs text-gray-500">Total Points</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-green-600">{averagePoints}</p>
+                        <p className="text-xs text-gray-500">Average Points</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <button onClick={() => setShowAddStudentModal(true)} className="flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition"><UserPlus size={18} /> Add Student</button>
@@ -862,16 +984,47 @@ export default function TeacherDashboard() {
       {/* Add Student Modal */}
       {showAddStudentModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6"><div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add New Student</h3><button onClick={() => setShowAddStudentModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
-          <div className="space-y-4"><input type="text" placeholder="Full Name *" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border rounded-xl" /><div className="grid grid-cols-2 gap-4"><select value={formData.grade} onChange={(e) => setFormData({...formData, grade: e.target.value})} className="px-4 py-2 border rounded-xl">{teacherInfo.assignedGrades.map(g => <option key={g}>{g}</option>)}</select><select value={formData.section} onChange={(e) => setFormData({...formData, section: e.target.value})} className="px-4 py-2 border rounded-xl">{sections.map(s => <option key={s}>{s}</option>)}</select></div><input type="email" placeholder="Email (optional)" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border rounded-xl" /><button onClick={handleAddStudent} disabled={isAddingStudent} className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">{isAddingStudent ? 'Adding...' : 'Add Student'}</button></div></div>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add New Student</h3><button onClick={() => setShowAddStudentModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
+            <div className="space-y-4">
+              <input type="text" placeholder="Full Name *" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
+              <div className="grid grid-cols-2 gap-4">
+                <select value={formData.grade} onChange={(e) => setFormData({...formData, grade: e.target.value})} className="px-4 py-2 border rounded-xl">
+                  {teacherInfo.assignedGrades.map(g => <option key={g}>{g}</option>)}
+                </select>
+                <select value={formData.section} onChange={(e) => setFormData({...formData, section: e.target.value})} className="px-4 py-2 border rounded-xl">
+                  <option value="">Select Section</option>
+                  {availableSections.map(section => (
+                    <option key={section._id} value={section._id}>
+                      {section.gradeLevel} - {section.sectionName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <input type="email" placeholder="Email (optional)" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
+              <input type="tel" placeholder="Phone (optional)" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
+              <button onClick={handleAddStudent} disabled={isAddingStudent} className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">{isAddingStudent ? 'Adding...' : 'Add Student'}</button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Add Points Modal */}
       {showPointsModal && selectedStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6"><div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add Points</h3><button onClick={() => setShowPointsModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
-          <div className="space-y-4"><p>Student: <span className="font-semibold">{selectedStudent.name}</span></p><p>Current Points: <span className="font-semibold text-green-600">{selectedStudent.points}</span></p><p className="text-sm text-gray-500">Next Badge: {getNextBadge(selectedStudent.points).name} ({getNextBadge(selectedStudent.points).points - selectedStudent.points} points needed)</p><input type="number" placeholder="Points to add" value={pointsToAdd} onChange={(e) => setPointsToAdd(e.target.value)} className="w-full px-4 py-2 border rounded-xl" min="1" /><div className="flex gap-3"><button onClick={() => setShowPointsModal(false)} className="flex-1 px-4 py-2 border rounded-xl">Cancel</button><button onClick={handleAddPoints} disabled={isAddingPoints} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">{isAddingPoints ? 'Adding...' : 'Add Points'}</button></div></div></div>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add Points</h3><button onClick={() => setShowPointsModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
+            <div className="space-y-4">
+              <p>Student: <span className="font-semibold">{selectedStudent.name}</span></p>
+              <p>Current Points: <span className="font-semibold text-green-600">{selectedStudent.points}</span></p>
+              <p className="text-sm text-gray-500">Next Badge: {getNextBadge(selectedStudent.points).name} ({getNextBadge(selectedStudent.points).points - selectedStudent.points} points needed)</p>
+              <input type="number" placeholder="Points to add" value={pointsToAdd} onChange={(e) => setPointsToAdd(e.target.value)} className="w-full px-4 py-2 border rounded-xl" min="1" />
+              <div className="flex gap-3">
+                <button onClick={() => setShowPointsModal(false)} className="flex-1 px-4 py-2 border rounded-xl">Cancel</button>
+                <button onClick={handleAddPoints} disabled={isAddingPoints} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">{isAddingPoints ? 'Adding...' : 'Add Points'}</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

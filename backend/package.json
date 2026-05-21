@@ -9,7 +9,10 @@
     "init-db": "node scripts/initDb.js"
   },
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.4",
+    "axios": "^1.16.1",
     "bcryptjs": "^2.4.3",
+    "brevo": "^1.0.0",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",

@@ -1,17 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, Printer, X, AlertCircle, CheckCircle, XCircle, RefreshCw
+  Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, Printer, X, AlertCircle, CheckCircle, XCircle, RefreshCw, School, Users
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import LoadingScreen from '../../components/LoadingScreen';
 
-const allGrades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
-const sections = ['Section A', 'Section B', 'Section C'];
-
 export default function StudentManagement() {
   const [students, setStudents] = useState([]);
   const [sectionsData, setSectionsData] = useState({});
+  const [sectionsList, setSectionsList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -28,31 +26,64 @@ export default function StudentManagement() {
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
   const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
+  const [teacherAssignedSections, setTeacherAssignedSections] = useState([]);
   const [userRole, setUserRole] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     grade: '',
-    section: 'Section A',
+    section: '',
     email: '',
     phone: ''
   });
 
+  // Load user data on mount
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('rebot_user') || '{}');
     setTeacherAssignedGrades(user.assignedGrades || []);
+    setTeacherAssignedSections(user.assignedSections || []);
     setUserRole(user.role || '');
     
-    if (user.role === 'teacher' && user.assignedGrades && user.assignedGrades.length > 0) {
-      setFormData(prev => ({ ...prev, grade: user.assignedGrades[0] }));
+    if (user.role === 'teacher') {
+      if (user.assignedSections && user.assignedSections.length > 0) {
+        setFormData(prev => ({ ...prev, grade: '', section: '' }));
+      } else if (user.assignedGrades && user.assignedGrades.length > 0) {
+        setFormData(prev => ({ ...prev, grade: user.assignedGrades[0], section: '' }));
+      }
     }
     
     fetchSections();
     fetchStudents();
   }, []);
 
+  // Listen for section updates from SectionManagement
+  useEffect(() => {
+    const handleSectionsUpdated = (event) => {
+      console.log('🔄 StudentManagement: sectionsUpdated event received!', event.detail);
+      // Refresh sections immediately
+      fetchSections();
+      // Also refresh students in case section names changed
+      fetchStudents();
+      toast.success('Section list updated!', { icon: '🔄' });
+    };
+    
+    const handleSectionsLoaded = () => {
+      console.log('📋 StudentManagement: sectionsLoaded event received');
+      fetchSections();
+    };
+    
+    window.addEventListener('sectionsUpdated', handleSectionsUpdated);
+    window.addEventListener('sectionsLoaded', handleSectionsLoaded);
+    
+    return () => {
+      window.removeEventListener('sectionsUpdated', handleSectionsUpdated);
+      window.removeEventListener('sectionsLoaded', handleSectionsLoaded);
+    };
+  }, []);
+
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('Fetching sections...');
       const response = await fetch('http://localhost:5000/api/sections', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -60,17 +91,28 @@ export default function StudentManagement() {
       
       if (data.success) {
         const sectionMap = {};
+        const sectionArray = [];
+        
         data.sections.forEach(s => {
           sectionMap[s._id] = { grade: s.gradeLevel, section: s.sectionName };
+          sectionArray.push({
+            id: s._id,
+            gradeLevel: s.gradeLevel,
+            sectionName: s.sectionName,
+            adviser: s.adviser
+          });
         });
+        
         setSectionsData(sectionMap);
+        setSectionsList(sectionArray);
+        console.log('✅ Sections loaded:', sectionArray.length);
       }
     } catch (error) {
       console.error('Error fetching sections:', error);
     }
   };
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -83,15 +125,19 @@ export default function StudentManagement() {
         const formattedStudents = data.students.map(s => {
           let sectionName = 'N/A';
           let gradeLevel = s.grade || 'N/A';
+          let sectionId = null;
           
           if (s.sectionName) {
             sectionName = s.sectionName;
+            sectionId = s.sectionId;
           } else if (s.section && typeof s.section === 'object') {
             sectionName = s.section.sectionName || 'N/A';
             gradeLevel = s.section.gradeLevel || s.grade || 'N/A';
+            sectionId = s.section._id;
           } else if (s.section && sectionsData[s.section]) {
             sectionName = sectionsData[s.section].section;
             gradeLevel = sectionsData[s.section].grade;
+            sectionId = s.section;
           }
           
           return {
@@ -100,9 +146,9 @@ export default function StudentManagement() {
             name: s.fullName,
             grade: gradeLevel,
             section: sectionName,
+            sectionId: sectionId,
             points: s.points || 0,
             email: s.email || '',
-            sectionId: s.section,
             status: s.isActive !== false ? 'active' : 'inactive',
             joinDate: new Date(s.createdAt).toISOString().split('T')[0]
           };
@@ -115,13 +161,14 @@ export default function StudentManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sectionsData]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    await fetchSections();
     await fetchStudents();
     setIsRefreshing(false);
-    toast.success('Student list refreshed!');
+    toast.success('Data refreshed!');
   };
 
   const handleDeleteStudent = async (id) => {
@@ -154,7 +201,7 @@ export default function StudentManagement() {
   };
 
   const handleAddStudent = async () => {
-    if (!formData.name || !formData.grade || !formData.section) {
+    if (!formData.name || !formData.section) {
       toast.error('Please fill all required fields');
       return;
     }
@@ -162,6 +209,9 @@ export default function StudentManagement() {
     setIsAddingStudent(true);
     try {
       const token = localStorage.getItem('token');
+      
+      const selectedSectionObj = sectionsList.find(s => s.id === formData.section);
+      
       const response = await fetch('http://localhost:5000/api/students', {
         method: 'POST',
         headers: {
@@ -171,8 +221,8 @@ export default function StudentManagement() {
         body: JSON.stringify({
           fullName: formData.name,
           email: formData.email || '',
-          grade: formData.grade,
-          section: formData.section,
+          grade: selectedSectionObj?.gradeLevel || formData.grade,
+          sectionId: formData.section,
           phone: formData.phone || ''
         })
       });
@@ -182,13 +232,7 @@ export default function StudentManagement() {
       if (data.success) {
         toast.success(`Student ${formData.name} added successfully!`);
         setShowAddModal(false);
-        setFormData({ 
-          name: '', 
-          grade: teacherAssignedGrades[0] || 'Grade 5', 
-          section: 'Section A', 
-          email: '', 
-          phone: '' 
-        });
+        setFormData({ name: '', grade: '', section: '', email: '', phone: '' });
         fetchStudents();
       } else {
         toast.error(data.message || 'Failed to add student');
@@ -252,13 +296,9 @@ export default function StudentManagement() {
   const downloadTemplate = () => {
     const headers = ['Full Name', 'Grade', 'Section', 'Email', 'Phone'];
     
-    const sampleGrades = userRole === 'teacher' && teacherAssignedGrades.length > 0 
-      ? teacherAssignedGrades 
-      : allGrades;
-    
     const sampleData = [
-      ['Juan Dela Cruz', sampleGrades[0] || 'Grade 1', 'Section A', 'juan@example.com', '09123456789'],
-      ['Maria Santos', sampleGrades[0] || 'Grade 1', 'Section A', 'maria@example.com', '09123456790'],
+      ['Juan Dela Cruz', 'Grade 1', 'Section A', 'juan@example.com', '09123456789'],
+      ['Maria Santos', 'Grade 1', 'Section A', 'maria@example.com', '09123456790'],
     ];
     
     const wsData = [headers, ...sampleData];
@@ -299,10 +339,11 @@ export default function StudentManagement() {
           if (!student.grade) errors.push('Grade required');
           if (!student.section) errors.push('Section required');
           
-          if (userRole === 'teacher' && teacherAssignedGrades.length > 0) {
-            if (!teacherAssignedGrades.includes(student.grade)) {
-              errors.push(`Grade "${student.grade}" not in your assigned grades (${teacherAssignedGrades.join(', ')})`);
-            }
+          const sectionExists = sectionsList.some(s => 
+            s.sectionName === student.section && s.gradeLevel === student.grade
+          );
+          if (!sectionExists) {
+            errors.push(`Section "${student.section}" not found in ${student.grade}. Please create it first.`);
           }
           
           student.isValid = errors.length === 0;
@@ -362,7 +403,7 @@ export default function StudentManagement() {
       setImportResults({
         success: data.success,
         count: data.count,
-        totalAttempted: data.totalAttempted,
+        totalAttempted: studentsToImport.length,
         errors: data.errors || []
       });
       
@@ -435,37 +476,48 @@ export default function StudentManagement() {
     toast.success('Print window opened');
   };
 
-  const availableGrades = userRole === 'teacher' ? teacherAssignedGrades : allGrades;
+  // Filter sections based on teacher's assigned grades/sections
+  const getAvailableSections = () => {
+    if (userRole === 'teacher') {
+      if (teacherAssignedSections && teacherAssignedSections.length > 0) {
+        return sectionsList.filter(section => 
+          teacherAssignedSections.includes(section.id)
+        );
+      } else if (teacherAssignedGrades && teacherAssignedGrades.length > 0) {
+        return sectionsList.filter(section => 
+          teacherAssignedGrades.includes(section.gradeLevel)
+        );
+      }
+    }
+    return sectionsList;
+  };
+
+  const availableSections = getAvailableSections();
+  
+  // Get unique grades from available sections
+  const availableGrades = ['all', ...new Set(availableSections.map(s => s.gradeLevel))];
   
   const filteredStudents = students.filter(student => {
     const matchesSearch = searchTerm === '' || 
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrade = selectedGrade === 'all' || student.grade === selectedGrade;
-    
-    let matchesTeacherGrade = true;
-    if (userRole === 'teacher' && teacherAssignedGrades.length > 0) {
-      matchesTeacherGrade = teacherAssignedGrades.includes(student.grade);
-    }
-    
-    return matchesSearch && matchesGrade && matchesTeacherGrade;
+    return matchesSearch && matchesGrade;
   });
 
   const totalPoints = filteredStudents.reduce((sum, s) => sum + s.points, 0);
   const activeStudents = filteredStudents.filter(s => s.status === 'active').length;
-  const filterGrades = ['all', ...new Set(filteredStudents.map(s => s.grade).filter(g => g !== 'N/A'))];
 
-  // Show loading screen while data is loading
   if (loading && students.length === 0) {
     return <LoadingScreen message="Loading students..." />;
   }
 
-  if (userRole === 'teacher' && teacherAssignedGrades.length === 0) {
+  if (userRole === 'teacher' && teacherAssignedGrades.length === 0 && teacherAssignedSections.length === 0) {
     return (
       <div className="bg-yellow-50 rounded-2xl p-8 text-center">
-        <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Grades Assigned</h2>
+        <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Grades or Sections Assigned</h2>
         <p className="text-yellow-700">
-          Please contact the administrator to assign grade levels to your account.
+          Please contact the administrator to assign grade levels or sections to your account.
         </p>
       </div>
     );
@@ -477,7 +529,11 @@ export default function StudentManagement() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Student Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage your students - {userRole === 'teacher' && `You have access to: ${teacherAssignedGrades.join(', ')}`}
+            Manage your students - {userRole === 'teacher' && (
+              teacherAssignedSections.length > 0 
+                ? `You have access to ${teacherAssignedSections.length} section(s)`
+                : `You have access to grades: ${teacherAssignedGrades.join(', ')}`
+            )}
           </p>
         </div>
         <div className="flex gap-3">
@@ -536,13 +592,22 @@ export default function StudentManagement() {
             onChange={(e) => setSelectedGrade(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-xl bg-white"
           >
-            {filterGrades.map(grade => (
+            {availableGrades.map(grade => (
               <option key={grade} value={grade}>{grade === 'all' ? 'All Grades' : grade}</option>
             ))}
           </select>
           <button onClick={handlePrintQRCodes} className="px-4 py-2 border border-gray-300 rounded-xl flex items-center gap-2 hover:bg-gray-50">
             <Printer size={18} /> Print QR Codes
           </button>
+        </div>
+      </div>
+
+      {/* Live Section Count Badge */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <School size={16} />
+          <span>{availableSections.length} section(s) available</span>
+          {isRefreshing && <RefreshCw size={14} className="animate-spin" />}
         </div>
       </div>
 
@@ -626,22 +691,73 @@ export default function StudentManagement() {
                 onChange={(e) => setFormData({...formData, name: e.target.value})} 
                 className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500" 
               />
-              <div className="grid grid-cols-2 gap-4">
-                <select 
-                  value={formData.grade} 
-                  onChange={(e) => setFormData({...formData, grade: e.target.value})} 
-                  className="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {availableGrades.map(g => <option key={g}>{g}</option>)}
-                </select>
-                <select 
-                  value={formData.section} 
-                  onChange={(e) => setFormData({...formData, section: e.target.value})} 
-                  className="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {sections.map(s => <option key={s}>{s}</option>)}
-                </select>
+              
+              {/* Section Dropdown - Real-time updates */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Section *</label>
+                <div className="relative">
+                  <select 
+                    value={formData.section} 
+                    onChange={(e) => {
+                      const selectedSectionId = e.target.value;
+                      const selectedSection = sectionsList.find(s => s.id === selectedSectionId);
+                      setFormData({
+                        ...formData, 
+                        section: selectedSectionId,
+                        grade: selectedSection?.gradeLevel || ''
+                      });
+                    }} 
+                    className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">Select Section</option>
+                    {availableSections.map(section => (
+                      <option key={section.id} value={section.id}>
+                        {section.gradeLevel} - {section.sectionName}
+                      </option>
+                    ))}
+                  </select>
+                  {availableSections.length > 0 && (
+                    <RefreshCw 
+                      size={16} 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 cursor-pointer hover:text-green-500 transition"
+                      onClick={async () => {
+                        await fetchSections();
+                        toast.success('Sections refreshed!');
+                      }}
+                    />
+                  )}
+                </div>
+                {availableSections.length === 0 ? (
+                  <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <p className="text-xs text-yellow-700 flex items-center gap-1">
+                      <AlertCircle size={12} /> No sections available. 
+                      <button 
+                        onClick={() => window.location.href = '/admin/sections'} 
+                        className="text-blue-600 hover:underline ml-1"
+                      >
+                        Create sections first →
+                      </button>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {availableSections.length} section(s) available. Sections update in real-time when admin adds new ones.
+                  </p>
+                )}
               </div>
+              
+              {/* Grade Display */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+                <input 
+                  type="text" 
+                  value={formData.grade} 
+                  disabled
+                  className="w-full px-4 py-2 border rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed" 
+                />
+                <p className="text-xs text-gray-400 mt-1">Auto-filled from selected section</p>
+              </div>
+              
               <input 
                 type="email" 
                 placeholder="Email (optional)" 
@@ -658,7 +774,7 @@ export default function StudentManagement() {
               />
               <button 
                 onClick={handleAddStudent} 
-                disabled={isAddingStudent}
+                disabled={isAddingStudent || availableSections.length === 0}
                 className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50"
               >
                 {isAddingStudent ? 'Adding...' : 'Add Student'}
@@ -684,17 +800,16 @@ export default function StudentManagement() {
                 <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
                   <li>Download the Excel/CSV template below</li>
                   <li>Fill in student information (Name, Grade, Section are required)</li>
+                  <li>Make sure the Grade and Section match existing sections in the system</li>
                   <li>Save the file as .xlsx or .csv</li>
                   <li>Upload the file using the button below</li>
                   <li>Review the preview and click Import</li>
                 </ol>
-                {userRole === 'teacher' && (
-                  <div className="mt-3 p-2 bg-yellow-100 rounded-lg border border-yellow-200">
-                    <p className="text-sm text-yellow-800 flex items-center gap-2">
-                      <AlertCircle size={16} /> You can only import students to your assigned grades: <strong>{teacherAssignedGrades.join(', ')}</strong>
-                    </p>
-                  </div>
-                )}
+                <div className="mt-3 p-2 bg-yellow-100 rounded-lg border border-yellow-200">
+                  <p className="text-sm text-yellow-800 flex items-center gap-2">
+                    <AlertCircle size={16} /> Sections must exist in the system before importing. Create sections in Section Management first.
+                  </p>
+                </div>
               </div>
               
               <button 
@@ -753,11 +868,7 @@ export default function StudentManagement() {
                             </td>
                             <td className="p-2 font-medium">{student.name}</td>
                             <td className="p-2">
-                              <span className={`px-2 py-0.5 rounded text-xs ${
-                                userRole === 'teacher' && teacherAssignedGrades.length > 0 && !teacherAssignedGrades.includes(student.grade)
-                                  ? 'bg-red-200 text-red-800'
-                                  : 'bg-green-200 text-green-800'
-                              }`}>
+                              <span className="px-2 py-0.5 rounded text-xs bg-gray-200">
                                 {student.grade || 'Missing'}
                               </span>
                             </td>
@@ -771,7 +882,7 @@ export default function StudentManagement() {
                   {importPreview.some(s => !s.isValid) && (
                     <div className="mt-2 p-2 bg-red-50 rounded-lg">
                       <p className="text-xs text-red-600 flex items-center gap-2">
-                        <AlertCircle size={14} /> Invalid rows will be skipped during import.
+                        <AlertCircle size={14} /> Invalid rows will be skipped during import. Make sure sections exist.
                       </p>
                     </div>
                   )}

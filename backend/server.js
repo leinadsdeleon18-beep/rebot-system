@@ -26,7 +26,7 @@ const canteenRoutes = require('./src/routes/canteenRoutes');
 const inventoryRoutes = require('./src/routes/inventoryRoutes');
 const junkShopRoutes = require('./src/routes/junkShopRoutes');
 const teacherRoutes = require('./src/routes/teacherRoutes');
-const sectionRoutes = require('./src/routes/sectionRoutes');  // ADD THIS LINE
+const sectionRoutes = require('./src/routes/sectionRoutes');  // ✅ This is correct
 const uploadRoutes = require('./src/routes/uploadRoutes');
 
 const app = express();
@@ -171,7 +171,7 @@ app.use('/api/canteen', canteenRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/junk', junkShopRoutes);
 app.use('/api/teacher', teacherRoutes);
-app.use('/api/sections', sectionRoutes);  // ADD THIS LINE
+app.use('/api/sections', sectionRoutes);  // ✅ Make sure this line exists
 app.use('/api/upload', uploadRoutes);
 
 app.use('/auth', authRoutes);

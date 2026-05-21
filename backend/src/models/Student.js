@@ -22,7 +22,7 @@ const studentSchema = new mongoose.Schema({
   },
   section: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Section'
+    ref: 'Section'  // Make sure this references the Section model
   },
   qrCode: {
     type: String,

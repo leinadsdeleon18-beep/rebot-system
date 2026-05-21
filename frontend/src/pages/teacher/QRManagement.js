@@ -21,6 +21,17 @@ export default function QRManagement() {
     fetchStudents();
   }, []);
 
+  // Listen for section updates
+  useEffect(() => {
+    const handleSectionsUpdate = () => {
+      console.log('Sections updated, refreshing QR codes...');
+      fetchStudents();
+    };
+    
+    window.addEventListener('sectionsUpdated', handleSectionsUpdate);
+    return () => window.removeEventListener('sectionsUpdated', handleSectionsUpdate);
+  }, []);
+
   const fetchStudents = async () => {
     setLoading(true);
     try {

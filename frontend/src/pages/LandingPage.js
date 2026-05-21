@@ -9,7 +9,7 @@ export default function LandingPage() {
   const { user, login } = auth || {};
   const navigate = useNavigate();
 
-  // ========== ALL HOOKS FIRST (BEFORE ANY CONDITIONAL RETURN) ==========
+  // ========== ALL HOOKS FIRST ==========
   const [scrolled, setScrolled] = useState(false);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
@@ -33,8 +33,9 @@ export default function LandingPage() {
   const [canResend, setCanResend] = useState(false);
   const [resetError, setResetError] = useState('');
   const [resetSuccess, setResetSuccess] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
   const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetToken, setResetToken] = useState(null);
 
   const [passwordStrength, setPasswordStrength] = useState({
     strength: 0,
@@ -64,12 +65,10 @@ export default function LandingPage() {
     document.documentElement.classList.remove('dark');
     document.body.setAttribute('data-landing', 'true');
     
-    // Simulate loading to show loading screen
     setTimeout(() => {
       setPageLoading(false);
     }, 500);
     
-    // Check if user is already logged in
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('rebot_user');
     if (token && storedUser) {
@@ -160,8 +159,6 @@ export default function LandingPage() {
     checkPasswordStrength(e.target.value);
   };
 
-  const generateVerificationCode = () => Math.floor(100000 + Math.random() * 900000).toString();
-
   const copyToClipboard = (text, message) => {
     navigator.clipboard.writeText(text);
     toast.success(message);
@@ -185,7 +182,6 @@ export default function LandingPage() {
       });
       
       const data = await response.json();
-      console.log('Login response:', data);
       
       if (data.success) {
         localStorage.clear();
@@ -245,57 +241,153 @@ export default function LandingPage() {
     setCanResend(false);
     setResetError('');
     setResetSuccess('');
-    setGeneratedCode('');
+    setResetToken(null);
     setPasswordStrength({ strength: 0, text: '', color: '', guidelines: {} });
   };
 
+  // ========== FORGOT PASSWORD FUNCTIONS ==========
   const handleSendVerification = async (e) => {
     e.preventDefault();
     setIsSendingCode(true);
     setResetError('');
     setResetSuccess('');
 
-    const userEmail = userDatabase[resetRole]?.email;
-    if (resetEmail === userEmail) {
-      const code = generateVerificationCode();
-      setGeneratedCode(code);
-      setResetSuccess(`Verification code sent to ${resetEmail}!`);
-      setResetStep(2);
-      setTimer(60);
-      setCanResend(false);
-      toast.success(`Demo verification code: ${code}`);
-    } else {
-      setResetError(`No account found with this email for ${resetRole} role. Demo email: ${userDatabase[resetRole]?.email || 'N/A'}`);
+    if (!resetEmail) {
+      setResetError('Please enter your email');
+      setIsSendingCode(false);
+      return;
     }
 
-    setIsSendingCode(false);
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setResetSuccess('Verification code sent to your email!');
+        setResetStep(2);
+        setTimer(60);
+        setCanResend(false);
+      } else {
+        setResetError(data.message || 'Failed to send verification code');
+      }
+    } catch (error) {
+      console.error('Send verification error:', error);
+      setResetError('Network error. Please try again.');
+    } finally {
+      setIsSendingCode(false);
+    }
   };
 
-  const handleResendCode = () => {
-    const code = generateVerificationCode();
-    setGeneratedCode(code);
-    setTimer(60);
-    setCanResend(false);
+  const handleResendCode = async () => {
     setResetError('');
-    setResetSuccess(`A new verification code was sent to ${resetEmail}.`);
-    toast.success(`New demo code: ${code}`);
+    setResetSuccess('');
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setResetSuccess('New verification code sent!');
+        setTimer(60);
+        setCanResend(false);
+      } else {
+        setResetError(data.message || 'Failed to resend code');
+      }
+    } catch (error) {
+      console.error('Resend code error:', error);
+      setResetError('Network error. Please try again.');
+    }
   };
 
-  const handleResetPassword = (e) => {
+  const handleVerifyOTP = async () => {
+    const code = verificationCode.join('');
+    
+    if (code.length !== 6) {
+      setResetError('Please enter the complete 6-digit verification code.');
+      return false;
+    }
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resetEmail, otp: code })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setResetToken(data.resetToken);
+        setResetSuccess('OTP verified! You can now reset your password.');
+        return true;
+      } else {
+        setResetError(data.message || 'Invalid verification code');
+        return false;
+      }
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      setResetError('Network error. Please try again.');
+      return false;
+    }
+  };
+
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     setResetError('');
-    const code = verificationCode.join('');
-
-    if (code.length !== 6) return setResetError('Please enter the complete 6-digit verification code.');
-    if (code !== generatedCode) return setResetError('Invalid verification code.');
-    if (newPassword.length < 6) return setResetError('Password must be at least 6 characters.');
-    if (newPassword !== confirmPassword) return setResetError('Passwords do not match.');
-
-    toast.success('Password reset successfully!');
-    setForgotModalOpen(false);
-    setGeneratedCode('');
-    resetForgotPasswordState();
-    setLoginModalOpen(true);
+    
+    if (newPassword.length < 6) {
+      setResetError('Password must be at least 6 characters.');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setResetError('Passwords do not match.');
+      return;
+    }
+    
+    if (!resetToken) {
+      const verified = await handleVerifyOTP();
+      if (!verified) return;
+    }
+    
+    setIsResetting(true);
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          token: resetToken, 
+          newPassword: newPassword 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        toast.success('Password reset successfully! Please login with your new password.');
+        setForgotModalOpen(false);
+        resetForgotPasswordState();
+        setLoginModalOpen(true);
+      } else {
+        setResetError(data.message || 'Failed to reset password');
+      }
+    } catch (error) {
+      console.error('Reset password error:', error);
+      setResetError('Network error. Please try again.');
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const handleOTPChange = (index, value) => {
@@ -303,7 +395,7 @@ export default function LandingPage() {
     const newCode = [...verificationCode];
     newCode[index] = value.replace(/\D/g, '');
     setVerificationCode(newCode);
-
+    if (resetError) setResetError('');
     if (value && index < 5) document.getElementById(`otp-${index + 1}`)?.focus();
   };
 
@@ -335,14 +427,15 @@ export default function LandingPage() {
 
   const selectedRoleInfo = roles.find((role) => role.value === selectedRole);
 
-  // ========== CONDITIONAL RETURN AT THE VERY END ==========
+  // ========== CONDITIONAL RETURN ==========
   if (pageLoading) {
     return <LoadingScreen message="Welcome to ReBot..." />;
   }
 
-  // ========== REST OF YOUR JSX RETURN ==========
+  // ========== JSX RETURN ==========
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f7fbf7] font-sans text-slate-800">
+      {/* Navigation */}
       <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 shadow-lg shadow-green-900/5 backdrop-blur-xl' : 'bg-white/70 backdrop-blur-md'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-3">
@@ -371,6 +464,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
+      {/* Hero Section */}
       <section id="home" className="relative overflow-hidden pt-32 pb-20 sm:pt-36 lg:pb-28">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.16),_transparent_30%)]"></div>
         <div className="absolute left-[-10rem] top-20 h-80 w-80 rounded-full bg-green-200/50 blur-3xl"></div>
@@ -424,6 +518,7 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* How It Works Section */}
       <section id="how-it-works" className="bg-white py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-14 max-w-2xl text-center">
@@ -454,6 +549,7 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Role Section */}
       <section className="bg-gradient-to-br from-green-950 via-emerald-900 to-slate-950 py-20 text-white">
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
           <div>
@@ -480,6 +576,7 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Footer */}
       <footer id="about" className="bg-slate-950 py-12 text-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 md:grid-cols-4 lg:px-8">
           <div className="md:col-span-2">
@@ -510,10 +607,11 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Login Modal */}
+      {/* ========== LOGIN MODAL - WITH FULL FORM ========== */}
       {loginModalOpen && (
         <div className="modal-backdrop" onClick={handleModalClose(setLoginModalOpen)}>
           <div className="grid max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[2rem] bg-white shadow-2xl animate-modalUp lg:grid-cols-[0.9fr_1.1fr]">
+            {/* Left Panel */}
             <div className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-green-950 to-emerald-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
               <div className="absolute -left-24 -top-24 h-80 w-80 rounded-full bg-green-400/20 blur-3xl"></div>
               <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-lime-300/10 blur-3xl"></div>
@@ -523,7 +621,6 @@ export default function LandingPage() {
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-lime-300 text-green-950">♻️</span>
                   <span className="text-sm font-black">ReBot Access Portal</span>
                 </div>
-
                 <h2 className="max-w-sm text-5xl font-black leading-tight tracking-tight">
                   Manage recycling with a smarter dashboard.
                 </h2>
@@ -544,7 +641,6 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-
                 <div className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/15 backdrop-blur">
                   <div className="mb-3 flex items-center gap-3">
                     <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-lime-300">
@@ -559,8 +655,9 @@ export default function LandingPage() {
               </div>
             </div>
 
+            {/* Right Panel - Login Form */}
             <div className="bg-white p-6 sm:p-8 lg:p-10">
-              <div className="mb-7 flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-green-700">
                     <span className="h-2 w-2 rounded-full bg-green-500"></span>
@@ -572,7 +669,8 @@ export default function LandingPage() {
                 <button onClick={() => setLoginModalOpen(false)} className="icon-close"><i className="fas fa-times"></i></button>
               </div>
 
-              <div className="mb-6 rounded-3xl border border-green-100 bg-gradient-to-br from-green-50 to-white p-4">
+              {/* Role Selection */}
+              <div className="mb-6 mt-6 rounded-3xl border border-green-100 bg-gradient-to-br from-green-50 to-white p-4">
                 <div className="flex items-center gap-3">
                   <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-green-600 text-white">
                     <i className={selectedRoleInfo?.icon}></i>
@@ -584,9 +682,15 @@ export default function LandingPage() {
                 </div>
               </div>
 
+              {/* Role Buttons */}
               <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {roles.map((role) => (
-                  <button key={role.value} type="button" onClick={() => quickFillCredentials(role.value)} className={`rounded-3xl border-2 p-4 text-center transition ${selectedRole === role.value ? 'border-green-600 bg-green-50 shadow-lg shadow-green-900/5' : 'border-slate-200 bg-white hover:border-green-300 hover:bg-green-50/50'}`}>
+                  <button
+                    key={role.value}
+                    type="button"
+                    onClick={() => quickFillCredentials(role.value)}
+                    className={`rounded-3xl border-2 p-4 text-center transition ${selectedRole === role.value ? 'border-green-600 bg-green-50 shadow-lg shadow-green-900/5' : 'border-slate-200 bg-white hover:border-green-300 hover:bg-green-50/50'}`}
+                  >
                     <div className={`mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl ${selectedRole === role.value ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
                       <i className={role.icon}></i>
                     </div>
@@ -595,17 +699,18 @@ export default function LandingPage() {
                 ))}
               </div>
 
+              {/* Login Form */}
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
                   <label className="form-label">Username / ID</label>
                   <div className="field-wrap">
                     <i className="fas fa-user field-icon"></i>
-                    <input 
-                      value={loginUsername} 
-                      onChange={(e) => setLoginUsername(e.target.value)} 
-                      className="input pl-12" 
-                      placeholder="Enter your username" 
-                      required 
+                    <input
+                      value={loginUsername}
+                      onChange={(e) => setLoginUsername(e.target.value)}
+                      className="input pl-12"
+                      placeholder="Enter your username"
+                      required
                     />
                   </div>
                 </div>
@@ -614,13 +719,13 @@ export default function LandingPage() {
                   <label className="form-label">Password</label>
                   <div className="field-wrap">
                     <i className="fas fa-lock field-icon"></i>
-                    <input 
-                      type={showPassword ? 'text' : 'password'} 
-                      value={loginPassword} 
-                      onChange={(e) => setLoginPassword(e.target.value)} 
-                      className="input pl-12 pr-14" 
-                      placeholder="Enter your password" 
-                      required 
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="input pl-12 pr-14"
+                      placeholder="Enter your password"
+                      required
                     />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
                       <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
@@ -632,13 +737,21 @@ export default function LandingPage() {
                   <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">
                     Role: <span className="text-green-700">{selectedRoleInfo?.label}</span>
                   </div>
-                  <button type="button" onClick={() => { setLoginModalOpen(false); setForgotModalOpen(true); setResetError(''); setResetSuccess(''); }} className="text-sm font-bold text-green-700 hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => { setLoginModalOpen(false); setForgotModalOpen(true); setResetError(''); setResetSuccess(''); }}
+                    className="text-sm font-bold text-green-700 hover:underline"
+                  >
                     <i className="fas fa-key mr-2"></i>Forgot password?
                   </button>
                 </div>
 
                 <button type="submit" disabled={isLoggingIn} className="btn-primary h-14 w-full text-base disabled:opacity-70">
-                  {isLoggingIn ? <><i className="fas fa-spinner fa-spin"></i>Logging in...</> : <><i className="fas fa-arrow-right-to-bracket"></i>Login to Dashboard</>}
+                  {isLoggingIn ? (
+                    <><i className="fas fa-spinner fa-spin"></i>Logging in...</>
+                  ) : (
+                    <><i className="fas fa-arrow-right-to-bracket"></i>Login to Dashboard</>
+                  )}
                 </button>
 
                 {loginError && <Alert type="error" message={loginError} />}
@@ -675,23 +788,11 @@ export default function LandingPage() {
 
               {resetStep === 1 && (
                 <form onSubmit={handleSendVerification} className="space-y-5">
-                  <Alert type="info" message="Enter your registered email and choose the correct role to receive a demo verification code." />
+                  <Alert type="info" message="Enter your registered email to receive a 6-digit verification code." />
 
                   <div>
                     <label className="form-label">Registered Email</label>
                     <div className="field-wrap"><i className="fas fa-envelope field-icon"></i><input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className="input pl-12" placeholder="Enter your registered email" required /></div>
-                  </div>
-
-                  <div>
-                    <label className="form-label">Select Role</label>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {roles.map((role) => (
-                        <button key={role.value} type="button" onClick={() => setResetRole(role.value)} className={`rounded-2xl border-2 p-3 text-left transition ${resetRole === role.value ? 'border-green-600 bg-green-50' : 'border-slate-200 hover:border-green-300'}`}>
-                          <i className={`${role.icon} mb-2 ${resetRole === role.value ? 'text-green-700' : 'text-slate-400'}`}></i>
-                          <p className="text-sm font-black text-slate-700">{role.label}</p>
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   <button type="submit" disabled={isSendingCode} className="btn-primary h-14 w-full text-base disabled:opacity-70">
@@ -744,9 +845,13 @@ export default function LandingPage() {
 
                   <PasswordInput label="Confirm New Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} show={showConfirmPassword} setShow={setShowConfirmPassword} placeholder="Re-enter your password" icon="fas fa-check-circle" />
 
-                  <button type="submit" className="btn-primary h-14 w-full text-base"><i className="fas fa-shield-heart"></i>Reset Password</button>
+                  <button type="submit" disabled={isResetting} className="btn-primary h-14 w-full text-base disabled:opacity-70">
+                    {isResetting ? <><i className="fas fa-spinner fa-spin"></i>Resetting Password...</> : <><i className="fas fa-shield-heart"></i>Reset Password</>}
+                  </button>
                   {resetError && <Alert type="error" message={resetError} />}
-                  <button type="button" onClick={() => { setResetStep(1); setVerificationCode(['', '', '', '', '', '']); setNewPassword(''); setConfirmPassword(''); setResetError(''); setResetSuccess(''); }} className="mx-auto flex items-center gap-2 text-sm font-bold text-green-700 hover:underline"><i className="fas fa-arrow-left"></i>Back to verification</button>
+                  <button type="button" onClick={() => { setResetStep(1); setVerificationCode(['', '', '', '', '', '']); setNewPassword(''); setConfirmPassword(''); setResetError(''); setResetSuccess(''); setResetToken(null); }} className="mx-auto flex items-center gap-2 text-sm font-bold text-green-700 hover:underline">
+                    <i className="fas fa-arrow-left"></i>Back to verification
+                  </button>
                 </form>
               )}
             </div>
@@ -761,27 +866,16 @@ export default function LandingPage() {
         .btn-primary:hover { transform: translateY(-1px); filter: brightness(.98); box-shadow: 0 22px 42px rgba(22, 163, 74, .28); }
         .btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; border-radius: 9999px; border: 2px solid #bbf7d0; background: rgba(255,255,255,.85); color: #166534; font-weight: 900; transition: all .2s ease; }
         .btn-secondary:hover { border-color: #22c55e; background: #f0fdf4; transform: translateY(-1px); }
-        .card { border-radius: 2rem; border: 1px solid #dcfce7; background: rgba(255,255,255,.88); padding: 1.5rem; box-shadow: 0 18px 40px rgba(20,83,45,.06); transition: all .25s ease; }
-        .glass-card { border-radius: 1.5rem; border: 1px solid rgba(255,255,255,.9); background: rgba(255,255,255,.78); box-shadow: 0 18px 40px rgba(20,83,45,.07); backdrop-filter: blur(14px); }
-        .dashboard-mini-card { border-radius: 1.5rem; background: rgba(255,255,255,.1); padding: 1rem; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
-        .card:hover { transform: translateY(-4px); box-shadow: 0 24px 50px rgba(20,83,45,.1); }
         .input { height: 3.5rem; width: 100%; border-radius: 1rem; border: 2px solid #e2e8f0; background: rgba(248,250,252,.8); padding-left: 1rem; padding-right: 1rem; font-weight: 700; color: #334155; outline: none; transition: all .2s ease; }
-        .input::placeholder { color: #94a3b8; font-weight: 600; }
         .input:focus { border-color: #16a34a; background: white; box-shadow: 0 0 0 4px rgba(34,197,94,.1); }
         .form-label { margin-bottom: .5rem; display: block; font-size: .875rem; font-weight: 900; color: #334155; }
         .field-wrap { position: relative; }
         .field-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; z-index: 2; pointer-events: none; }
-        .field-wrap .input { padding-left: 3.25rem !important; }
-        .field-wrap .input.pr-14 { padding-right: 3.75rem !important; }
         .password-toggle { position: absolute; right: .55rem; top: 50%; transform: translateY(-50%); display: grid; height: 2.35rem; width: 2.35rem; place-items: center; border-radius: .85rem; color: #64748b; transition: all .2s ease; }
-        .password-toggle:hover { background: #f1f5f9; color: #0f172a; }
         .icon-close { display: grid; height: 2.75rem; width: 2.75rem; place-items: center; border-radius: 1rem; border: 1px solid #e2e8f0; color: #64748b; transition: all .2s ease; }
-        .icon-close:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
         .footer-link { margin-bottom: .65rem; display: block; font-size: .875rem; font-weight: 700; color: #94a3b8; transition: color .2s ease; }
         .footer-link:hover { color: #fbbf24; }
         .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,.68); padding: 1rem; backdrop-filter: blur(10px); }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        .animate-float { animation: float 3s ease-in-out infinite; }
         @keyframes modalUp { from { opacity: 0; transform: translateY(20px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .animate-modalUp { animation: modalUp .26s ease-out; }
         @keyframes spin { to { transform: rotate(360deg); } }

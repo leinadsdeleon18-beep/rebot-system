@@ -4,8 +4,8 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: true,
     unique: true,
+    sparse: true,
     trim: true
   },
   email: {
@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
   },
   roleName: {
     type: String,
-    required: true
+    default: ''
   },
   avatar: {
     type: String,
@@ -55,6 +55,10 @@ const userSchema = new mongoose.Schema({
   assignedGrades: [{
     type: String
   }],
+  assignedSections: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Section'
+  }],
   lastLogin: {
     type: Date
   },
@@ -64,6 +68,37 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+});
+
+// Auto-set username before save if not provided
+userSchema.pre('save', async function(next) {
+  // Set username from email if not provided
+  if (!this.username && this.email) {
+    let username = this.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+    let uniqueUsername = username;
+    let counter = 1;
+    const User = mongoose.model('User');
+    while (await User.findOne({ username: uniqueUsername })) {
+      uniqueUsername = `${username}${counter}`;
+      counter++;
+    }
+    this.username = uniqueUsername;
+  }
+  
+  // Auto-set roleName based on role if not provided
+  if (!this.roleName && this.role) {
+    try {
+      const Role = mongoose.model('Role');
+      const roleDoc = await Role.findById(this.role);
+      if (roleDoc) {
+        this.roleName = roleDoc.name;
+      }
+    } catch (error) {
+      console.error('Error setting roleName:', error);
+    }
+  }
+  
+  next();
 });
 
 userSchema.methods.comparePassword = async function(password) {

@@ -4,8 +4,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Role = require('../models/Role');
-const authMiddleware = require('../middleware/authMiddleware'); // IMPORTANT: Add this
+const authMiddleware = require('../middleware/authMiddleware');
+const { sendOTPEmail, sendPasswordResetConfirmation } = require('../services/emailService');
 
+// ========== LOGIN ==========
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -75,6 +77,7 @@ router.post('/login', async (req, res) => {
         fullName: user.fullName,
         role: roleName,
         assignedGrades: user.assignedGrades || [],
+        assignedSections: user.assignedSections || [],
         avatar: user.avatar || null,
         isActive: user.isActive
       }
@@ -86,6 +89,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// ========== REGISTER ==========
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password, fullName, roleName } = req.body;
@@ -128,6 +132,7 @@ router.post('/register', async (req, res) => {
         fullName: user.fullName,
         role: role.name,
         assignedGrades: user.assignedGrades || [],
+        assignedSections: user.assignedSections || [],
         avatar: null,
         isActive: true
       }
@@ -138,13 +143,79 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// ========== FORGOT PASSWORD - Send OTP ==========
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
+    
+    console.log('Forgot password request for:', email);
+    
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+    
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      console.log('User not found:', email);
+      return res.status(200).json({ 
+        success: true, 
+        message: 'If your email is registered, you will receive a password reset OTP.' 
+      });
+    }
+    
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60000);
+    
+    console.log(`Generated OTP for ${email}: ${otp}`);
+    
+    user.passwordResetOTP = otp;
+    user.otpExpiry = otpExpiry;
+    await user.save();
+    
+    const emailSent = await sendOTPEmail(user.email, otp, user.fullName);
+    
+    if (emailSent) {
+      res.json({ 
+        success: true, 
+        message: 'Password reset OTP sent to your email.' 
+      });
+    } else {
+      console.error('Failed to send email to:', email);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send email. Please try again later.' 
+      });
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ========== VERIFY OTP ==========
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    
+    console.log('Verifying OTP for:', email);
+    console.log('Received OTP:', otp);
+    
     const user = await User.findOne({ email });
     
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    console.log('Stored OTP:', user.passwordResetOTP);
+    console.log('OTP Expiry:', user.otpExpiry);
+    
+    if (user.passwordResetOTP !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+    
+    if (user.otpExpiry < new Date()) {
+      return res.status(400).json({ success: false, message: 'OTP has expired. Please request a new one.' });
     }
     
     const resetToken = jwt.sign(
@@ -153,19 +224,72 @@ router.post('/forgot-password', async (req, res) => {
       { expiresIn: '1h' }
     );
     
-    res.json({
-      success: true,
-      message: 'Password reset token generated',
-      resetToken
+    res.json({ 
+      success: true, 
+      message: 'OTP verified successfully',
+      resetToken 
     });
   } catch (error) {
+    console.error('Verify OTP error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
+// ========== RESEND OTP ==========
+router.post('/resend-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    console.log('Resend OTP request for:', email);
+    
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60000);
+    
+    console.log(`Generated new OTP for ${email}: ${otp}`);
+    
+    user.passwordResetOTP = otp;
+    user.otpExpiry = otpExpiry;
+    await user.save();
+    
+    const emailSent = await sendOTPEmail(user.email, otp, user.fullName);
+    
+    if (emailSent) {
+      res.json({ 
+        success: true, 
+        message: 'New OTP sent to your email.' 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send email. Please try again later.' 
+      });
+    }
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ========== RESET PASSWORD ==========
 router.post('/reset-password', async (req, res) => {
   try {
     const { token, newPassword } = req.body;
+    
+    console.log('Reset password request received');
+    
+    if (!token || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Token and new password are required' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
     const user = await User.findById(decoded.id);
@@ -174,15 +298,23 @@ router.post('/reset-password', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
+    user.passwordResetOTP = undefined;
+    user.otpExpiry = undefined;
     user.password = newPassword;
     await user.save();
     
+    console.log('Password reset successfully for:', user.email);
+    
+    await sendPasswordResetConfirmation(user.email, user.fullName);
+    
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: 'Invalid or expired token' });
   }
 });
 
+// ========== CHANGE PASSWORD ==========
 router.put('/change-password', async (req, res) => {
   try {
     const { userId, currentPassword, newPassword } = req.body;
@@ -202,11 +334,12 @@ router.put('/change-password', async (req, res) => {
     
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
+    console.error('Change password error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// UPDATE PROFILE ENDPOINT - FIXED with authMiddleware
+// ========== UPDATE PROFILE ==========
 router.put('/profile', authMiddleware, async (req, res) => {
   try {
     const { fullName, email, phone, address, bio } = req.body;
@@ -236,6 +369,7 @@ router.put('/profile', authMiddleware, async (req, res) => {
   }
 });
 
+// ========== GET PROFILE ==========
 router.get('/profile', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -261,6 +395,7 @@ router.get('/profile', async (req, res) => {
         fullName: user.fullName,
         role: roleName,
         assignedGrades: user.assignedGrades || [],
+        assignedSections: user.assignedSections || [],
         avatar: user.avatar || null,
         phone: user.phone || '',
         address: user.address || '',
@@ -274,6 +409,7 @@ router.get('/profile', async (req, res) => {
   }
 });
 
+// ========== TEST ==========
 router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Auth route is working!' });
 });

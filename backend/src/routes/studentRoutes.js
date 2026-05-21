@@ -32,7 +32,27 @@ async function generateUniqueStudentId() {
   return studentId;
 }
 
-// Get all students - WITH PROPER TEACHER FILTERING
+// Get teacher's assigned sections
+router.get('/teacher/sections', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('role');
+    
+    if (user.role.name !== 'teacher') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    
+    const sections = await Section.find({
+      _id: { $in: user.assignedSections || [] }
+    }).populate('adviser', 'fullName');
+    
+    res.json({ success: true, sections });
+  } catch (error) {
+    console.error('Get teacher sections error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get all students - WITH PROPER TEACHER FILTERING (Grade + Section)
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const { grade, section, search } = req.query;
@@ -41,20 +61,24 @@ router.get('/', authMiddleware, async (req, res) => {
     console.log('User role:', req.user.role);
     console.log('User ID:', req.user.id);
     
-    // TEACHER FILTERING: If user is teacher, only show their assigned grades
+    // TEACHER FILTERING: If user is teacher, filter by assigned grades AND assigned sections
     if (req.user.role === 'teacher') {
-      // Get teacher's assigned grades from user object
       const teacher = await User.findById(req.user.id);
       const assignedGrades = teacher.assignedGrades || [];
+      const assignedSections = teacher.assignedSections || [];
       
       console.log('Teacher assigned grades:', assignedGrades);
+      console.log('Teacher assigned sections:', assignedSections);
       
-      if (assignedGrades && assignedGrades.length > 0) {
-        // Only show students from assigned grades
+      if (assignedSections && assignedSections.length > 0) {
+        // If teacher has assigned sections, filter by those sections
+        query.section = { $in: assignedSections };
+      } else if (assignedGrades && assignedGrades.length > 0) {
+        // Fallback to grade filtering if no sections assigned
         query.grade = { $in: assignedGrades };
       } else {
-        // If no assigned grades, return empty array (teacher sees nothing)
-        console.log('Teacher has no assigned grades, returning empty');
+        // If no assigned grades or sections, return empty array
+        console.log('Teacher has no assigned grades or sections, returning empty');
         return res.json({ success: true, students: [] });
       }
     }
@@ -68,9 +92,17 @@ router.get('/', authMiddleware, async (req, res) => {
       }
     }
     
-    // Apply section filter if specified
+    // Apply section filter if specified (can be ID or name)
     if (section && section !== 'all') {
-      query.section = section;
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(section);
+      if (isObjectId) {
+        query.section = section;
+      } else {
+        const sectionDoc = await Section.findOne({ sectionName: section });
+        if (sectionDoc) {
+          query.section = sectionDoc._id;
+        }
+      }
     }
     
     // Apply search filter
@@ -109,7 +141,7 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Get single student - WITH TEACHER PERMISSION CHECK
+// Get single student - WITH TEACHER PERMISSION CHECK (Grade + Section)
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const student = await Student.findById(req.params.id).populate('section');
@@ -117,12 +149,22 @@ router.get('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
     
-    // Check if teacher has access to this student's grade
     if (req.user.role === 'teacher') {
       const teacher = await User.findById(req.user.id);
       const assignedGrades = teacher.assignedGrades || [];
+      const assignedSections = teacher.assignedSections || [];
       
-      if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
+      // Check section access first
+      if (assignedSections.length > 0) {
+        if (!assignedSections.includes(student.section?._id?.toString())) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'You do not have access to this student' 
+          });
+        }
+      } 
+      // Fallback to grade check
+      else if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
         return res.status(403).json({ 
           success: false, 
           message: 'You do not have access to this student' 
@@ -145,7 +187,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Get student by QR code - WITH TEACHER PERMISSION CHECK
+// Get student by QR code - WITH TEACHER PERMISSION CHECK (Grade + Section)
 router.get('/qr/:qrCode', authMiddleware, async (req, res) => {
   try {
     const student = await Student.findOne({ qrCode: req.params.qrCode }).populate('section');
@@ -154,12 +196,20 @@ router.get('/qr/:qrCode', authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
     
-    // Check if teacher has access to this student's grade
     if (req.user.role === 'teacher') {
       const teacher = await User.findById(req.user.id);
       const assignedGrades = teacher.assignedGrades || [];
+      const assignedSections = teacher.assignedSections || [];
       
-      if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
+      if (assignedSections.length > 0) {
+        if (!assignedSections.includes(student.section?._id?.toString())) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'You do not have access to this student' 
+          });
+        }
+      } 
+      else if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
         return res.status(403).json({ 
           success: false, 
           message: 'You do not have access to this student' 
@@ -179,7 +229,7 @@ router.get('/qr/:qrCode', authMiddleware, async (req, res) => {
   }
 });
 
-// Create student - WITH GRADE VALIDATION FOR TEACHERS
+// Create student - WITH GRADE & SECTION VALIDATION FOR TEACHERS
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const allowedRoles = ['administrator', 'teacher'];
@@ -187,24 +237,62 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
     
-    const { fullName, email, grade, section, phone } = req.body;
+    const { fullName, email, grade, section, sectionId, phone } = req.body;
     
-    console.log('Creating student with data:', { fullName, email, grade, section });
+    const finalSection = sectionId || section;
     
-    // Validate required fields
-    if (!fullName || !grade || !section) {
+    console.log('Creating student with data:', { fullName, email, grade, section: finalSection });
+    
+    if (!fullName || !grade || !finalSection) {
       return res.status(400).json({ success: false, message: 'Full name, grade, and section are required' });
     }
     
-    // If teacher, check if they are allowed to add student to this grade
+    let sectionDoc;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(finalSection);
+    
+    if (isObjectId) {
+      sectionDoc = await Section.findById(finalSection);
+      if (!sectionDoc) {
+        return res.status(404).json({ success: false, message: 'Section not found' });
+      }
+    } else {
+      sectionDoc = await Section.findOne({ 
+        gradeLevel: grade, 
+        sectionName: finalSection 
+      });
+      
+      if (!sectionDoc) {
+        sectionDoc = await Section.create({ 
+          gradeLevel: grade, 
+          sectionName: finalSection,
+          createdAt: new Date()
+        });
+        console.log('Created new section:', sectionDoc);
+      }
+    }
+    
+    // Teacher validation - Check both grade AND section access
     if (req.user.role === 'teacher') {
       const teacher = await User.findById(req.user.id);
       const assignedGrades = teacher.assignedGrades || [];
+      const assignedSections = teacher.assignedSections || [];
       
       console.log('Teacher assigned grades:', assignedGrades);
+      console.log('Teacher assigned sections:', assignedSections);
       console.log('Attempting to add to grade:', grade);
+      console.log('Attempting to add to section:', sectionDoc._id);
       
-      if (assignedGrades.length > 0 && !assignedGrades.includes(grade)) {
+      // Check section access first
+      if (assignedSections.length > 0) {
+        if (!assignedSections.includes(sectionDoc._id.toString())) {
+          return res.status(403).json({ 
+            success: false, 
+            message: `You are not assigned to section "${sectionDoc.sectionName}". Only admin can add students to this section.` 
+          });
+        }
+      } 
+      // Fallback to grade check
+      else if (assignedGrades.length > 0 && !assignedGrades.includes(grade)) {
         return res.status(403).json({ 
           success: false, 
           message: `You can only add students to your assigned grades: ${assignedGrades.join(', ')}` 
@@ -212,26 +300,7 @@ router.post('/', authMiddleware, async (req, res) => {
       }
     }
     
-    // Find or create section
-    let sectionDoc = await Section.findOne({ 
-      gradeLevel: grade, 
-      sectionName: section 
-    });
-    
-    if (!sectionDoc) {
-      sectionDoc = await Section.create({ 
-        gradeLevel: grade, 
-        sectionName: section,
-        createdAt: new Date()
-      });
-      console.log('Created new section:', sectionDoc);
-    }
-    
-    // Generate unique student ID
     const studentId = await generateUniqueStudentId();
-    console.log('Generated student ID:', studentId);
-    
-    // Generate QR code
     const qrCodeData = await QRCode.toDataURL(studentId);
     
     const student = new Student({
@@ -249,7 +318,10 @@ router.post('/', authMiddleware, async (req, res) => {
     await student.save();
     console.log('Student saved successfully:', student.studentId);
     
-    // Populate section data for response
+    await Section.findByIdAndUpdate(sectionDoc._id, {
+      $addToSet: { students: student._id }
+    });
+    
     const populatedStudent = await Student.findById(student._id).populate('section');
     const responseStudent = populatedStudent.toObject();
     
@@ -257,7 +329,7 @@ router.post('/', authMiddleware, async (req, res) => {
       responseStudent.sectionName = populatedStudent.section.sectionName;
       responseStudent.gradeLevel = populatedStudent.section.gradeLevel;
     } else {
-      responseStudent.sectionName = section;
+      responseStudent.sectionName = finalSection;
       responseStudent.gradeLevel = grade;
     }
     
@@ -280,7 +352,7 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Update student - WITH TEACHER PERMISSION CHECK
+// Update student - WITH TEACHER PERMISSION CHECK (Grade + Section)
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const allowedRoles = ['administrator', 'teacher'];
@@ -291,14 +363,22 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const { fullName, email, grade, section, isActive } = req.body;
     const updateData = { fullName, email, isActive };
     
-    // If teacher, check if they can update this student
     if (req.user.role === 'teacher') {
-      const existingStudent = await Student.findById(req.params.id);
+      const existingStudent = await Student.findById(req.params.id).populate('section');
       if (existingStudent) {
         const teacher = await User.findById(req.user.id);
         const assignedGrades = teacher.assignedGrades || [];
+        const assignedSections = teacher.assignedSections || [];
         
-        if (assignedGrades.length > 0 && !assignedGrades.includes(existingStudent.grade)) {
+        if (assignedSections.length > 0) {
+          if (!assignedSections.includes(existingStudent.section?._id?.toString())) {
+            return res.status(403).json({ 
+              success: false, 
+              message: 'You do not have permission to update this student' 
+            });
+          }
+        } 
+        else if (assignedGrades.length > 0 && !assignedGrades.includes(existingStudent.grade)) {
           return res.status(403).json({ 
             success: false, 
             message: 'You do not have permission to update this student' 
@@ -339,7 +419,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Add points - WITH TEACHER PERMISSION CHECK
+// Add points - WITH TEACHER PERMISSION CHECK (Grade + Section)
 router.patch('/:id/points', authMiddleware, async (req, res) => {
   try {
     const allowedRoles = ['administrator', 'teacher'];
@@ -353,14 +433,22 @@ router.patch('/:id/points', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Points must be a positive number' });
     }
     
-    // Check if teacher has access to this student
     if (req.user.role === 'teacher') {
-      const student = await Student.findById(req.params.id);
+      const student = await Student.findById(req.params.id).populate('section');
       if (student) {
         const teacher = await User.findById(req.user.id);
         const assignedGrades = teacher.assignedGrades || [];
+        const assignedSections = teacher.assignedSections || [];
         
-        if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
+        if (assignedSections.length > 0) {
+          if (!assignedSections.includes(student.section?._id?.toString())) {
+            return res.status(403).json({ 
+              success: false, 
+              message: 'You do not have permission to add points to this student' 
+            });
+          }
+        } 
+        else if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
           return res.status(403).json({ 
             success: false, 
             message: 'You do not have permission to add points to this student' 
@@ -401,7 +489,7 @@ router.patch('/:id/points', authMiddleware, async (req, res) => {
   }
 });
 
-// Delete student - WITH TEACHER PERMISSION CHECK
+// Delete student - WITH TEACHER PERMISSION CHECK (Grade + Section)
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const allowedRoles = ['administrator', 'teacher'];
@@ -409,14 +497,22 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied. Only Admin and Teachers can delete students.' });
     }
     
-    // Check if teacher has access to this student
     if (req.user.role === 'teacher') {
-      const student = await Student.findById(req.params.id);
+      const student = await Student.findById(req.params.id).populate('section');
       if (student) {
         const teacher = await User.findById(req.user.id);
         const assignedGrades = teacher.assignedGrades || [];
+        const assignedSections = teacher.assignedSections || [];
         
-        if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
+        if (assignedSections.length > 0) {
+          if (!assignedSections.includes(student.section?._id?.toString())) {
+            return res.status(403).json({ 
+              success: false, 
+              message: 'You do not have permission to delete this student' 
+            });
+          }
+        } 
+        else if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
           return res.status(403).json({ 
             success: false, 
             message: 'You do not have permission to delete this student' 
@@ -430,6 +526,10 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
     
+    await Section.findByIdAndUpdate(student.section, {
+      $pull: { students: student._id }
+    });
+    
     console.log(`Student deleted by ${req.user.role}: ${student.fullName} (${student.studentId})`);
     res.json({ success: true, message: 'Student deleted successfully' });
   } catch (error) {
@@ -438,7 +538,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Generate QR code - WITH TEACHER PERMISSION CHECK
+// Generate QR code - WITH TEACHER PERMISSION CHECK (Grade + Section)
 router.get('/:id/qrcode', authMiddleware, async (req, res) => {
   try {
     const allowedRoles = ['administrator', 'teacher', 'canteen_staff'];
@@ -446,17 +546,25 @@ router.get('/:id/qrcode', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
     
-    const student = await Student.findById(req.params.id);
+    const student = await Student.findById(req.params.id).populate('section');
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
     
-    // Check if teacher has access to this student's QR code
     if (req.user.role === 'teacher') {
       const teacher = await User.findById(req.user.id);
       const assignedGrades = teacher.assignedGrades || [];
+      const assignedSections = teacher.assignedSections || [];
       
-      if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
+      if (assignedSections.length > 0) {
+        if (!assignedSections.includes(student.section?._id?.toString())) {
+          return res.status(403).json({ 
+            success: false, 
+            message: 'You do not have permission to access this student\'s QR code' 
+          });
+        }
+      } 
+      else if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
         return res.status(403).json({ 
           success: false, 
           message: 'You do not have permission to access this student\'s QR code' 
@@ -479,7 +587,7 @@ router.get('/:id/qrcode', authMiddleware, async (req, res) => {
   }
 });
 
-// Bulk create students - WITH GRADE VALIDATION FOR TEACHERS
+// Bulk create students - WITH GRADE VALIDATION FOR TEACHERS (First version)
 router.post('/bulk', authMiddleware, async (req, res) => {
   try {
     const allowedRoles = ['administrator', 'teacher'];
@@ -491,26 +599,18 @@ router.post('/bulk', authMiddleware, async (req, res) => {
     const createdStudents = [];
     const errors = [];
     
-    // Get teacher's assigned grades if applicable
     let teacherAssignedGrades = [];
+    let teacherAssignedSections = [];
+    
     if (req.user.role === 'teacher') {
       const teacher = await User.findById(req.user.id);
       teacherAssignedGrades = teacher.assignedGrades || [];
+      teacherAssignedSections = teacher.assignedSections || [];
     }
     
     for (const studentData of students) {
       try {
-        // Check if teacher is allowed to add to this grade
-        if (req.user.role === 'teacher' && teacherAssignedGrades.length > 0) {
-          if (!teacherAssignedGrades.includes(studentData.grade)) {
-            errors.push({ 
-              name: studentData.name, 
-              error: `Cannot add to grade ${studentData.grade}. You can only add to: ${teacherAssignedGrades.join(', ')}` 
-            });
-            continue;
-          }
-        }
-        
+        // Find or create section first to check access
         let sectionDoc = await Section.findOne({ 
           gradeLevel: studentData.grade, 
           sectionName: studentData.section 
@@ -521,6 +621,26 @@ router.post('/bulk', authMiddleware, async (req, res) => {
             gradeLevel: studentData.grade, 
             sectionName: studentData.section 
           });
+        }
+        
+        // Teacher validation
+        if (req.user.role === 'teacher') {
+          if (teacherAssignedSections.length > 0) {
+            if (!teacherAssignedSections.includes(sectionDoc._id.toString())) {
+              errors.push({ 
+                name: studentData.name, 
+                error: `You are not assigned to section "${studentData.section}" in ${studentData.grade}` 
+              });
+              continue;
+            }
+          } 
+          else if (teacherAssignedGrades.length > 0 && !teacherAssignedGrades.includes(studentData.grade)) {
+            errors.push({ 
+              name: studentData.name, 
+              error: `Cannot add to grade ${studentData.grade}. You can only add to: ${teacherAssignedGrades.join(', ')}` 
+            });
+            continue;
+          }
         }
         
         const studentId = await generateUniqueStudentId();
@@ -539,6 +659,11 @@ router.post('/bulk', authMiddleware, async (req, res) => {
         });
         
         await student.save();
+        
+        await Section.findByIdAndUpdate(sectionDoc._id, {
+          $addToSet: { students: student._id }
+        });
+        
         createdStudents.push(student);
       } catch (error) {
         console.error('Error creating student:', studentData.name, error);
@@ -558,7 +683,7 @@ router.post('/bulk', authMiddleware, async (req, res) => {
   }
 });
 
-// Get stats for teacher dashboard - Only count assigned grade students
+// Get stats for teacher dashboard - Based on assigned grades OR sections
 router.get('/stats/teacher', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'teacher') {
@@ -567,15 +692,16 @@ router.get('/stats/teacher', authMiddleware, async (req, res) => {
     
     const teacher = await User.findById(req.user.id);
     const assignedGrades = teacher.assignedGrades || [];
+    const assignedSections = teacher.assignedSections || [];
     
-    if (assignedGrades.length === 0) {
-      return res.json({ 
-        success: true, 
-        stats: { totalStudents: 0, totalPoints: 0, totalRedemptions: 0 }
-      });
+    let students = [];
+    
+    if (assignedSections.length > 0) {
+      students = await Student.find({ section: { $in: assignedSections } });
+    } else if (assignedGrades.length > 0) {
+      students = await Student.find({ grade: { $in: assignedGrades } });
     }
     
-    const students = await Student.find({ grade: { $in: assignedGrades } });
     const totalStudents = students.length;
     const totalPoints = students.reduce((sum, s) => sum + (s.points || 0), 0);
     
@@ -593,10 +719,8 @@ router.get('/stats/teacher', authMiddleware, async (req, res) => {
   }
 });
 
-// Add this to your existing studentRoutes.js file
-
-// Bulk create students - FULLY FUNCTIONAL with teacher validation
-router.post('/bulk', authMiddleware, async (req, res) => {
+// Bulk create students - FULLY FUNCTIONAL with teacher validation (Second version - kept for compatibility)
+router.post('/bulk/advanced', authMiddleware, async (req, res) => {
   try {
     const allowedRoles = ['administrator', 'teacher'];
     if (!allowedRoles.includes(req.user.role)) {
@@ -614,27 +738,28 @@ router.post('/bulk', authMiddleware, async (req, res) => {
     const createdStudents = [];
     const errors = [];
     
-    // Get teacher's assigned grades if applicable
     let teacherAssignedGrades = [];
+    let teacherAssignedSections = [];
+    
     if (req.user.role === 'teacher') {
       const teacher = await User.findById(req.user.id);
       teacherAssignedGrades = teacher.assignedGrades || [];
+      teacherAssignedSections = teacher.assignedSections || [];
       console.log('Teacher assigned grades for bulk import:', teacherAssignedGrades);
+      console.log('Teacher assigned sections for bulk import:', teacherAssignedSections);
       
-      if (teacherAssignedGrades.length === 0) {
+      if (teacherAssignedSections.length === 0 && teacherAssignedGrades.length === 0) {
         return res.status(403).json({ 
           success: false, 
-          message: 'You have no assigned grades. Please contact administrator.' 
+          message: 'You have no assigned grades or sections. Please contact administrator.' 
         });
       }
     }
     
-    // Process each student
     for (let i = 0; i < students.length; i++) {
       const studentData = students[i];
       
       try {
-        // Validate required fields
         if (!studentData.name || !studentData.name.trim()) {
           errors.push({ 
             row: i + 1,
@@ -662,33 +787,6 @@ router.post('/bulk', authMiddleware, async (req, res) => {
           continue;
         }
         
-        // Check if teacher is allowed to add to this grade
-        if (req.user.role === 'teacher' && teacherAssignedGrades.length > 0) {
-          if (!teacherAssignedGrades.includes(studentData.grade)) {
-            errors.push({ 
-              row: i + 1,
-              name: studentData.name, 
-              error: `Cannot add to grade "${studentData.grade}". You can only add to: ${teacherAssignedGrades.join(', ')}` 
-            });
-            continue;
-          }
-        }
-        
-        // Check if student already exists (by name and grade/section combination)
-        const existingStudent = await Student.findOne({ 
-          fullName: { $regex: new RegExp(`^${studentData.name}$`, 'i') },
-          grade: studentData.grade
-        });
-        
-        if (existingStudent) {
-          errors.push({ 
-            row: i + 1,
-            name: studentData.name, 
-            error: `Student "${studentData.name}" already exists in ${studentData.grade}` 
-          });
-          continue;
-        }
-        
         // Find or create section
         let sectionDoc = await Section.findOne({ 
           gradeLevel: studentData.grade, 
@@ -704,7 +802,43 @@ router.post('/bulk', authMiddleware, async (req, res) => {
           console.log(`Created new section: ${studentData.grade} - ${studentData.section}`);
         }
         
-        // Generate unique student ID
+        // Teacher validation
+        if (req.user.role === 'teacher') {
+          if (teacherAssignedSections.length > 0) {
+            if (!teacherAssignedSections.includes(sectionDoc._id.toString())) {
+              errors.push({ 
+                row: i + 1,
+                name: studentData.name, 
+                error: `You are not assigned to section "${studentData.section}" in ${studentData.grade}` 
+              });
+              continue;
+            }
+          } 
+          else if (teacherAssignedGrades.length > 0 && !teacherAssignedGrades.includes(studentData.grade)) {
+            errors.push({ 
+              row: i + 1,
+              name: studentData.name, 
+              error: `Cannot add to grade "${studentData.grade}". You can only add to: ${teacherAssignedGrades.join(', ')}` 
+            });
+            continue;
+          }
+        }
+        
+        // Check if student already exists
+        const existingStudent = await Student.findOne({ 
+          fullName: { $regex: new RegExp(`^${studentData.name}$`, 'i') },
+          section: sectionDoc._id
+        });
+        
+        if (existingStudent) {
+          errors.push({ 
+            row: i + 1,
+            name: studentData.name, 
+            error: `Student "${studentData.name}" already exists in ${studentData.grade} - ${studentData.section}` 
+          });
+          continue;
+        }
+        
         const studentId = await generateUniqueStudentId();
         const qrCodeData = await QRCode.toDataURL(studentId);
         
@@ -722,6 +856,11 @@ router.post('/bulk', authMiddleware, async (req, res) => {
         });
         
         await student.save();
+        
+        await Section.findByIdAndUpdate(sectionDoc._id, {
+          $addToSet: { students: student._id }
+        });
+        
         createdStudents.push({
           id: student._id,
           studentId: student.studentId,

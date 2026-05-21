@@ -10,6 +10,7 @@ import LoadingScreen from './components/LoadingScreen';
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
+import SectionManagement from './pages/admin/SectionManagement';
 import RewardsManagement from './pages/admin/RewardsManagement';
 import Reports from './pages/admin/Reports';
 import InventoryManagement from './pages/admin/InventoryManagement';
@@ -162,6 +163,7 @@ function AppContent() {
           <Route index element={<AdminDashboard />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="rewards" element={<RewardsManagement />} />
+          <Route path="sections" element={<SectionManagement />} />
           <Route path="reports" element={<Reports />} />
           <Route path="inventory" element={<InventoryManagement />} />
           <Route path="settings" element={<AdminSettings />} />
