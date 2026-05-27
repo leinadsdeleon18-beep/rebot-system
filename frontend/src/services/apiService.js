@@ -1,88 +1,107 @@
+// src/services/apiService.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000';
-console.log('API_URL:', API_URL);
+// Use environment variable or fallback to deployed backend
+const API_URL = process.env.REACT_APP_API_URL || 'https://rebot-system.onrender.com';
+
+console.log('🔧 API Service initialized with URL:', API_URL);
+
+// Strip trailing slash to avoid double-slash issues
+const BASE_URL = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+
+// Detect if the base URL already ends with /api
+const hasApiPrefix = BASE_URL.endsWith('/api');
+
+// Helper: build a path that won't double up /api
+const path = (p) => {
+  if (hasApiPrefix) {
+    return p.replace(/^\/api/, '');
+  }
+  return p;
+};
 
 const api = axios.create({
-  baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' }
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 30000,
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// Add token to requests — check both keys as fallback
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token') || localStorage.getItem('rebot_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    console.log(`📡 ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
+// Response interceptor — do NOT wipe token or hard-redirect on 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('rebot_user');
-      window.location.href = '/';
+      console.warn('401 Unauthorized on:', error.config?.url);
     }
     return Promise.reject(error);
   }
 );
 
-// Dashboard API - FIXED ENDPOINTS
-export const dashboardAPI = {
-  getStats: () => api.get('/api/get-stats'),  // Changed from /api/dashboard/stats
-  getTransactions: (limit = 10) => api.get(`/api/get-transactions?limit=${limit}`),
-  getStudents: () => api.get('/api/get-students'),
-  getRewards: () => api.get('/api/get-rewards')
-};
-
-// Auth API
-export const authAPI = {
-  login: (username, password) => api.post('/login', { username, password }),
-  forgotPassword: (email) => api.post('/request-reset', { email }),
-  resetPassword: (email, otp, newPassword) => api.post('/reset-password', { email, otp, newPassword }),
-  changePassword: (currentPassword, newPassword) => api.put('/change-password', { currentPassword, newPassword }),
-  getProfile: () => api.get('/profile')
-};
-
-// Students API
-export const studentsAPI = {
-  getAll: (params) => api.get('/students', { params }),
-  getById: (id) => api.get(`/students/${id}`),
-  getByQR: (qrCode) => api.get(`/students/qr/${qrCode}`),
-  create: (data) => api.post('/students', data),
-  bulkCreate: (students) => api.post('/students/bulk', { students }),
-  update: (id, data) => api.put(`/students/${id}`, data),
-  addPoints: (id, points) => api.patch(`/students/${id}/points`, { points }),
-  delete: (id) => api.delete(`/students/${id}`),
-  getQRCode: (id) => api.get(`/students/${id}/qrcode`)
-};
-
-// Rewards API
+// ========== REWARDS API ==========
 export const rewardsAPI = {
-  getAll: () => api.get('/rewards'),
-  getById: (id) => api.get(`/rewards/${id}`),
-  create: (data) => api.post('/rewards', data),
-  update: (id, data) => api.put(`/rewards/${id}`, data),
-  delete: (id) => api.delete(`/rewards/${id}`),
-  getInventory: () => api.get('/rewards/inventory'),
-  updateInventory: (rewardId, stockQuantity) => api.put(`/rewards/inventory/${rewardId}`, { stockQuantity }),
-  redeem: (studentId, rewardId, quantity = 1) => api.post('/rewards/redeem', { studentId, rewardId, quantity })
+  getAll:          ()                                  => api.get(path('/api/rewards')),
+  getInventory:    ()                                  => api.get(path('/api/rewards/inventory')),
+  updateInventory: (id, stock)                         => api.put(path(`/api/rewards/${id}/inventory`), { stock }),
+  create:          (data)                              => api.post(path('/api/rewards'), data),
+  update:          (id, data)                          => api.put(path(`/api/rewards/${id}`), data),
+  delete:          (id)                                => api.delete(path(`/api/rewards/${id}`)),
+  redeem:          (studentId, rewardId, quantity = 1) => api.post(path('/api/canteen/redeem'), { studentId, rewardId, quantity }),
 };
 
-// Stats API - FIXED to use correct endpoints
+// ========== STATS API ==========
 export const statsAPI = {
-  getSystemStats: () => dashboardAPI.getStats(),
-  getRecentTransactions: (limit) => dashboardAPI.getTransactions(limit),
-  getGradeLevelPerformance: () => api.get('/stats/points-distribution'),
-  getBottlesPerGrade: () => api.get('/stats/bottles-per-grade')
+  getSystemStats:           ()           => api.get(path('/api/get-stats')),
+  getRecentTransactions:    (limit = 10) => api.get(path(`/api/transactions?limit=${limit}`)),
+  getStats:                 ()           => api.get(path('/api/get-stats')),
+  getGradeLevelPerformance: ()           => api.get(path('/api/stats/grade-performance')),
 };
 
-// Admin API
-export const adminAPI = {
-  getUsers: (params) => api.get('/admin/users', { params }),
-  createUser: (data) => api.post('/admin/users', data),
-  updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
-  deleteUser: (id) => api.delete(`/admin/users/${id}`),
-  toggleUserStatus: (id) => api.patch(`/admin/users/${id}/toggle-status`)
+// ========== TRANSACTIONS API ==========
+export const transactionsAPI = {
+  getAll:       (limit = 100) => api.get(path(`/api/transactions?limit=${limit}`)),
+  getByStudent: (studentId)   => api.get(path(`/api/transactions/student/${studentId}`)),
+  create:       (data)        => api.post(path('/api/transactions'), data),
+  getHistory:   (limit = 100) => api.get(path(`/api/transactions/history?limit=${limit}`)),
+};
+
+// ========== STUDENTS API ==========
+export const studentsAPI = {
+  getAll:       (params = {}) => api.get(path('/api/students'), { params }),
+  getById:      (id)          => api.get(path(`/api/students/${id}`)),
+  getByBarcode: (barcode)     => api.get(path(`/api/students/barcode/${barcode}`)),
+  getByQR:      (qrValue)     => api.get(path(`/api/students/barcode/${qrValue}`)),
+  updatePoints: (id, points)  => api.put(path(`/api/students/${id}/points`), { points }),
+};
+
+// ========== DASHBOARD API ==========
+export const dashboardAPI = {
+  getStats:     () => api.get(path('/api/get-stats')),
+  getStudents:  () => api.get(path('/api/get-students')),
+  getRewards:   () => api.get(path('/api/rewards')),
+  getInventory: () => api.get(path('/api/rewards/inventory')),
+};
+
+// ========== AUTH API ==========
+export const authAPI = {
+  login:          (credentials) => api.post('/login', credentials),
+  register:       (userData)    => api.post(path('/api/auth/register'), userData),
+  getMe:          ()            => api.get(path('/api/auth/me')),
+  changePassword: (data)        => api.put(path('/api/auth/change-password'), data),
 };
 
 export default api;

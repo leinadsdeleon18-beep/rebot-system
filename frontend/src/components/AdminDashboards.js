@@ -1,3 +1,5 @@
+console.log('✅✅✅ ADMIN DASHBOARD COMPONENT IS LOADING ✅✅✅');
+
 import React, { useState, useEffect } from 'react';
 
 export default function AdminDashboard() {

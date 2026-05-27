@@ -12,14 +12,14 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || localStorage.getItem('rebot_token');
       const storedUser = localStorage.getItem('rebot_user');
-      
+
       console.log('AuthContext - Checking localStorage');
       console.log('Token exists:', !!token);
       console.log('Stored user:', storedUser);
-      
-      if (token && storedUser) {
+
+      if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
           setUser(parsedUser);
@@ -32,9 +32,9 @@ export const AuthProvider = ({ children }) => {
       }
       setLoading(false);
     };
-    
+
     checkAuth();
-    
+
     window.addEventListener('storage', checkAuth);
     return () => window.removeEventListener('storage', checkAuth);
   }, []);
@@ -44,13 +44,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.login(username, password);
       const { token, user: userData } = response.data;
-      
+
       localStorage.setItem('token', token);
+      localStorage.setItem('rebot_token', token);
       localStorage.setItem('rebot_user', JSON.stringify(userData));
       setUser(userData);
-      
+
       console.log('AuthContext - Login successful, user set:', userData);
-      
+
       toast.success(`Welcome back, ${userData.fullName}!`);
       return { success: true, user: userData };
     } catch (error) {
@@ -66,6 +67,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setLoading(true);
     localStorage.removeItem('token');
+    localStorage.removeItem('rebot_token');
     localStorage.removeItem('rebot_user');
     setUser(null);
     toast.success('Logged out successfully');
@@ -73,17 +75,19 @@ export const AuthProvider = ({ children }) => {
     window.location.href = '/';
   };
 
+  const roleName = user?.roleName || user?.role;
+
   const value = {
     user,
     loading,
     login,
     logout,
     isAuthenticated: !!user,
-    isAdmin: user?.role === 'administrator',
-    isTeacher: user?.role === 'teacher',
-    isCanteen: user?.role === 'canteen_staff',
-    isJunk: user?.role === 'junk_shop_personnel',
-    isUtility: user?.role === 'utility_staff'
+    isAdmin:    roleName === 'administrator',
+    isTeacher:  roleName === 'teacher',
+    isCanteen:  roleName === 'canteen_staff',
+    isJunk:     roleName === 'junk_shop_personnel',
+    isUtility:  roleName === 'utility_staff'
   };
 
   return (

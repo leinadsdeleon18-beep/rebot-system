@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Gift, History, TrendingUp, TrendingDown, Search, Scan, ShoppingBag, Star, Clock, CheckCircle } from 'lucide-react';
+import { Gift, ShoppingBag, Star } from 'lucide-react';
 import { statsAPI, rewardsAPI } from '../../services/apiService';
-import { Line, Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import toast from 'react-hot-toast';
+import { Scan } from 'lucide-react';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 export default function CanteenDashboard() {
   const [stats, setStats] = useState({ todayRedemptions: 0, todayPoints: 0, totalStock: 0 });
   const [recentRedemptions, setRecentRedemptions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [redemptionTrends, setRedemptionTrends] = useState([18, 22, 25, 30, 28, 15]);
+  const [redemptionTrends] = useState([18, 22, 25, 30, 28, 15]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -20,32 +21,44 @@ export default function CanteenDashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Get system stats
-      const statsRes = await statsAPI.getSystemStats();
-      
-      // Get inventory
-      const inventoryRes = await rewardsAPI.getInventory();
-      
-      if (statsRes.data.success) {
+      // Run both requests in parallel
+      const [statsRes, inventoryRes, transactionsRes] = await Promise.allSettled([
+        statsAPI.getSystemStats(),
+        rewardsAPI.getInventory(),
+        statsAPI.getRecentTransactions(10),
+      ]);
+
+      // --- Stats ---
+      // Server returns: { success, totalStudents, totalPoints, totalRedemptions, ... }
+      if (statsRes.status === 'fulfilled' && statsRes.value.data.success) {
+        const data = statsRes.value.data;
+        const totalStock =
+          inventoryRes.status === 'fulfilled'
+            ? (inventoryRes.value.data.inventory || []).reduce(
+                (sum, i) => sum + (i.stockQuantity || i.stock || 0),
+                0
+              )
+            : 0;
+
         setStats({
-          todayRedemptions: statsRes.data.stats.totalRedemptions || 0,
-          todayPoints: statsRes.data.stats.totalPoints || 0,
-          totalStock: inventoryRes.data.inventory?.reduce((sum, i) => sum + (i.stockQuantity || 0), 0) || 0
+          todayRedemptions: data.totalRedemptions || 0,
+          todayPoints:      data.totalPoints      || 0,
+          totalStock,
         });
       }
 
-      // Get recent redemptions
-      const transactionsRes = await statsAPI.getRecentTransactions(10);
-      if (transactionsRes.data.success) {
-        const formatted = transactionsRes.data.transactions
-          .filter(t => t.type === 'redemption')
+      // --- Recent redemptions ---
+      if (transactionsRes.status === 'fulfilled' && transactionsRes.value.data.success) {
+        const txns = transactionsRes.value.data.transactions || [];
+        const formatted = txns
+          .filter((t) => t.type === 'redemption' || t.type === 'redeem')
           .slice(0, 5)
-          .map(t => ({
-            id: t._id,
-            student: t.student?.fullName || 'Unknown',
-            points: t.totalPoints,
-            time: new Date(t.createdAt).toLocaleTimeString(),
-            status: t.status
+          .map((t) => ({
+            id:      t._id,
+            student: t.studentName || t.student?.fullName || t.student?.name || 'Unknown',
+            points:  t.points || t.totalPoints || 0,
+            time:    new Date(t.createdAt || t.timestamp).toLocaleTimeString(),
+            status:  t.status || 'completed',
           }));
         setRecentRedemptions(formatted);
       }
@@ -66,13 +79,13 @@ export default function CanteenDashboard() {
       backgroundColor: 'rgba(46, 125, 50, 0.1)',
       tension: 0.4,
       fill: true,
-    }]
+    }],
   };
 
-  const chartOptions = { 
-    responsive: true, 
-    maintainAspectRatio: false, 
-    plugins: { legend: { position: 'top' } } 
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'top' } },
   };
 
   if (loading) {
@@ -103,6 +116,7 @@ export default function CanteenDashboard() {
             </div>
           </div>
         </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex justify-between items-start">
             <div>
@@ -114,6 +128,7 @@ export default function CanteenDashboard() {
             </div>
           </div>
         </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex justify-between items-start">
             <div>
@@ -129,8 +144,8 @@ export default function CanteenDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button 
-          onClick={() => window.location.href = '/canteen/scan'} 
+        <button
+          onClick={() => window.location.href = '/canteen/scan'}
           className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition shadow-md"
         >
           <Scan size={24} />
@@ -139,8 +154,8 @@ export default function CanteenDashboard() {
             <p className="text-sm opacity-90">Quickly verify and process redemption</p>
           </div>
         </button>
-        <button 
-          onClick={() => window.location.href = '/canteen/rewards'} 
+        <button
+          onClick={() => window.location.href = '/canteen/rewards'}
           className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition shadow-md"
         >
           <Gift size={24} />
@@ -159,19 +174,18 @@ export default function CanteenDashboard() {
             <Line data={redemptionData} options={chartOptions} />
           </div>
         </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
           <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Recent Redemptions</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {recentRedemptions.length > 0 ? (
-              recentRedemptions.map(r => (
+              recentRedemptions.map((r) => (
                 <div key={r.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div>
                     <p className="font-medium text-gray-800 dark:text-gray-200">{r.student}</p>
                     <p className="text-xs text-gray-500">{r.time}</p>
                   </div>
-                  <div>
-                    <span className="text-orange-600 dark:text-orange-400 font-semibold">-{r.points} pts</span>
-                  </div>
+                  <span className="text-orange-600 dark:text-orange-400 font-semibold">-{r.points} pts</span>
                 </div>
               ))
             ) : (

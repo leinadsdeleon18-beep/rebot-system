@@ -19,7 +19,7 @@ export default function RedemptionScanner() {
   useEffect(() => {
     fetchRewards();
     checkCameraPermission();
-    
+
     return () => {
       if (scannerInstance) {
         scannerInstance.clear();
@@ -60,27 +60,27 @@ export default function RedemptionScanner() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach(track => track.stop());
-      
+
       if (scannerInstance) {
         scannerInstance.clear();
       }
-      
+
       setScanning(true);
       setCameraError(false);
-      
+
       const { Html5QrcodeScanner } = await import('html5-qrcode');
       const scanner = new Html5QrcodeScanner(
         "qr-reader",
-        { 
-          fps: 10, 
-          qrbox: { width: 250, height: 250 }, 
-          aspectRatio: 1.0, 
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0,
           showTorchButton: true,
           rememberLastUsedCamera: true
         },
         false
       );
-      
+
       setScannerInstance(scanner);
       scanner.render(onScanSuccess, onScanError);
       toast.success('Camera started. Point at QR code.');
@@ -97,9 +97,20 @@ export default function RedemptionScanner() {
       scannerInstance.clear();
       setScannerInstance(null);
       setScanning(false);
-      toast.info('Scanner stopped');
+      toast('Scanner stopped');
     }
   };
+
+  // Helper to normalise student shape regardless of which endpoint returned it
+  const normaliseStudent = (s) => ({
+    id: s._id || s.id,
+    studentId: s.studentId || s.rfidCode || '',
+    name: s.fullName || s.name || 'Unknown',
+    grade: s.section?.gradeLevel || s.grade || 'N/A',
+    section: s.section?.sectionName || s.section || 'N/A',
+    points: s.points || s.balance || 0,
+    avatar: '👨‍🎓',
+  });
 
   const onScanSuccess = async (decodedText) => {
     stopScanner();
@@ -107,17 +118,8 @@ export default function RedemptionScanner() {
     try {
       const response = await studentsAPI.getByQR(decodedText);
       if (response.data.success) {
-        const studentData = response.data.student;
-        setStudent({
-          id: studentData._id,
-          studentId: studentData.studentId,
-          name: studentData.fullName,
-          grade: studentData.section?.gradeLevel || 'N/A',
-          section: studentData.section?.sectionName || 'N/A',
-          points: studentData.points,
-          avatar: '👨‍🎓'
-        });
-        toast.success(`Student found: ${studentData.fullName}`);
+        setStudent(normaliseStudent(response.data.student));
+        toast.success(`Student found: ${response.data.student.fullName || response.data.student.name}`);
       } else {
         toast.error('Student not found');
       }
@@ -130,7 +132,10 @@ export default function RedemptionScanner() {
   };
 
   const onScanError = (error) => {
-    console.warn('Scan error:', error);
+    // Suppress noisy per-frame errors
+    if (!error?.includes('NotFoundException')) {
+      console.warn('Scan error:', error);
+    }
   };
 
   const handleSearch = async () => {
@@ -138,22 +143,29 @@ export default function RedemptionScanner() {
       toast.error('Please enter student name or ID');
       return;
     }
-    
+
     setLoading(true);
     try {
+      // Pass search as a query param — backend should filter on its end
       const response = await studentsAPI.getAll({ search: searchQuery });
-      if (response.data.success && response.data.students.length > 0) {
-        const foundStudent = response.data.students[0];
-        setStudent({
-          id: foundStudent._id,
-          studentId: foundStudent.studentId,
-          name: foundStudent.fullName,
-          grade: foundStudent.section?.gradeLevel || 'N/A',
-          section: foundStudent.section?.sectionName || 'N/A',
-          points: foundStudent.points,
-          avatar: '👨‍🎓'
-        });
-        toast.success(`Student found: ${foundStudent.fullName}`);
+
+      // Support both { success, students: [...] } and { success, students: { data: [...] } }
+      const list = Array.isArray(response.data.students)
+        ? response.data.students
+        : response.data.students?.data || [];
+
+      if (response.data.success && list.length > 0) {
+        // Find closest match by name or studentId
+        const q = searchQuery.toLowerCase();
+        const match =
+          list.find(
+            (s) =>
+              (s.fullName || s.name || '').toLowerCase().includes(q) ||
+              (s.studentId || '').toLowerCase().includes(q)
+          ) || list[0];
+
+        setStudent(normaliseStudent(match));
+        toast.success(`Student found: ${match.fullName || match.name}`);
         setSearchQuery('');
       } else {
         toast.error('Student not found');
@@ -181,24 +193,26 @@ export default function RedemptionScanner() {
 
   const handleConfirmRedemption = async () => {
     if (!student || !selectedReward) return;
-    
+
     setLoading(true);
     try {
       const response = await rewardsAPI.redeem(student.id, selectedReward._id, 1);
       if (response.data.success) {
-        setStudent({ ...student, points: response.data.remainingPoints });
+        const remaining = response.data.remainingPoints ?? response.data.newPoints ?? (student.points - selectedReward.pointsRequired);
+        setStudent({ ...student, points: remaining });
         setRedemptionSuccess(true);
         toast.success(`${selectedReward.name} redeemed for ${student.name}!`);
-        
+
         // Refresh rewards to update stock
         await fetchRewards();
-        
+
         setTimeout(() => {
           setRedemptionSuccess(false);
           setShowConfirmation(false);
           setSelectedReward(null);
-          // Don't clear student automatically - let staff clear manually
         }, 3000);
+      } else {
+        toast.error(response.data.message || 'Redemption failed');
       }
     } catch (error) {
       console.error('Redemption error:', error);
@@ -239,7 +253,7 @@ export default function RedemptionScanner() {
           <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
             <QrCode size={20} /> Scan QR Code
           </h3>
-          
+
           {cameraError && (
             <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border-l-4 border-yellow-500">
               <div className="flex items-start gap-3">
@@ -253,10 +267,10 @@ export default function RedemptionScanner() {
               </div>
             </div>
           )}
-          
+
           {!scanning ? (
-            <button 
-              onClick={startScanner} 
+            <button
+              onClick={startScanner}
               disabled={cameraError}
               className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -265,15 +279,15 @@ export default function RedemptionScanner() {
           ) : (
             <div>
               <div id="qr-reader" className="w-full" ref={scannerRef}></div>
-              <button 
-                onClick={stopScanner} 
+              <button
+                onClick={stopScanner}
                 className="mt-4 w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition"
               >
                 <StopCircle size={20} /> Stop Camera
               </button>
             </div>
           )}
-          
+
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
               <Search size={18} /> Or Search Manually
@@ -287,8 +301,8 @@ export default function RedemptionScanner() {
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:border-green-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
               />
-              <button 
-                onClick={handleSearch} 
+              <button
+                onClick={handleSearch}
                 disabled={loading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50"
               >
@@ -318,15 +332,15 @@ export default function RedemptionScanner() {
                     <p className="text-sm font-mono text-gray-400">{student.studentId}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={handleClearStudent} 
+                <button
+                  onClick={handleClearStudent}
                   className="p-1 text-gray-400 hover:text-red-500 transition"
                   title="Clear Student"
                 >
                   <X size={20} />
                 </button>
               </div>
-              
+
               {/* Points Display */}
               <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 mb-6 text-white">
                 <div className="flex justify-between items-center">
@@ -337,8 +351,8 @@ export default function RedemptionScanner() {
                   <Star size={32} className="opacity-80" />
                 </div>
               </div>
-              
-              {/* Redemption Success Animation */}
+
+              {/* Redemption Success */}
               {redemptionSuccess && selectedReward && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                   <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center max-w-sm animate-modalUp">
@@ -353,45 +367,49 @@ export default function RedemptionScanner() {
                   </div>
                 </div>
               )}
-              
+
               {/* Rewards Grid */}
               {!showConfirmation && !redemptionSuccess && (
                 <div>
                   <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
                     <Gift size={18} /> Select Reward
                   </h4>
-                  <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
-                    {rewards.map((reward) => {
-                      const stockStatus = getStockStatus(reward.stock);
-                      const isDisabled = reward.stock <= 0 || student.points < reward.pointsRequired;
-                      return (
-                        <button
-                          key={reward._id}
-                          onClick={() => handleSelectReward(reward)}
-                          disabled={isDisabled}
-                          className={`p-3 rounded-xl border-2 transition-all text-left ${
-                            isDisabled 
-                              ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed' 
-                              : 'border-gray-200 dark:border-gray-700 hover:border-green-500 hover:shadow-md cursor-pointer'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-semibold text-gray-800 dark:text-gray-200">{reward.name}</span>
-                            <span className="text-2xl">🎁</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-orange-600 dark:text-orange-400 font-semibold">{reward.pointsRequired} pts</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${stockStatus.bg} ${stockStatus.color}`}>
-                              {stockStatus.text}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {rewards.length === 0 ? (
+                    <p className="text-center text-gray-400 py-8">No rewards available</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                      {rewards.map((reward) => {
+                        const stockStatus = getStockStatus(reward.stock);
+                        const isDisabled = reward.stock <= 0 || student.points < reward.pointsRequired;
+                        return (
+                          <button
+                            key={reward._id}
+                            onClick={() => handleSelectReward(reward)}
+                            disabled={isDisabled}
+                            className={`p-3 rounded-xl border-2 transition-all text-left ${
+                              isDisabled
+                                ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-green-500 hover:shadow-md cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{reward.name}</span>
+                              <span className="text-2xl">🎁</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="text-orange-600 dark:text-orange-400 font-semibold">{reward.pointsRequired} pts</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${stockStatus.bg} ${stockStatus.color}`}>
+                                {stockStatus.text}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
-              
+
               {/* Confirmation Modal */}
               {showConfirmation && selectedReward && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -402,7 +420,7 @@ export default function RedemptionScanner() {
                       </div>
                       <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Confirm Redemption</h3>
                       <p className="text-gray-600 dark:text-gray-400 mt-2">
-                        Redeem {selectedReward.name} for {student.name}?
+                        Redeem <strong>{selectedReward.name}</strong> for <strong>{student.name}</strong>?
                       </p>
                     </div>
                     <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 mb-4">
@@ -414,19 +432,26 @@ export default function RedemptionScanner() {
                         <span className="text-gray-600 dark:text-gray-400">Current Points:</span>
                         <span className="font-semibold text-green-600 dark:text-green-400">{student.points} pts</span>
                       </div>
+                      <div className="flex justify-between mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <span className="text-gray-600 dark:text-gray-400">Points After:</span>
+                        <span className="font-semibold text-blue-600 dark:text-blue-400">
+                          {student.points - selectedReward.pointsRequired} pts
+                        </span>
+                      </div>
                     </div>
                     <div className="flex gap-3">
-                      <button 
-                        onClick={handleCancelRedemption} 
+                      <button
+                        onClick={handleCancelRedemption}
                         className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                       >
                         Cancel
                       </button>
-                      <button 
-                        onClick={handleConfirmRedemption} 
-                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition"
+                      <button
+                        onClick={handleConfirmRedemption}
+                        disabled={loading}
+                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50"
                       >
-                        Confirm
+                        {loading ? 'Processing...' : 'Confirm'}
                       </button>
                     </div>
                   </div>
@@ -447,18 +472,10 @@ export default function RedemptionScanner() {
 
       <style>{`
         @keyframes modalUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(20px) scale(0.95); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .animate-modalUp {
-          animation: modalUp 0.2s ease-out;
-        }
+        .animate-modalUp { animation: modalUp 0.2s ease-out; }
       `}</style>
     </div>
   );
