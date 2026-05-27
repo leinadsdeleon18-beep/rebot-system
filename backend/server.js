@@ -45,7 +45,7 @@ mongoose.connect(MONGODB_URI)
 // Middleware
 app.use(helmet({ contentSecurityPolicy: false, hsts: false }));
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.100.80:3000', 'https://rebot-system.onrender.com'],
+  origin: ['https://bibot-64134.web.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
