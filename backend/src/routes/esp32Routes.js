@@ -1,114 +1,176 @@
-// backend/src/routes/esp32Routes.js
 const express = require('express');
 const router = express.Router();
-const Student = require('../models/Student');
-const Transaction = require('../models/Transaction');
+const mongoose = require('mongoose');
 
-// ESP32 QR Code Scan endpoint
-router.post('/scan', async (req, res) => {
+// ========== PING ENDPOINT ==========
+router.get('/ping', (req, res) => {
+  console.log('📡 ESP8266 ping received');
+  res.json({ 
+    status: 'ok', 
+    message: 'ESP8266 connected to BiBot server',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ========== GET ALL STUDENTS ==========
+router.get('/students', async (req, res) => {
   try {
-    const { qrCode, deviceId } = req.body;
+    console.log('📥 ESP8266 requesting student list...');
+    const db = mongoose.connection.db;
     
-    console.log(`📷 ESP32 Scan: QR=${qrCode}, Device=${deviceId}`);
+    const students = await db.collection('students')
+      .find({}, {
+        projection: {
+          _id: 1,
+          rfidCode: 1,
+          barcode: 1,
+          name: 1,
+          points: 1,
+          grade: 1,
+          section: 1
+        }
+      })
+      .limit(200)
+      .toArray();
     
-    // Find student by QR code
-    const student = await Student.findOne({ qrCode: qrCode }).populate('section');
+    const mappedStudents = students.map(s => ({
+      id: s._id.toString(),
+      rfidCode: s.rfidCode || s.barcode || "",
+      name: s.name || "Unknown",
+      points: s.points || 0,
+      grade: s.grade || "",
+      section: s.section || ""
+    }));
     
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student not found',
-        error: 'INVALID_QR'
-      });
-    }
-    
-    // Check if student is active
-    if (!student.isActive) {
-      return res.status(403).json({
-        success: false,
-        message: 'Student account is inactive',
-        error: 'INACTIVE_ACCOUNT'
-      });
-    }
-    
-    // Return student info (for display on scanner screen)
-    res.json({
-      success: true,
-      message: 'Student found',
-      student: {
-        id: student._id,
-        name: student.fullName,
-        points: student.points,
-        grade: student.grade,
-        section: student.section?.sectionName || 'N/A'
-      }
-    });
+    console.log(`📤 Sending ${mappedStudents.length} students to ESP8266`);
+    res.json(mappedStudents);
     
   } catch (error) {
-    console.error('ESP32 scan error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
+    console.error('Sync error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// ESP32 Add Points endpoint (for bottle recycling)
+// ========== SAVE BARCODE SCAN ==========
+router.post('/scan-barcode', async (req, res) => {
+  try {
+    const { barcode, student_id, student_name, device_type, scan_number } = req.body;
+    
+    console.log('\n╔════════════════════════════════════════════════════════════╗');
+    console.log('║                    BARCODE SCAN RECEIVED                    ║');
+    console.log('╚════════════════════════════════════════════════════════════╝');
+    console.log(`   Barcode: ${barcode}`);
+    console.log(`   Student: ${student_name || 'Unknown'}`);
+    console.log(`   Student ID: ${student_id || 'N/A'}`);
+    console.log(`   Device: ${device_type || 'ESP8266'}`);
+    console.log(`   Scan #: ${scan_number || 'N/A'}`);
+    console.log('════════════════════════════════════════════════════════════\n');
+    
+    const db = mongoose.connection.db;
+    
+    const scanRecord = {
+      barcode: barcode,
+      studentId: student_id,
+      studentName: student_name,
+      deviceType: device_type || 'ESP8266',
+      scanNumber: scan_number,
+      timestamp: new Date(),
+      type: 'qr_scan',
+      source: 'esp8266'
+    };
+    
+    const result = await db.collection('qr_scans').insertOne(scanRecord);
+    
+    res.json({ 
+      success: true, 
+      message: 'Barcode saved successfully',
+      scan_id: result.insertedId
+    });
+    
+  } catch (error) {
+    console.error('Save error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== ADD POINTS TO STUDENT ==========
 router.post('/add-points', async (req, res) => {
   try {
-    const { qrCode, points, materialType } = req.body;
+    const { studentId, points, reason } = req.body;
     
-    const student = await Student.findOne({ qrCode: qrCode });
-    
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student not found'
-      });
+    if (!studentId || studentId === "") {
+      return res.json({ success: false, message: 'No student ID provided' });
     }
     
-    // Add points
-    const pointsToAdd = points || 10; // Default 10 points per bottle
-    student.points += pointsToAdd;
-    student.totalPointsEarned += pointsToAdd;
-    student.totalBottlesRecycled += 1;
-    await student.save();
+    console.log(`💰 Adding ${points} point(s) to student: ${studentId}`);
     
-    // Create transaction record
-    const transaction = new Transaction({
-      studentId: student._id,
-      pointsEarned: pointsToAdd,
-      reason: `Recycled ${materialType || 'item'}`,
-      type: 'earn',
-      status: 'completed'
-    });
-    await transaction.save();
+    const db = mongoose.connection.db;
+    const ObjectId = mongoose.Types.ObjectId;
     
-    res.json({
-      success: true,
-      message: `Added ${pointsToAdd} points to ${student.fullName}`,
-      student: {
-        name: student.fullName,
-        points: student.points,
-        totalBottles: student.totalBottlesRecycled
-      }
-    });
+    const result = await db.collection('students').updateOne(
+      { _id: new ObjectId(studentId) },
+      { $inc: { points: points || 1 } }
+    );
+    
+    if (result.modifiedCount > 0) {
+      const student = await db.collection('students').findOne({ _id: new ObjectId(studentId) });
+      console.log(`   ✅ Student now has ${student?.points || 0} total points`);
+      
+      await db.collection('transactions').insertOne({
+        studentId: studentId,
+        studentName: student?.name || 'Unknown',
+        points: points || 1,
+        reason: reason || 'QR Scan',
+        type: 'earn',
+        timestamp: new Date(),
+        source: 'esp8266'
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'Points added',
+        newPoints: student?.points || 0
+      });
+    } else {
+      console.log(`   ⚠️ Student not found`);
+      res.json({ success: false, message: 'Student not found' });
+    }
     
   } catch (error) {
-    console.error('Add points error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    console.error('Points error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ESP32 Health check
+// ========== GET SCAN HISTORY ==========
+router.get('/scans', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const { limit = 50 } = req.query;
+    
+    const scans = await db.collection('qr_scans')
+      .find({})
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit))
+      .toArray();
+    
+    res.json({
+      success: true,
+      total: scans.length,
+      scans: scans
+    });
+    
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== HEALTH CHECK ==========
 router.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    status: 'online',
+  res.json({ 
+    status: 'ok', 
+    service: 'ESP8266 Bridge',
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString()
   });
 });
