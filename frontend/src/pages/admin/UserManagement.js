@@ -6,7 +6,7 @@ import {
   Lock, Filter, ArrowUpDown, CheckCircle, XCircle, Briefcase, Globe,
   Crown, Calendar, Clock, MoreVertical, Trash2, School, Building2,
   UserCircle, AtSign, Mail as MailIcon, Phone, MapPin, BadgeCheck,
-  Star, Trophy, Zap, Heart
+  Star, Trophy, Zap, Heart, Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,6 +31,65 @@ const RecycleIcon = ({ size = 18, className = "" }) => (
   </svg>
 );
 
+// Confirmation Modal Component
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, loading, user }) => {
+  if (!isOpen) return null;
+
+  const isActivating = user && user.isActive === false;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-scaleUp">
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+            isActivating ? 'bg-green-100' : 'bg-red-100'
+          }`}>
+            {isActivating ? (
+              <CheckCircle size={24} className="text-green-600" />
+            ) : (
+              <AlertCircle size={24} className="text-red-600" />
+            )}
+          </div>
+          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+        </div>
+        
+        <p className="text-gray-600 mb-6">{message}</p>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className={`flex-1 px-4 py-2 rounded-xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2 ${
+              isActivating 
+                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                : 'bg-red-600 hover:bg-red-700 text-white'
+            }`}
+          >
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                {isActivating ? 'Activating...' : 'Deactivating...'}
+              </>
+            ) : (
+              <>
+                {isActivating ? <UserCheck size={16} /> : <UserX size={16} />}
+                {isActivating ? 'Yes, Activate User' : 'Yes, Deactivate User'}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -48,6 +107,12 @@ export default function UserManagement() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filteredSections, setFilteredSections] = useState([]);
+  
+  // Confirmation modal states
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingUser, setPendingUser] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     username: '',
     fullName: '',
@@ -247,29 +312,49 @@ export default function UserManagement() {
     }
   };
 
-  const handleToggleUserStatus = async (user) => {
-    const newStatus = !user.isActive;
-    setTogglingUserId(user._id);
+  // Open confirmation modal before toggling status
+  const openConfirmModal = (user) => {
+    setPendingUser(user);
+    setShowConfirmModal(true);
+  };
+
+  // Handle the actual status toggle after confirmation
+  const confirmToggleStatus = async () => {
+    if (!pendingUser) return;
+    
+    const newStatus = !pendingUser.isActive;
+    setConfirmLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/admin/users/${user._id}/toggle-status`, {
+      const response = await fetch(`http://localhost:5000/api/admin/users/${pendingUser._id}/toggle-status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ isActive: newStatus })
       });
       const data = await response.json();
       if (data.success) {
-        toast.success(`${user.fullName} ${newStatus ? 'activated' : 'deactivated'}`);
+        toast.success(`${pendingUser.fullName} ${newStatus ? 'activated' : 'deactivated'} successfully!`);
         fetchUsers();
+        setShowConfirmModal(false);
+        setPendingUser(null);
+      } else {
+        toast.error(data.message || 'Failed to update status');
       }
     } catch (error) {
+      console.error('Error toggling status:', error);
       toast.error('Failed to update status');
     } finally {
-      setTogglingUserId(null);
+      setConfirmLoading(false);
     }
   };
 
   const openEditModal = (user) => {
+    const isDisabled = user.isActive === false;
+    if (isDisabled) {
+      toast.error(`Cannot edit "${user.fullName}" because the account is disabled. Please activate it first.`);
+      return;
+    }
+    
     const assignedGradeCodes = (user.assignedGrades || []).map(gradeName => {
       const grade = gradeLevels.find(g => g.name === gradeName);
       return grade ? grade.code : gradeName;
@@ -373,8 +458,6 @@ export default function UserManagement() {
 
   const activeCount = users.filter(u => u.isActive !== false).length;
   const disabledCount = users.filter(u => u.isActive === false).length;
-  const adminCount = users.filter(u => u.role?.name === 'administrator').length;
-  const teacherCount = users.filter(u => u.role?.name === 'teacher').length;
   const uniqueRoles = ['all', ...new Set(users.map(u => u.role?.name).filter(Boolean))];
 
   if (loading) {
@@ -393,8 +476,36 @@ export default function UserManagement() {
 
   const isTeacherRole = formData.role && roles.find(r => r._id === formData.role)?.name === 'teacher';
 
+  // Get confirmation message based on user status
+  const getConfirmationMessage = () => {
+    if (!pendingUser) return { title: '', message: '' };
+    const isActivating = pendingUser.isActive === false;
+    return {
+      title: isActivating ? 'Activate User Account?' : 'Deactivate User Account?',
+      message: isActivating 
+        ? `Are you sure you want to activate "${pendingUser.fullName}"? The user will be able to login and access the system again.`
+        : `Are you sure you want to deactivate "${pendingUser.fullName}"? The user will lose access to the system. They can be reactivated later.`
+    };
+  };
+
+  const confirmConfig = getConfirmationMessage();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Confirmation Modal for Status Toggle */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setPendingUser(null);
+        }}
+        onConfirm={confirmToggleStatus}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        loading={confirmLoading}
+        user={pendingUser}
+      />
+
       <div className="px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Header */}
@@ -416,8 +527,8 @@ export default function UserManagement() {
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {/* Stats Cards - Only 3 cards now */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition">
             <div className="flex items-center justify-between mb-2">
               <Users size={22} className="text-blue-500" />
@@ -441,22 +552,6 @@ export default function UserManagement() {
             </div>
             <p className="text-2xl font-bold text-red-600">{disabledCount}</p>
             <p className="text-xs text-gray-500 mt-1">Disabled Accounts</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div className="flex items-center justify-between mb-2">
-              <Crown size={22} className="text-purple-500" />
-              <span className="text-xs text-gray-400">Admins</span>
-            </div>
-            <p className="text-2xl font-bold text-purple-600">{adminCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Administrators</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div className="flex items-center justify-between mb-2">
-              <GraduationCap size={22} className="text-orange-500" />
-              <span className="text-xs text-gray-400">Teachers</span>
-            </div>
-            <p className="text-2xl font-bold text-orange-600">{teacherCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Faculty Members</p>
           </div>
         </div>
 
@@ -521,10 +616,9 @@ export default function UserManagement() {
                 {filteredUsers.map((user) => {
                   const isDisabled = user.isActive === false;
                   const isTeacher = user.role?.name === 'teacher';
-                  const isToggling = togglingUserId === user._id;
                   
                   return (
-                    <tr key={user._id} className={`hover:bg-gray-50 transition ${isDisabled ? 'opacity-60' : ''}`}>
+                    <tr key={user._id} className={`hover:bg-gray-50 transition ${isDisabled ? 'opacity-60 bg-gray-50' : ''}`}>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm ${
@@ -549,7 +643,7 @@ export default function UserManagement() {
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getRoleBadgeClass(user.role?.name)}`}>
                           {getRoleIcon(user.role?.name)} {user.role?.name?.replace('_', ' ')}
                         </span>
-                      </td>
+                       </td>
                       <td className="px-5 py-3 text-gray-500">
                         {isTeacher ? (
                           <div className="flex items-center gap-1">
@@ -568,7 +662,7 @@ export default function UserManagement() {
                             )}
                           </div>
                         ) : <span className="text-xs text-gray-400">—</span>}
-                      </td>
+                       </td>
                       <td className="px-5 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${
                           isDisabled ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
@@ -576,25 +670,28 @@ export default function UserManagement() {
                           {isDisabled ? <XCircle size={12} /> : <CheckCircle size={12} />}
                           {isDisabled ? 'Disabled' : 'Active'}
                         </span>
-                      </td>
+                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => openEditModal(user)}
+                            className={`p-1.5 rounded-lg transition ${isDisabled ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                            title={isDisabled ? "Cannot edit disabled user" : "Edit user"}
                             disabled={isDisabled}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition disabled:opacity-50"
                           >
                             <Settings size={16} />
                           </button>
                           <button
-                            onClick={() => handleToggleUserStatus(user)}
-                            disabled={isToggling}
+                            onClick={() => openConfirmModal(user)}
                             className={`relative w-9 h-5 rounded-full transition-all ${isDisabled ? 'bg-gray-300' : 'bg-green-500'}`}
                           >
                             <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-all ${isDisabled ? 'left-0.5' : 'left-5'}`} />
                           </button>
                         </div>
-                      </td>
+                        {isDisabled && (
+                          <p className="text-xs text-gray-400 mt-1">Click toggle to activate</p>
+                        )}
+                       </td>
                     </tr>
                   );
                 })}
@@ -606,8 +703,8 @@ export default function UserManagement() {
                         <p className="text-gray-500">No users found</p>
                         <p className="text-xs text-gray-400">Try adjusting your search or filters</p>
                       </div>
-                    </td>
-                  </tr>
+                     </td>
+                   </tr>
                 )}
               </tbody>
             </table>
@@ -1042,8 +1139,32 @@ export default function UserManagement() {
             transform: translateY(0) scale(1);
           }
         }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes scaleUp {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
         .animate-slideUp {
           animation: slideUp 0.3s ease-out;
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+        .animate-scaleUp {
+          animation: scaleUp 0.2s ease-out;
         }
       `}</style>
     </div>

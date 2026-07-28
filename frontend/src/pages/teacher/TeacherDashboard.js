@@ -51,6 +51,8 @@ export default function TeacherDashboard() {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [pointsToAdd, setPointsToAdd] = useState('');
   const [formData, setFormData] = useState({ name: '', grade: '', section: '', email: '', phone: '' });
@@ -63,6 +65,8 @@ export default function TeacherDashboard() {
   const [teacherId, setTeacherId] = useState(null);
   const [teacherSections, setTeacherSections] = useState([]);
   const [availableSections, setAvailableSections] = useState([]);
+  const [certificateData, setCertificateData] = useState(null);
+  const [reportData, setReportData] = useState(null);
 
   // Badge definitions
   const badges = [
@@ -113,219 +117,58 @@ export default function TeacherDashboard() {
     return { currentTotal, percentage, remaining, isCompleted };
   };
 
-  // Generate Certificate HTML
-  const generateCertificateHTML = (student, achievement) => {
-    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const certId = `CERT-${student.studentId}-${Date.now()}`;
+  // Generate Certificate Data
+  const generateCertificate = (student) => {
+    const earnedBadges = getStudentBadges(student.points);
+    if (earnedBadges.length === 0) {
+      toast.error(`${student.name} hasn't earned any badges yet. Encourage them to earn at least 10 points!`);
+      return;
+    }
     
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Certificate of Achievement - ${student.name}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 40px;
-      font-family: 'Georgia', 'Times New Roman', serif;
-    }
-    .certificate-container {
-      background: white;
-      padding: 20px;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    }
-    .certificate {
-      width: 800px;
-      background: white;
-      position: relative;
-      border: 1px solid #e5e7eb;
-    }
-    .certificate-border {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      right: 15px;
-      bottom: 15px;
-      border: 2px solid #fbbf24;
-      border-radius: 12px;
-      pointer-events: none;
-    }
-    .certificate-content {
-      padding: 50px;
-      text-align: center;
-    }
-    .school-header { margin-bottom: 30px; }
-    .school-name { font-size: 24px; font-weight: bold; color: #1e3c2c; letter-spacing: 2px; }
-    .school-tagline { font-size: 12px; color: #666; margin-top: 5px; }
-    .certificate-title { font-size: 42px; font-weight: bold; color: #2d5a3f; margin: 20px 0; text-transform: uppercase; letter-spacing: 3px; }
-    .award-icon { font-size: 70px; margin: 20px 0; }
-    .presented-to { font-size: 18px; color: #555; margin: 20px 0 10px; }
-    .student-name { font-size: 42px; font-weight: bold; color: #1e3c2c; margin: 10px 0; font-family: 'Georgia', serif; border-bottom: 2px solid #fbbf24; display: inline-block; padding: 0 20px 10px; }
-    .achievement-text { font-size: 18px; color: #555; margin: 20px 0; }
-    .badge-display { background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 50px; padding: 15px 30px; display: inline-block; margin: 20px 0; }
-    .badge-name { font-size: 28px; font-weight: bold; color: #92400e; }
-    .badge-icon { font-size: 40px; display: block; margin-bottom: 10px; }
-    .points-achieved { font-size: 36px; font-weight: bold; color: #fbbf24; margin: 20px 0; }
-    .signature-section { margin-top: 40px; display: flex; justify-content: space-between; padding-top: 20px; border-top: 1px solid #e5e7eb; }
-    .signature-line { text-align: center; width: 200px; }
-    .signature { font-size: 14px; color: #666; margin-top: 30px; }
-    .date { font-size: 14px; color: #666; margin-top: 20px; }
-    .certificate-id { font-size: 10px; color: #999; margin-top: 20px; }
-    @media print { body { background: white; padding: 0; } .certificate-container { box-shadow: none; padding: 0; } .no-print { display: none; } }
-  </style>
-</head>
-<body>
-  <div class="certificate-container">
-    <div class="certificate">
-      <div class="certificate-border"></div>
-      <div class="certificate-content">
-        <div class="school-header">
-          <div class="school-name">🏫 PATUBIG ELEMENTARY SCHOOL 🏫</div>
-          <div class="school-tagline">ReBot Recycling Program</div>
-        </div>
-        <div class="certificate-title">Certificate of Achievement</div>
-        <div class="award-icon">🏆</div>
-        <div class="presented-to">This certificate is proudly presented to</div>
-        <div class="student-name">${student.name}</div>
-        <div class="achievement-text">for outstanding achievement in recycling and environmental stewardship</div>
-        <div class="badge-display">
-          <div class="badge-icon">${achievement.icon}</div>
-          <div class="badge-name">${achievement.name}</div>
-        </div>
-        <div class="points-achieved">✨ ${student.points} Points ✨</div>
-        <div class="achievement-text">for reaching the ${achievement.name} milestone in the<br>school's recycling rewards program!</div>
-        <div class="signature-section">
-          <div class="signature-line"><div>_________________________</div><div class="signature">Program Coordinator</div></div>
-          <div class="signature-line"><div>_________________________</div><div class="signature">School Principal</div></div>
-        </div>
-        <div class="date">Date: ${today}</div>
-        <div class="certificate-id">Certificate ID: ${certId}</div>
-      </div>
-    </div>
-    <div class="no-print" style="text-align: center; margin-top: 20px;">
-      <button onclick="window.print()" style="padding: 12px 24px; margin: 5px; background: linear-gradient(135deg, #2d5a3f, #1e3c2c); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">🖨️ Print Certificate</button>
-      <button onclick="window.close()" style="padding: 12px 24px; margin: 5px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">Close</button>
-    </div>
-  </div>
-</body>
-</html>`;
+    const latestBadge = earnedBadges[earnedBadges.length - 1];
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const certId = `CERT-${student.studentId || student.id}-${Date.now()}`;
+    
+    setCertificateData({
+      student,
+      badge: latestBadge,
+      today,
+      certId
+    });
+    setShowCertificateModal(true);
+    toast.success(`Certificate prepared for ${student.name}`);
   };
 
-  // Generate Progress Report HTML
-  const generateProgressReport = (classData) => {
+  // Generate Progress Report Data
+  const generateProgressReport = () => {
+    if (students.length === 0) {
+      toast.error('No students to generate report');
+      return;
+    }
+    
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const totalPoints = classData.reduce((sum, s) => sum + s.points, 0);
-    const avgPoints = classData.length > 0 ? Math.round(totalPoints / classData.length) : 0;
+    const totalPoints = students.reduce((sum, s) => sum + s.points, 0);
+    const avgPoints = students.length > 0 ? Math.round(totalPoints / students.length) : 0;
     const goalProgress = getGoalProgress();
     
     const gradeDistribution = {};
-    classData.forEach(s => { gradeDistribution[s.grade] = (gradeDistribution[s.grade] || 0) + 1; });
+    students.forEach(s => { gradeDistribution[s.grade] = (gradeDistribution[s.grade] || 0) + 1; });
     
     let totalBadges = 0;
-    classData.forEach(s => { totalBadges += getStudentBadges(s.points).length; });
+    students.forEach(s => { totalBadges += getStudentBadges(s.points).length; });
     
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Class Progress Report - ${teacherInfo.fullName}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 40px; }
-    .report-container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
-    .report-header { background: linear-gradient(135deg, #1e3c2c 0%, #2d5a3f 100%); color: white; padding: 40px; text-align: center; }
-    .report-header h1 { font-size: 32px; margin-bottom: 10px; }
-    .report-header .subtitle { font-size: 16px; opacity: 0.9; }
-    .report-content { padding: 40px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px; }
-    .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 15px; text-align: center; }
-    .stat-card.green { background: linear-gradient(135deg, #2d5a3f 0%, #1e3c2c 100%); }
-    .stat-card.orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-    .stat-card.purple { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
-    .stat-value { font-size: 36px; font-weight: bold; margin: 10px 0; }
-    .stat-label { font-size: 14px; opacity: 0.9; }
-    .goal-section { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); border-radius: 15px; padding: 25px; margin-bottom: 40px; color: white; }
-    .progress-bar-container { background: rgba(255,255,255,0.3); border-radius: 10px; height: 20px; margin: 15px 0; overflow: hidden; }
-    .progress-fill { background: #fbbf24; height: 100%; transition: width 0.5s; border-radius: 10px; }
-    .grade-distribution { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 40px; }
-    .grade-item { background: #f3f4f6; border-radius: 10px; padding: 15px; text-align: center; flex: 1; min-width: 100px; }
-    .grade-name { font-weight: bold; color: #2d5a3f; margin-bottom: 5px; }
-    .grade-count { font-size: 24px; font-weight: bold; color: #333; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th { background: #2d5a3f; color: white; padding: 12px; text-align: left; }
-    td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
-    tr:hover { background: #f9fafb; }
-    .rank-cell { font-weight: bold; width: 60px; }
-    .rank-1 { background: #fbbf24; color: #333; }
-    .rank-2 { background: #9ca3af; color: #333; }
-    .rank-3 { background: #cd7f32; color: #333; }
-    .points-cell { font-weight: bold; color: #f59e0b; }
-    .badge-icons { font-size: 16px; letter-spacing: 2px; }
-    .report-footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6c757d; }
-    @media print { body { background: white; padding: 20px; } .no-print { display: none; } }
-  </style>
-</head>
-<body>
-  <div class="report-container">
-    <div class="report-header">
-      <h1>📊 Class Progress Report</h1>
-      <div class="subtitle">Patubig Elementary School - ReBot Recycling Program</div>
-      <div class="subtitle">Generated: ${today}</div>
-      <div class="subtitle">Teacher: ${teacherInfo.fullName}</div>
-    </div>
-    <div class="report-content">
-      <div class="stats-grid">
-        <div class="stat-card green"><div class="stat-label">Total Students</div><div class="stat-value">${classData.length}</div></div>
-        <div class="stat-card orange"><div class="stat-label">Total Points</div><div class="stat-value">${totalPoints.toLocaleString()}</div></div>
-        <div class="stat-card purple"><div class="stat-label">Average Points</div><div class="stat-value">${avgPoints}</div></div>
-        <div class="stat-card"><div class="stat-label">Badges Awarded</div><div class="stat-value">${totalBadges}</div></div>
-      </div>
-      <div class="goal-section">
-        <h3>🎯 Class Goal Tracker</h3>
-        <div style="font-size: 28px; font-weight: bold; margin: 10px 0;">${classGoal.toLocaleString()} points</div>
-        <div class="progress-bar-container"><div class="progress-fill" style="width: ${goalProgress.percentage}%"></div></div>
-        <div style="display: flex; justify-content: space-between; margin-top: 10px;"><span>Progress: ${goalProgress.percentage.toFixed(1)}%</span><span>${goalProgress.currentTotal.toLocaleString()} / ${classGoal.toLocaleString()}</span></div>
-        <div style="margin-top: 15px;">${goalProgress.isCompleted ? '🎉 GOAL ACHIEVED! Congratulations! 🎉' : `${goalProgress.remaining.toLocaleString()} points remaining to reach goal`}</div>
-      </div>
-      <h3>📋 Grade Level Distribution</h3>
-      <div class="grade-distribution">
-        ${Object.entries(gradeDistribution).map(([grade, count]) => `<div class="grade-item"><div class="grade-name">${grade}</div><div class="grade-count">${count} students</div></div>`).join('')}
-      </div>
-      <h3>🏆 Student Performance Ranking</h3>
-      <table>
-        <thead><tr><th>Rank</th><th>Student Name</th><th>Grade & Section</th><th>Points</th><th>Badges Earned</th></tr></thead>
-        <tbody>
-          ${classData.sort((a,b) => b.points - a.points).map((student, index) => {
-            const earnedBadges = getStudentBadges(student.points);
-            return `<tr><td class="rank-cell"><span class="${index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : ''}" style="display: inline-block; width: 30px; text-align: center; padding: 4px 8px; border-radius: 20px;">${index + 1}</span></td>
-              <td><strong>${student.name}</strong></td>
-              <td>${student.grade} - ${student.section}</td>
-              <td class="points-cell">${student.points} pts</td>
-              <td class="badge-icons">${earnedBadges.map(b => b.icon).join(' ')} (${earnedBadges.length})</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div class="report-footer">
-      <p>This report is auto-generated by the ReBot Recycling Management System</p>
-      <p>© ${new Date().getFullYear()} Patubig Elementary School</p>
-    </div>
-  </div>
-  <div class="no-print" style="text-align: center; margin-top: 20px;">
-    <button onclick="window.print()" style="padding: 12px 24px; margin: 5px; background: linear-gradient(135deg, #2d5a3f, #1e3c2c); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">🖨️ Print Report</button>
-    <button onclick="window.close()" style="padding: 12px 24px; margin: 5px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">Close</button>
-  </div>
-</body>
-</html>`;
+    setReportData({
+      students,
+      totalPoints,
+      avgPoints,
+      goalProgress,
+      gradeDistribution,
+      totalBadges,
+      today,
+      teacherName: teacherInfo.fullName
+    });
+    setShowReportModal(true);
+    toast.success('Report generated successfully!');
   };
 
   // Fetch teacher's assigned sections
@@ -363,14 +206,11 @@ export default function TeacherDashboard() {
           let gradeLevel = s.grade || 'N/A';
           let sectionId = null;
           
-          // Check if section is populated as an object
           if (s.section && typeof s.section === 'object') {
             sectionName = s.section.sectionName || 'N/A';
             gradeLevel = s.section.gradeLevel || s.grade || 'N/A';
             sectionId = s.section._id;
-          } 
-          // Check if sectionName is directly provided
-          else if (s.sectionName) {
+          } else if (s.sectionName) {
             sectionName = s.sectionName;
           }
           
@@ -399,7 +239,6 @@ export default function TeacherDashboard() {
           loadClassGoal();
         }
         
-        // Fetch teacher sections after students are loaded
         await fetchTeacherSections();
         
         const activities = [
@@ -590,53 +429,17 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handlePrintProgressReport = () => {
-    if (students.length === 0) {
-      toast.error('No students to generate report');
-      return;
-    }
-    
-    toast.loading('Generating report...', { duration: 1500 });
-    const reportHTML = generateProgressReport(students);
-    const printWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-    
-    if (!printWindow) {
-      toast.error('Please allow pop-ups to print reports');
-      return;
-    }
-    
-    printWindow.document.write(reportHTML);
-    printWindow.document.close();
-    printWindow.onload = () => setTimeout(() => printWindow.print(), 500);
-    toast.success('Report generated successfully!');
-  };
-
-  const handleGenerateCertificate = (student) => {
-    const earnedBadges = getStudentBadges(student.points);
-    if (earnedBadges.length === 0) {
-      toast.error(`${student.name} hasn't earned any badges yet. Encourage them to earn at least 10 points!`);
-      return;
-    }
-    
-    toast.loading('Generating certificate...', { duration: 1500 });
-    const latestBadge = earnedBadges[earnedBadges.length - 1];
-    const certificateHTML = generateCertificateHTML(student, latestBadge);
-    const certWindow = window.open('', '_blank', 'width=1000,height=700,scrollbars=yes,resizable=yes');
-    
-    if (!certWindow) {
-      toast.error('Please allow pop-ups to generate certificates');
-      return;
-    }
-    
-    certWindow.document.write(certificateHTML);
-    certWindow.document.close();
-    certWindow.onload = () => setTimeout(() => certWindow.print(), 500);
-    toast.success(`Certificate generated for ${student.name}`);
-  };
-
   const handleViewBadges = (student) => {
     setSelectedBadgeStudent(student);
     setShowBadgesModal(true);
+  };
+
+  const handlePrintCertificate = () => {
+    window.print();
+  };
+
+  const handlePrintReport = () => {
+    window.print();
   };
 
   // Class Competition Data
@@ -826,8 +629,8 @@ export default function TeacherDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <button onClick={() => setShowAddStudentModal(true)} className="flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition"><UserPlus size={18} /> Add Student</button>
         <button onClick={() => window.location.href = '/teacher/qr-codes'} className="flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition"><FileText size={18} /> QR Codes</button>
-        <button onClick={handlePrintProgressReport} className="flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition"><Printer size={18} /> Print Report</button>
-        <button onClick={() => { if (students.length > 0) handleGenerateCertificate(students[0]); else toast.error('No students'); }} className="flex items-center justify-center gap-2 p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition"><CertificateIcon size={18} /> Certificate</button>
+        <button onClick={generateProgressReport} className="flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition"><Printer size={18} /> Print Report</button>
+        <button onClick={() => { if (students.length > 0) generateCertificate(students[0]); else toast.error('No students'); }} className="flex items-center justify-center gap-2 p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition"><CertificateIcon size={18} /> Certificate</button>
         <button onClick={() => setShowGoalModal(true)} className="flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition"><Target size={18} /> Set Goal</button>
       </div>
 
@@ -918,7 +721,7 @@ export default function TeacherDashboard() {
                   <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white" style={{ backgroundColor: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#cd7f32' : '#22c55e' }}>{index + 1}</div>
                   <div><p className="font-medium">{student.name}</p><p className="text-xs text-gray-500">{student.grade} - {student.section}</p><div className="flex gap-1 mt-1">{earnedBadges.slice(0, 3).map(b => <span key={b.id} className="text-xs" title={b.name}>{b.icon}</span>)}{earnedBadges.length > 3 && <span className="text-xs text-gray-400">+{earnedBadges.length - 3}</span>}</div></div>
                 </div>
-                <div className="text-right"><p className="text-xl font-bold text-green-600">{student.points}</p><div className="flex gap-2 mt-1"><button onClick={() => handleGenerateCertificate(student)} className="text-xs text-blue-600 hover:underline">Certificate</button><button onClick={() => handleViewBadges(student)} className="text-xs text-purple-600 hover:underline">Badges ({earnedBadges.length})</button></div></div>
+                <div className="text-right"><p className="text-xl font-bold text-green-600">{student.points}</p><div className="flex gap-2 mt-1"><button onClick={() => generateCertificate(student)} className="text-xs text-blue-600 hover:underline">Certificate</button><button onClick={() => handleViewBadges(student)} className="text-xs text-purple-600 hover:underline">Badges ({earnedBadges.length})</button></div></div>
               </div>
             );
           })}
@@ -944,7 +747,7 @@ export default function TeacherDashboard() {
                     <td className="px-6 py-4"><div className="flex gap-1">{earnedBadges.slice(0, 2).map(b => <span key={b.id} className="text-lg cursor-pointer" title={b.name}>{b.icon}</span>)}{earnedBadges.length > 2 && <span className="text-xs text-gray-500">+{earnedBadges.length - 2}</span>}{pointsToNext > 0 && pointsToNext < 100 && <p className="text-xs text-gray-400 mt-1">{pointsToNext} pts to {nextBadge?.name}</p>}</div></td>
                     <td className="px-6 py-4"><div className="flex gap-2">
                       <button onClick={() => { setSelectedStudent(student); setShowPointsModal(true); }} className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-medium hover:bg-green-200" disabled={isAddingPoints}>Add Points</button>
-                      <button onClick={() => handleGenerateCertificate(student)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-200">Cert</button>
+                      <button onClick={() => generateCertificate(student)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-200">Cert</button>
                       <button onClick={() => handleViewBadges(student)} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-200">Badges</button>
                     </div></td>
                   </tr>
@@ -955,11 +758,212 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
+      {/* Certificate Modal */}
+      {showCertificateModal && certificateData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Award className="text-yellow-500" /> Certificate of Achievement
+              </h3>
+              <button onClick={() => setShowCertificateModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-8" id="certificate-content">
+              <div className="certificate border-2 border-yellow-500 rounded-2xl p-8 relative" style={{ background: 'white' }}>
+                <div className="text-center">
+                  <div className="mb-6">
+                    <div className="text-2xl font-bold text-green-800">🏫 PATUBIG ELEMENTARY SCHOOL 🏫</div>
+                    <div className="text-sm text-gray-500">ReBot Recycling Program</div>
+                  </div>
+                  
+                  <div className="text-4xl font-bold text-green-700 mb-4">Certificate of Achievement</div>
+                  
+                  <div className="text-6xl mb-4">🏆</div>
+                  
+                  <div className="text-lg text-gray-600 mb-2">This certificate is proudly presented to</div>
+                  
+                  <div className="text-4xl font-bold text-green-800 mb-4 border-b-4 border-yellow-400 inline-block pb-2">
+                    {certificateData.student.name}
+                  </div>
+                  
+                  <div className="text-md text-gray-600 mt-4 mb-4">
+                    for outstanding achievement in recycling and environmental stewardship
+                  </div>
+                  
+                  <div className="inline-block bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-full px-8 py-4 mb-4">
+                    <div className="text-5xl mb-2">{certificateData.badge.icon}</div>
+                    <div className="text-2xl font-bold text-yellow-800">{certificateData.badge.name}</div>
+                  </div>
+                  
+                  <div className="text-4xl font-bold text-yellow-600 mb-4">
+                    {certificateData.student.points} Points
+                  </div>
+                  
+                  <div className="text-sm text-gray-600 mb-4">
+                    for reaching the {certificateData.badge.name} milestone in the school's recycling rewards program!
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-8 mt-8 pt-4 border-t">
+                    <div className="text-center">
+                      <div className="border-t-2 border-gray-400 pt-2 mt-6">_________________________</div>
+                      <div className="text-sm text-gray-500">Program Coordinator</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="border-t-2 border-gray-400 pt-2 mt-6">_________________________</div>
+                      <div className="text-sm text-gray-500">School Principal</div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-sm text-gray-500 mt-6">
+                    Date: {certificateData.today}
+                  </div>
+                  
+                  <div className="text-xs text-gray-400 mt-2">
+                    Certificate ID: {certificateData.certId}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end gap-3">
+              <button
+                onClick={handlePrintCertificate}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition flex items-center gap-2"
+              >
+                <Printer size={18} /> Print Certificate
+              </button>
+              <button
+                onClick={() => setShowCertificateModal(false)}
+                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && reportData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <BarChart3 className="text-blue-600" /> Class Progress Report
+              </h3>
+              <button onClick={() => setShowReportModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-8" id="report-content">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold text-green-800">📊 Class Progress Report</h1>
+                <p className="text-gray-600">Patubig Elementary School - ReBot Recycling Program</p>
+                <p className="text-gray-500 text-sm">Generated: {reportData.today}</p>
+                <p className="text-gray-500 text-sm">Teacher: {reportData.teacherName}</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold">{reportData.students.length}</div>
+                  <div className="text-sm">Total Students</div>
+                </div>
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold">{reportData.totalPoints.toLocaleString()}</div>
+                  <div className="text-sm">Total Points</div>
+                </div>
+                <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold">{reportData.avgPoints}</div>
+                  <div className="text-sm">Average Points</div>
+                </div>
+                <div className="bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold">{reportData.totalBadges}</div>
+                  <div className="text-sm">Badges Awarded</div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white mb-8">
+                <h3 className="text-xl font-bold mb-3">🎯 Class Goal Tracker</h3>
+                <div className="text-2xl font-bold mb-2">{classGoal.toLocaleString()} points</div>
+                <div className="w-full bg-white/30 rounded-full h-4 mb-2">
+                  <div className="h-full rounded-full bg-yellow-400" style={{ width: `${reportData.goalProgress.percentage}%` }}></div>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Progress: {reportData.goalProgress.percentage.toFixed(1)}%</span>
+                  <span>{reportData.goalProgress.currentTotal.toLocaleString()} / {classGoal.toLocaleString()}</span>
+                </div>
+                {reportData.goalProgress.isCompleted && (
+                  <div className="mt-3 text-center bg-yellow-400/30 rounded-lg p-2">🎉 GOAL ACHIEVED! Congratulations! 🎉</div>
+                )}
+              </div>
+
+              <div className="mb-8">
+                <h3 className="text-xl font-bold mb-4">📋 Grade Level Distribution</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {Object.entries(reportData.gradeDistribution).map(([grade, count]) => (
+                    <div key={grade} className="bg-gray-100 rounded-xl p-4 text-center">
+                      <div className="font-bold text-green-700">{grade}</div>
+                      <div className="text-2xl font-bold">{count} students</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xl font-bold mb-4">🏆 Student Performance Ranking</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-green-600 text-white">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Rank</th>
+                        <th className="px-4 py-2 text-left">Student Name</th>
+                        <th className="px-4 py-2 text-left">Grade & Section</th>
+                        <th className="px-4 py-2 text-left">Points</th>
+                        <th className="px-4 py-2 text-left">Badges</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...reportData.students].sort((a, b) => b.points - a.points).map((student, index) => {
+                        const earnedBadges = getStudentBadges(student.points);
+                        return (
+                          <tr key={student.id} className="border-b hover:bg-gray-50">
+                            <td className="px-4 py-2 font-bold">{index + 1}</td>
+                            <td className="px-4 py-2">{student.name}</td>
+                            <td className="px-4 py-2">{student.grade} - {student.section}</td>
+                            <td className="px-4 py-2 font-bold text-orange-600">{student.points} pts</td>
+                            <td className="px-4 py-2">{earnedBadges.map(b => b.icon).join(' ')} ({earnedBadges.length})</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end gap-3">
+              <button
+                onClick={handlePrintReport}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition flex items-center gap-2"
+              >
+                <Printer size={18} /> Print Report
+              </button>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Set Goal Modal */}
       {showGoalModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold flex items-center gap-2"><Target size={20} className="text-purple-600" /> Set Class Goal</h3><button onClick={() => setShowGoalModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
+            <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold flex items-center gap-2"><Target size={20} className="text-purple-600" /> Set Class Goal</h3><button onClick={() => setShowGoalModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button></div>
             <div className="space-y-4"><p className="text-sm text-gray-600">Set a total points goal for your class to work towards together!</p>
             <div><label className="block text-sm font-medium mb-1">Total Points Goal</label><input type="number" value={goalInput} onChange={(e) => setGoalInput(parseInt(e.target.value) || 0)} className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Enter goal amount" min="1" /></div>
             <div className="bg-purple-50 rounded-xl p-3"><p className="text-sm text-purple-700">Current total: <strong>{stats.totalPoints.toLocaleString()}</strong> points</p><p className="text-sm text-purple-700 mt-1">Goal: <strong>{goalInput.toLocaleString()}</strong> points</p><p className="text-sm text-purple-700 mt-1">Remaining: <strong>{Math.max(goalInput - stats.totalPoints, 0).toLocaleString()}</strong> points to go</p>{stats.totalPoints >= goalInput && (<p className="text-sm text-green-600 mt-2">✅ Your class has already reached this goal!</p>)}</div>
@@ -972,11 +976,11 @@ export default function TeacherDashboard() {
       {showBadgesModal && selectedBadgeStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6">
-            <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold">Badge Collection</h3><button onClick={() => setShowBadgesModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
-            <div className="text-center mb-4"><div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto text-3xl">{selectedBadgeStudent.name.charAt(0)}</div><h4 className="font-bold text-lg mt-2">{selectedBadgeStudent.name}</h4><p className="text-sm text-gray-500">{selectedBadgeStudent.points} total points</p></div>
+            <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold">Badge Collection</h3><button onClick={() => setShowBadgesModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button></div>
+            <div className="text-center mb-4"><div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto text-3xl text-white font-bold">{selectedBadgeStudent.name.charAt(0)}</div><h4 className="font-bold text-lg mt-2">{selectedBadgeStudent.name}</h4><p className="text-sm text-gray-500">{selectedBadgeStudent.points} total points</p></div>
             <div className="space-y-3"><p className="text-sm font-semibold">Earned Badges:</p><div className="grid grid-cols-2 gap-3">{getStudentBadges(selectedBadgeStudent.points).map(badge => (<div key={badge.id} className={`${badge.color} bg-opacity-20 rounded-xl p-3 text-center`}><span className="text-3xl">{badge.icon}</span><p className="font-semibold text-sm mt-1">{badge.name}</p><p className="text-xs text-gray-500">{badge.description}</p></div>))}</div>
             {getNextBadge(selectedBadgeStudent.points).points > selectedBadgeStudent.points && (<><p className="text-sm font-semibold mt-4">Next Badge:</p><div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-3 text-center opacity-60"><span className="text-3xl">{getNextBadge(selectedBadgeStudent.points).icon}</span><p className="font-semibold text-sm mt-1">{getNextBadge(selectedBadgeStudent.points).name}</p><p className="text-xs text-gray-500">Need {getNextBadge(selectedBadgeStudent.points).points - selectedBadgeStudent.points} more points</p></div></>)}</div>
-            <button onClick={() => handleGenerateCertificate(selectedBadgeStudent)} className="w-full mt-6 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700">🎓 Generate Certificate</button>
+            <button onClick={() => generateCertificate(selectedBadgeStudent)} className="w-full mt-6 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700">🎓 Generate Certificate</button>
           </div>
         </div>
       )}
@@ -985,7 +989,7 @@ export default function TeacherDashboard() {
       {showAddStudentModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add New Student</h3><button onClick={() => setShowAddStudentModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
+            <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add New Student</h3><button onClick={() => setShowAddStudentModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button></div>
             <div className="space-y-4">
               <input type="text" placeholder="Full Name *" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
               <div className="grid grid-cols-2 gap-4">
@@ -1013,7 +1017,7 @@ export default function TeacherDashboard() {
       {showPointsModal && selectedStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add Points</h3><button onClick={() => setShowPointsModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button></div>
+            <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add Points</h3><button onClick={() => setShowPointsModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button></div>
             <div className="space-y-4">
               <p>Student: <span className="font-semibold">{selectedStudent.name}</span></p>
               <p>Current Points: <span className="font-semibold text-green-600">{selectedStudent.points}</span></p>
@@ -1027,6 +1031,27 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #certificate-content, #certificate-content * {
+            visibility: visible;
+          }
+          #certificate-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+          }
+          .no-print {
+            display: none;
+          }
+        }
+      `}</style>
     </div>
   );
 }

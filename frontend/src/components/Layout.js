@@ -26,8 +26,59 @@ import {
   ChevronRight,
   Award,
   Calendar,
-  BookOpen
+  BookOpen,
+  AlertTriangle,
+  Loader
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+// Logout Confirmation Modal Component
+const LogoutConfirmationModal = ({ isOpen, onClose, onConfirm, loading }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-scaleUp">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+            <LogOut size={24} className="text-yellow-600 dark:text-yellow-400" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Logout Confirmation</h3>
+        </div>
+        
+        <p className="text-gray-600 dark:text-gray-400 mb-2">Are you sure you want to logout?</p>
+        <p className="text-sm text-gray-500 dark:text-gray-500 mb-6">You will need to login again to access your account.</p>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader size={18} className="animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut size={18} />
+                Yes, Logout
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -38,6 +89,8 @@ export default function Layout() {
   const [userAvatar, setUserAvatar] = useState(user?.avatar || null);
   const [currentUser, setCurrentUser] = useState(user);
   const [isMobile, setIsMobile] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // Check if screen is mobile
   useEffect(() => {
@@ -84,9 +137,23 @@ export default function Layout() {
     return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
   }, [currentUser]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await logout();
+      toast.success('Logged out successfully!');
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout');
+    } finally {
+      setLoggingOut(false);
+      setShowLogoutModal(false);
+    }
   };
 
   const toggleSidebar = () => {
@@ -270,7 +337,7 @@ export default function Layout() {
             )}
           </button>
           <button
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className={`
               w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/70 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200
               ${sidebarCollapsed ? 'justify-center' : ''}
@@ -289,6 +356,14 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmationModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleConfirmLogout}
+        loading={loggingOut}
+      />
+
       {/* Sidebar - Always visible, no hamburger menu */}
       <aside
         className={`

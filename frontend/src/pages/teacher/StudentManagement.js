@@ -22,8 +22,13 @@ export default function StudentManagement() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [showImportResults, setShowImportResults] = useState(false);
+  const [showPrintQRModal, setShowPrintQRModal] = useState(false);
+  const [showPointsModal, setShowPointsModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [importResults, setImportResults] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [pointsToAdd, setPointsToAdd] = useState('');
   const [importPreview, setImportPreview] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
@@ -207,13 +212,13 @@ export default function StudentManagement() {
     toast.success('Data refreshed!');
   };
 
-  const handleDeleteStudent = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this student?')) return;
+  const handleDeleteStudent = async () => {
+    if (!studentToDelete) return;
     
     setIsDeletingStudent(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${id}`, {
+      const response = await fetch(`http://localhost:5000/api/students/${studentToDelete.id}`, {
         method: 'DELETE',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -224,6 +229,8 @@ export default function StudentManagement() {
       
       if (data.success) {
         toast.success('Student deleted successfully!');
+        setShowDeleteModal(false);
+        setStudentToDelete(null);
         fetchStudents();
       } else {
         toast.error(data.message || 'Failed to delete student');
@@ -281,23 +288,31 @@ export default function StudentManagement() {
     }
   };
 
-  const handleAddPoints = async (student, points) => {
+  const handleAddPoints = async () => {
+    if (!pointsToAdd || pointsToAdd <= 0) {
+      toast.error('Please enter valid points');
+      return;
+    }
+    
     setIsAddingPoints(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${student.id}/points`, {
+      const response = await fetch(`http://localhost:5000/api/students/${selectedStudent.id}/points`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ points: points })
+        body: JSON.stringify({ points: parseInt(pointsToAdd) })
       });
       
       const data = await response.json();
       
       if (data.success) {
-        toast.success(`Added ${points} points to ${student.name}`);
+        toast.success(`Added ${pointsToAdd} points to ${selectedStudent.name}`);
+        setShowPointsModal(false);
+        setSelectedStudent(null);
+        setPointsToAdd('');
         fetchStudents();
       } else {
         toast.error(data.message || 'Failed to add points');
@@ -659,46 +674,7 @@ export default function StudentManagement() {
       toast.error('No students to print');
       return;
     }
-    
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Student QR Codes - ReBot System</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-            .qr-card { text-align: center; border: 1px solid #ccc; padding: 15px; border-radius: 10px; }
-            .qr-card h4 { margin: 10px 0 5px; }
-            .qr-card p { margin: 0; color: #666; font-size: 12px; }
-            @media print {
-              .qr-grid { grid-template-columns: repeat(4, 1fr); }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="no-print" style="text-align: center; margin-bottom: 20px;">
-            <button onclick="window.print()">Print</button>
-            <button onclick="window.close()">Close</button>
-          </div>
-          <div class="qr-grid">
-            ${filtered.map(student => `
-              <div class="qr-card">
-                <div style="width: 100px; height: 100px; margin: 0 auto; background: #f0f0f0; display: flex; align-items: center; justify-content: center;">
-                  QR Code
-                </div>
-                <h4>${student.name}</h4>
-                <p>${student.studentId}</p>
-                <p>${student.grade} - ${student.section}</p>
-              </div>
-            `).join('')}
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    toast.success('Print window opened');
+    setShowPrintQRModal(true);
   };
 
   const availableSections = sectionsList;
@@ -882,15 +858,17 @@ export default function StudentManagement() {
                           <QrCode size={18} />
                         </button>
                         <button onClick={() => {
-                          const points = prompt(`Enter points to add for ${student.name}:`, '10');
-                          if (points && !isNaN(points) && parseInt(points) > 0) {
-                            handleAddPoints(student, parseInt(points));
-                          }
-                        }} className="p-1 text-green-600 hover:bg-green-50 rounded-lg" title="Add Points" disabled={isAddingPoints}>
-                          {isAddingPoints ? <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div> : <Star size={18} />}
+                          setSelectedStudent(student);
+                          setPointsToAdd('');
+                          setShowPointsModal(true);
+                        }} className="p-1 text-green-600 hover:bg-green-50 rounded-lg" title="Add Points">
+                          <Star size={18} />
                         </button>
-                        <button onClick={() => handleDeleteStudent(student.id)} className="p-1 text-red-600 hover:bg-red-50 rounded-lg" title="Delete Student" disabled={isDeletingStudent}>
-                          {isDeletingStudent ? <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div> : <Trash2 size={18} />}
+                        <button onClick={() => {
+                          setStudentToDelete(student);
+                          setShowDeleteModal(true);
+                        }} className="p-1 text-red-600 hover:bg-red-50 rounded-lg" title="Delete Student">
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     </td>
@@ -915,7 +893,9 @@ export default function StudentManagement() {
           <div className="bg-white rounded-2xl max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Add New Student</h3>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
             </div>
             <div className="space-y-4">
               <input 
@@ -1029,13 +1009,156 @@ export default function StudentManagement() {
         </div>
       )}
 
+      {/* Add Points Modal */}
+      {showPointsModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Star size={20} className="text-yellow-500" /> Add Points
+              </h3>
+              <button onClick={() => {
+                setShowPointsModal(false);
+                setSelectedStudent(null);
+                setPointsToAdd('');
+              }} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-xl">
+                <p className="text-sm text-gray-600">Student: <span className="font-semibold text-gray-800">{selectedStudent.name}</span></p>
+                <p className="text-sm text-gray-600 mt-1">Current Points: <span className="font-semibold text-green-600">{selectedStudent.points} pts</span></p>
+                <p className="text-sm text-gray-600 mt-1">Student ID: <span className="font-mono text-gray-500">{selectedStudent.studentId}</span></p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Points to Add</label>
+                <input 
+                  type="number" 
+                  placeholder="Enter points amount" 
+                  value={pointsToAdd} 
+                  onChange={(e) => setPointsToAdd(e.target.value)} 
+                  className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-lg"
+                  min="1"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => setPointsToAdd('10')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+10</button>
+                <button onClick={() => setPointsToAdd('25')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+25</button>
+                <button onClick={() => setPointsToAdd('50')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+50</button>
+                <button onClick={() => setPointsToAdd('100')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+100</button>
+                <button onClick={() => setPointsToAdd('500')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+500</button>
+                <button onClick={() => setPointsToAdd('1000')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+1000</button>
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => {
+                    setShowPointsModal(false);
+                    setSelectedStudent(null);
+                    setPointsToAdd('');
+                  }} 
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddPoints} 
+                  disabled={isAddingPoints || !pointsToAdd || pointsToAdd <= 0} 
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isAddingPoints ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Star size={16} />
+                      Add {pointsToAdd} Points
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && studentToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <AlertTriangle size={20} className="text-red-500" /> Confirm Delete
+              </h3>
+              <button onClick={() => {
+                setShowDeleteModal(false);
+                setStudentToDelete(null);
+              }} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 size={32} className="text-red-600" />
+              </div>
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">Delete Student?</h4>
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to delete <span className="font-semibold">{studentToDelete.name}</span>?
+              </p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-yellow-700 flex items-center gap-2">
+                  <AlertCircle size={14} />
+                  This action cannot be undone. All data for this student will be permanently removed.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setStudentToDelete(null);
+                  }} 
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteStudent} 
+                  disabled={isDeletingStudent} 
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDeletingStudent ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      Delete Student
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bulk Import Modal */}
       {showBulkImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Bulk Import Students</h3>
-              <button onClick={() => setShowBulkImportModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+              <button onClick={() => setShowBulkImportModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
             </div>
             
             <div className="space-y-6">
@@ -1212,7 +1335,9 @@ export default function StudentManagement() {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Import Results</h3>
-              <button onClick={() => setShowImportResults(false)} className="text-gray-400 hover:text-gray-600">&times;</button>
+              <button onClick={() => setShowImportResults(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
             </div>
             <div className="text-center">
               <div className={`w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center ${importResults.count > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
@@ -1251,13 +1376,71 @@ export default function StudentManagement() {
         </div>
       )}
 
+      {/* Print QR Codes Modal */}
+      {showPrintQRModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Printer size={20} className="text-purple-600" /> Student QR Codes
+              </h3>
+              <button onClick={() => setShowPrintQRModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6" id="qr-print-content">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-green-800">Student QR Codes</h2>
+                <p className="text-gray-600">Patubig Elementary School - ReBot Program</p>
+                <p className="text-gray-500 text-sm">Generated: {new Date().toLocaleDateString()}</p>
+                <p className="text-gray-500 text-sm">Teacher: {teacherName}</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                {filteredStudents.map((student, index) => (
+                  <div key={student.id} className="border rounded-xl p-4 text-center hover:shadow-lg transition">
+                    <div className="w-32 h-32 mx-auto bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+                      {student.qrCodeData ? (
+                        <img src={student.qrCodeData} alt="QR Code" className="w-28 h-28" />
+                      ) : (
+                        <QrCode size={48} className="text-gray-400" />
+                      )}
+                    </div>
+                    <h4 className="font-semibold text-sm">{student.name}</h4>
+                    <p className="text-xs text-gray-500 font-mono">{student.studentId}</p>
+                    <p className="text-xs text-gray-500">{student.grade} - {student.section}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  window.print();
+                }}
+                className="px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition flex items-center gap-2"
+              >
+                <Printer size={18} /> Print QR Codes
+              </button>
+              <button
+                onClick={() => setShowPrintQRModal(false)}
+                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* QR Modal */}
       {showQRModal && selectedStudent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-6 text-center">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Student QR Code</h3>
-              <button onClick={() => setShowQRModal(false)} className="text-gray-400 hover:text-gray-600">&times;</button>
+              <button onClick={() => setShowQRModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
             </div>
             <div className="bg-gray-100 p-4 rounded-xl">
               {selectedStudent.qrCodeData ? (
@@ -1269,20 +1452,49 @@ export default function StudentManagement() {
             </div>
             <p className="mt-4 font-semibold">{selectedStudent.name}</p>
             <p className="text-sm text-gray-500">{selectedStudent.grade} - {selectedStudent.section}</p>
-            <button 
-              onClick={() => {
-                const link = document.createElement('a');
-                link.download = `${selectedStudent.studentId}_qrcode.png`;
-                link.href = selectedStudent.qrCodeData;
-                link.click();
-              }}
-              className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              Download QR Code
-            </button>
+            <div className="flex gap-2 mt-4">
+              <button 
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.download = `${selectedStudent.studentId}_qrcode.png`;
+                  link.href = selectedStudent.qrCodeData;
+                  link.click();
+                }}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Download
+              </button>
+              <button 
+                onClick={() => setShowQRModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Print Styles */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #qr-print-content, #qr-print-content * {
+            visibility: visible;
+          }
+          #qr-print-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+          }
+          .no-print {
+            display: none;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -8,7 +8,7 @@ export default function CanteenSettings() {
   const navigate = useNavigate();
   
   const canteenData = {
-    fullName: user?.fullName || 'Canteen Staff',
+    fullName: user?.fullName || 'Canteen',
     email: user?.email || 'canteen@rebot.ph',
     phone: '+63 912 345 6789',
     role: 'canteen',

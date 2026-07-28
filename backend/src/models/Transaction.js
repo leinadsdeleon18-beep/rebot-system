@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
 const transactionSchema = new mongoose.Schema({
-  studentId: {
+  student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student',
     required: true
   },
-  rewardId: {
+  reward: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Reward'
   },
@@ -20,24 +20,24 @@ const transactionSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
-  reason: {
-    type: String,
-    trim: true
-  },
   type: {
     type: String,
     enum: ['earn', 'redeem', 'adjustment'],
     required: true
   },
-  status: {
+  description: {
     type: String,
-    enum: ['pending', 'completed', 'cancelled'],
-    default: 'completed'
+    trim: true
   },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
+
+// Create indexes for efficient filtering
+transactionSchema.index({ createdAt: 1 });
+transactionSchema.index({ student: 1 });
+transactionSchema.index({ type: 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

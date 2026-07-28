@@ -2,29 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Lock, 
-  Moon, 
-  Sun, 
-  Database, 
-  Bell, 
   Shield, 
   Save, 
   Camera, 
   LogOut,
   Trash2,
-  Download,
-  Upload,
   CheckCircle,
   Eye,
   EyeOff,
   Clock,
-  Mail,
-  Phone,
-  FileText,
   AlertCircle,
   Check,
   X,
   Loader,
-  AlertTriangle
+  AlertTriangle,
+  Edit2,
+  Save as SaveIcon,
+  XCircle,
+  Gift,
+  Package,
+  RefreshCw,
+  Droplet,
+  Beer
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import toast from 'react-hot-toast';
@@ -127,7 +126,280 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, loading
   );
 };
 
-export default function Settings({ userRole = 'admin', userData = {}, onLogout }) {
+// Bottle Points Configuration Component
+const BottlePointsConfig = ({ 
+  bottle1500Points, 
+  petBottlePoints, 
+  editingBottle, 
+  editingPoints, 
+  setEditingPoints, 
+  startEditing, 
+  cancelEditing, 
+  handleUpdateBottlePoints,
+  loadingRewards,
+  onRefresh 
+}) => {
+  if (loadingRewards) {
+    return (
+      <SettingSection title="Bottle Points Configuration" icon={Package}>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-3"></div>
+          <p className="text-gray-500">Loading bottle points...</p>
+        </div>
+      </SettingSection>
+    );
+  }
+
+  return (
+    <SettingSection title="Bottle Points Configuration" icon={Package}>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Set how many points students earn for each bottle type
+          </p>
+          <button
+            onClick={onRefresh}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition flex items-center gap-2"
+          >
+            <RefreshCw size={16} /> Refresh
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* 1.5L Bottle */}
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-3xl">🥤</span>
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-gray-800 dark:text-gray-200">1.5L Bottle</h4>
+                  <p className="text-xs text-gray-500">Large plastic bottle</p>
+                </div>
+              </div>
+              {!editingBottle && (
+                <button
+                  onClick={() => startEditing('1.5l')}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                >
+                  <Edit2 size={20} />
+                </button>
+              )}
+            </div>
+            
+            {editingBottle === '1.5l' ? (
+              <div className="flex items-center gap-2 mt-4">
+                <input
+                  type="number"
+                  value={editingPoints}
+                  onChange={(e) => setEditingPoints(e.target.value)}
+                  className="flex-1 px-4 py-3 text-lg border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="Enter points"
+                  min="1"
+                  autoFocus
+                />
+                <button
+                  onClick={() => handleUpdateBottlePoints('1.5l', editingPoints)}
+                  className="p-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
+                >
+                  <SaveIcon size={20} />
+                </button>
+                <button
+                  onClick={cancelEditing}
+                  className="p-3 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition"
+                >
+                  <XCircle size={20} />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Points per bottle:</p>
+                <p className="text-4xl font-bold text-green-600">
+                  {bottle1500Points} points
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* PET Bottle */}
+          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-6 border-2 border-blue-200 dark:border-blue-800">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-3xl">🍾</span>
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-gray-800 dark:text-gray-200">PET Bottle</h4>
+                  <p className="text-xs text-gray-500">Regular plastic bottle</p>
+                </div>
+              </div>
+              {!editingBottle && (
+                <button
+                  onClick={() => startEditing('pet')}
+                  className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                >
+                  <Edit2 size={20} />
+                </button>
+              )}
+            </div>
+            
+            {editingBottle === 'pet' ? (
+              <div className="flex items-center gap-2 mt-4">
+                <input
+                  type="number"
+                  value={editingPoints}
+                  onChange={(e) => setEditingPoints(e.target.value)}
+                  className="flex-1 px-4 py-3 text-lg border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter points"
+                  min="1"
+                  autoFocus
+                />
+                <button
+                  onClick={() => handleUpdateBottlePoints('pet', editingPoints)}
+                  className="p-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
+                >
+                  <SaveIcon size={20} />
+                </button>
+                <button
+                  onClick={cancelEditing}
+                  className="p-3 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition"
+                >
+                  <XCircle size={20} />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Points per bottle:</p>
+                <p className="text-4xl font-bold text-blue-600">
+                  {petBottlePoints} points
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
+          <p className="text-sm text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
+            <AlertCircle size={18} />
+            These points will be awarded to students when they recycle each bottle type.
+            Changes take effect immediately.
+          </p>
+        </div>
+      </div>
+    </SettingSection>
+  );
+};
+
+// Machine Rewards Configuration Component
+const MachineRewardsConfig = ({ rewards, loadingRewards, editingReward, editingPoints, setEditingPoints, startEditing, cancelEditing, handleUpdatePoints, onRefresh }) => {
+  // Filter rewards that are for the machine (excluding bottle rewards)
+  const machineRewards = rewards?.filter(r => 
+    !r?.name?.toLowerCase().includes('bottle') &&
+    !r?.name?.toLowerCase().includes('1.5') &&
+    !r?.name?.toLowerCase().includes('pet')
+  ) || [];
+
+  if (loadingRewards) {
+    return (
+      <SettingSection title="Machine Rewards Configuration" icon={Gift}>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-3"></div>
+          <p className="text-gray-500">Loading rewards...</p>
+        </div>
+      </SettingSection>
+    );
+  }
+
+  return (
+    <SettingSection title="Machine Rewards Configuration" icon={Gift}>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Set how many points are required to claim each reward
+          </p>
+          <button
+            onClick={onRefresh}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition flex items-center gap-2"
+          >
+            <RefreshCw size={16} /> Refresh
+          </button>
+        </div>
+        
+        {machineRewards.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+            <Gift size={64} className="text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No rewards found</p>
+            <p className="text-sm text-gray-400 mt-2">Add rewards in the Rewards Management page</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {machineRewards.map((reward) => (
+              <div key={reward._id} className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-5 border-2 border-purple-200 dark:border-purple-800">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <Gift size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 dark:text-gray-200 text-lg">{reward.name}</h4>
+                      {reward.stock !== undefined && (
+                        <p className="text-xs text-gray-500">Stock: {reward.stock}</p>
+                      )}
+                    </div>
+                  </div>
+                  {editingReward !== reward._id && (
+                    <button
+                      onClick={() => startEditing(reward)}
+                      className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                  )}
+                </div>
+                
+                {editingReward === reward._id ? (
+                  <div className="flex items-center gap-2 mt-3">
+                    <input
+                      type="number"
+                      value={editingPoints}
+                      onChange={(e) => setEditingPoints(e.target.value)}
+                      className="flex-1 px-3 py-2 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      placeholder="Enter points"
+                      min="1"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => handleUpdatePoints(reward._id, editingPoints)}
+                      className="p-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
+                    >
+                      <SaveIcon size={18} />
+                    </button>
+                    <button
+                      onClick={cancelEditing}
+                      className="p-2 bg-gray-300 text-gray-700 rounded-xl hover:bg-gray-400 transition"
+                    >
+                      <XCircle size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-3 pt-3 border-t border-purple-200 dark:border-purple-700">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Points required:</p>
+                    <p className="text-3xl font-bold text-purple-600">
+                      {reward.pointsRequired || 0} points
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </SettingSection>
+  );
+};
+
+export default function Settings({ userRole = 'admin', userData = {}, onLogout, customProps }) {
   const { darkMode, toggleDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
   const [saving, setSaving] = useState(false);
@@ -165,25 +437,14 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
   
   const [passwordStrength, setPasswordStrength] = useState({ strength: 0, text: '', color: '' });
   const [userId, setUserId] = useState(null);
-
-  const [notifications, setNotifications] = useState({
-    emailAlerts: true,
-    pushNotifications: true,
-    lowStockAlerts: true,
-    redemptionAlerts: true,
-    weeklyReports: false,
-    marketingEmails: false
-  });
-  
-  const [security, setSecurity] = useState({
-    twoFactorAuth: false,
-    sessionTimeout: '30',
-    loginNotifications: true
-  });
-  
   const [recentActivity, setRecentActivity] = useState([]);
+  
+  // Bottle points state
+  const [bottle1500Points, setBottle1500Points] = useState(8);
+  const [petBottlePoints, setPetBottlePoints] = useState(5);
+  const [editingBottle, setEditingBottle] = useState(null);
+  const [editingPoints, setEditingPoints] = useState('');
 
-  // Helper function to compress image before upload
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -229,12 +490,9 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     });
   };
 
-  // Function to update avatar everywhere (Settings + Sidebar)
   const updateGlobalAvatar = (newAvatarUrl) => {
-    // Update local state
     setAvatarUrl(newAvatarUrl);
     
-    // Update localStorage
     const userStr = localStorage.getItem('rebot_user');
     if (userStr) {
       const user = JSON.parse(userStr);
@@ -242,11 +500,70 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
       localStorage.setItem('rebot_user', JSON.stringify(user));
     }
     
-    // Dispatch a custom event so Layout component can update
     window.dispatchEvent(new CustomEvent('avatarUpdated', { detail: { avatarUrl: newAvatarUrl } }));
   };
 
-  // Fetch user profile from server
+  // Load bottle points from localStorage or API
+  useEffect(() => {
+    const loadBottlePoints = () => {
+      const saved1500 = localStorage.getItem('bottle_1500_points');
+      const savedPet = localStorage.getItem('bottle_pet_points');
+      
+      if (saved1500) setBottle1500Points(parseInt(saved1500));
+      if (savedPet) setPetBottlePoints(parseInt(savedPet));
+    };
+    
+    loadBottlePoints();
+  }, []);
+
+  // Save bottle points to localStorage
+  const saveBottlePoints = (type, points) => {
+    if (type === '1.5l') {
+      setBottle1500Points(points);
+      localStorage.setItem('bottle_1500_points', points.toString());
+    } else if (type === 'pet') {
+      setPetBottlePoints(points);
+      localStorage.setItem('bottle_pet_points', points.toString());
+    }
+  };
+
+  const handleUpdateBottlePoints = async (type, newPoints) => {
+    const points = parseInt(newPoints);
+    if (isNaN(points) || points < 1) {
+      toast.error('Please enter a valid number greater than 0');
+      return;
+    }
+    
+    // Save to localStorage
+    saveBottlePoints(type, points);
+    
+    // You can also send to API if needed
+    // try {
+    //   const token = localStorage.getItem('token');
+    //   await fetch('http://localhost:5000/api/settings/bottle-points', {
+    //     method: 'PUT',
+    //     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    //     body: JSON.stringify({ type, points })
+    //   });
+    // } catch (error) {
+    //   console.error('Error saving bottle points:', error);
+    // }
+    
+    toast.success(`${type === '1.5l' ? '1.5L Bottle' : 'PET Bottle'} points updated to ${points} points!`);
+    setEditingBottle(null);
+    setEditingPoints('');
+  };
+
+  const startEditingBottle = (type) => {
+    setEditingBottle(type);
+    setEditingPoints(type === '1.5l' ? bottle1500Points.toString() : petBottlePoints.toString());
+  };
+
+  const cancelEditingBottle = () => {
+    setEditingBottle(null);
+    setEditingPoints('');
+  };
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -329,7 +646,6 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     setPasswordStrength({ strength, text, color });
   };
 
-  // AVATAR UPLOAD FUNCTION - Updates in real-time
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -361,7 +677,6 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
       const data = await response.json();
       
       if (data.success) {
-        // Update avatar everywhere without refresh
         updateGlobalAvatar(data.avatarUrl);
         toast.success('Avatar updated successfully!');
       } else {
@@ -375,7 +690,6 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     }
   };
 
-  // DELETE AVATAR FUNCTION - Updates in real-time
   const handleRemoveAvatar = async () => {
     setRemovingAvatar(true);
     
@@ -389,7 +703,6 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
       const data = await response.json();
       
       if (data.success) {
-        // Update avatar everywhere without refresh (set to null)
         updateGlobalAvatar(null);
         toast.success('Avatar removed successfully');
         setShowRemoveModal(false);
@@ -404,7 +717,6 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     }
   };
 
-  // UPDATE PROFILE FUNCTION
   const handleProfileUpdate = async () => {
     if (!profile.fullName || !profile.email) {
       toast.error('Please fill all required fields');
@@ -453,7 +765,6 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     }
   };
 
-  // CHANGE PASSWORD FUNCTION
   const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error('Please fill all password fields');
@@ -518,62 +829,18 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
       setSaving(false);
     }
   };
-  
-  const handleExportData = () => {
-    const exportData = {
-      user: profile,
-      settings: { notifications, security },
-      exportDate: new Date().toISOString(),
-      version: '1.0'
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rebot_export_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Data exported successfully!');
-  };
-  
-  const handleImportData = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const importedData = JSON.parse(event.target.result);
-          if (importedData.user) {
-            setProfile(importedData.user);
-            toast.success('Data imported successfully!');
-          } else {
-            toast.error('Invalid file format');
-          }
-        } catch (error) {
-          toast.error('Invalid file format');
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
-  
-  const handleResetAll = () => {
-    if (window.confirm('⚠️ WARNING: This will reset all settings to default. This action cannot be undone. Are you sure?')) {
-      toast.success('Settings reset to default');
-    }
-  };
 
   // Tabs
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'data', label: 'Data Management', icon: Database },
+    { id: 'security', label: 'Security', icon: Lock },
     { id: 'activity', label: 'Activity Log', icon: Clock }
   ];
   
   if (userRole === 'admin') {
-    tabs.splice(3, 0, { id: 'system', label: 'System', icon: SettingsIcon });
+    tabs.push({ id: 'bottle-points', label: 'Bottle Points', icon: Package });
+    tabs.push({ id: 'machine-rewards', label: 'Machine Rewards', icon: Gift });
+    tabs.push({ id: 'system', label: 'System', icon: SettingsIcon });
   }
 
   if (loading) {
@@ -584,9 +851,14 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
     );
   }
 
+  const handleRefreshRewards = () => {
+    if (customProps?.fetchRewards) {
+      customProps.fetchRewards();
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Confirmation Modal for Avatar Removal */}
       <ConfirmationModal
         isOpen={showRemoveModal}
         onClose={() => setShowRemoveModal(false)}
@@ -717,7 +989,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
       
       {/* Security Tab */}
       {activeTab === 'security' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="max-w-2xl mx-auto">
           <SettingSection title="Change Password" icon={Lock}>
             <div className="space-y-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
@@ -841,151 +1113,44 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
               </button>
             </div>
           </SettingSection>
-          
-          <SettingSection title="Two-Factor Authentication" icon={Shield}>
-            <div className="space-y-4">
-              <SettingRow label="Enable 2FA" description="Add an extra layer of security">
-                <button
-                  onClick={() => setSecurity({ ...security, twoFactorAuth: !security.twoFactorAuth })}
-                  className={`w-12 h-6 rounded-full transition-all ${
-                    security.twoFactorAuth ? 'bg-green-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                    security.twoFactorAuth ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
-              </SettingRow>
-              <SettingRow label="Session Timeout" description="Auto logout after inactivity">
-                <select
-                  value={security.sessionTimeout}
-                  onChange={(e) => setSecurity({ ...security, sessionTimeout: e.target.value })}
-                  className="px-3 py-1 border rounded-lg bg-white"
-                >
-                  <option value="15">15 minutes</option>
-                  <option value="30">30 minutes</option>
-                  <option value="60">1 hour</option>
-                  <option value="120">2 hours</option>
-                </select>
-              </SettingRow>
-              <SettingRow label="Login Notifications" description="Email me on new login">
-                <button
-                  onClick={() => setSecurity({ ...security, loginNotifications: !security.loginNotifications })}
-                  className={`w-12 h-6 rounded-full transition-all ${
-                    security.loginNotifications ? 'bg-green-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                    security.loginNotifications ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
-              </SettingRow>
-            </div>
-          </SettingSection>
         </div>
       )}
       
-      {/* Notifications Tab */}
-      {activeTab === 'notifications' && (
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <h3 className="font-semibold mb-4">Notification Preferences</h3>
-          <div className="space-y-4">
-            <SettingRow label="Email Alerts" description="Receive notifications via email">
-              <button
-                onClick={() => setNotifications({ ...notifications, emailAlerts: !notifications.emailAlerts })}
-                className={`w-12 h-6 rounded-full transition-all ${
-                  notifications.emailAlerts ? 'bg-green-600' : 'bg-gray-300'
-                }`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  notifications.emailAlerts ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            </SettingRow>
-            <SettingRow label="Push Notifications" description="Browser notifications">
-              <button
-                onClick={() => setNotifications({ ...notifications, pushNotifications: !notifications.pushNotifications })}
-                className={`w-12 h-6 rounded-full transition-all ${
-                  notifications.pushNotifications ? 'bg-green-600' : 'bg-gray-300'
-                }`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  notifications.pushNotifications ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            </SettingRow>
-            <SettingRow label="Low Stock Alerts" description="Notify when inventory is low">
-              <button
-                onClick={() => setNotifications({ ...notifications, lowStockAlerts: !notifications.lowStockAlerts })}
-                className={`w-12 h-6 rounded-full transition-all ${
-                  notifications.lowStockAlerts ? 'bg-green-600' : 'bg-gray-300'
-                }`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  notifications.lowStockAlerts ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            </SettingRow>
-            <SettingRow label="Redemption Alerts" description="Notify when students redeem rewards">
-              <button
-                onClick={() => setNotifications({ ...notifications, redemptionAlerts: !notifications.redemptionAlerts })}
-                className={`w-12 h-6 rounded-full transition-all ${
-                  notifications.redemptionAlerts ? 'bg-green-600' : 'bg-gray-300'
-                }`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  notifications.redemptionAlerts ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            </SettingRow>
-            <SettingRow label="Weekly Reports" description="Receive weekly summary reports">
-              <button
-                onClick={() => setNotifications({ ...notifications, weeklyReports: !notifications.weeklyReports })}
-                className={`w-12 h-6 rounded-full transition-all ${
-                  notifications.weeklyReports ? 'bg-green-600' : 'bg-gray-300'
-                }`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                  notifications.weeklyReports ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            </SettingRow>
-          </div>
-        </div>
+      {/* Bottle Points Tab (Admin Only) */}
+      {activeTab === 'bottle-points' && userRole === 'admin' && (
+        <BottlePointsConfig
+          bottle1500Points={bottle1500Points}
+          petBottlePoints={petBottlePoints}
+          editingBottle={editingBottle}
+          editingPoints={editingPoints}
+          setEditingPoints={setEditingPoints}
+          startEditing={startEditingBottle}
+          cancelEditing={cancelEditingBottle}
+          handleUpdateBottlePoints={handleUpdateBottlePoints}
+          loadingRewards={false}
+          onRefresh={() => {
+            const saved1500 = localStorage.getItem('bottle_1500_points');
+            const savedPet = localStorage.getItem('bottle_pet_points');
+            if (saved1500) setBottle1500Points(parseInt(saved1500));
+            if (savedPet) setPetBottlePoints(parseInt(savedPet));
+            toast.success('Points refreshed!');
+          }}
+        />
       )}
       
-      {/* Data Management Tab */}
-      {activeTab === 'data' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <SettingSection title="Backup & Restore" icon={Database}>
-            <div className="space-y-3">
-              <button onClick={handleExportData} className="w-full px-4 py-3 border border-green-600 text-green-600 rounded-xl font-medium hover:bg-green-50 transition flex items-center justify-center gap-2">
-                <Download size={18} /> Export All Data
-              </button>
-              <label className="w-full px-4 py-3 border border-blue-600 text-blue-600 rounded-xl font-medium hover:bg-blue-50 transition flex items-center justify-center gap-2 cursor-pointer">
-                <Upload size={18} /> Import from File
-                <input type="file" accept=".json" onChange={handleImportData} className="hidden" />
-              </label>
-              <button onClick={handleResetAll} className="w-full px-4 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl font-medium transition flex items-center justify-center gap-2 shadow-md">
-                <Trash2 size={18} /> Reset All Settings
-              </button>
-              <p className="text-xs text-gray-500 text-center mt-3">
-                ⚠️ Reset will clear your preferences. Make sure to backup first.
-              </p>
-            </div>
-          </SettingSection>
-          
-          <SettingSection title="Account Actions" icon={LogOut}>
-            <div className="space-y-3">
-              <button onClick={() => toast.success('Download started...')} className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition flex items-center justify-center gap-2">
-                <FileText size={18} /> Download Activity Log
-              </button>
-              <button onClick={onLogout} className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-medium transition flex items-center justify-center gap-2 shadow-md">
-                <LogOut size={18} /> Logout from All Devices
-              </button>
-            </div>
-          </SettingSection>
-        </div>
+      {/* Machine Rewards Tab (Admin Only) */}
+      {activeTab === 'machine-rewards' && userRole === 'admin' && customProps && (
+        <MachineRewardsConfig
+          rewards={customProps.rewards || []}
+          loadingRewards={customProps.loadingRewards || false}
+          editingReward={customProps.editingReward}
+          editingPoints={customProps.editingPoints}
+          setEditingPoints={customProps.setEditingPoints}
+          startEditing={customProps.startEditing}
+          cancelEditing={customProps.cancelEditing}
+          handleUpdatePoints={customProps.handleUpdatePoints}
+          onRefresh={handleRefreshRewards}
+        />
       )}
       
       {/* Activity Log Tab */}
@@ -1019,18 +1184,33 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout }
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SettingSection title="System Configuration" icon={SettingsIcon}>
             <div className="space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Bottles per Point</label><input type="number" value="5" className="w-full px-4 py-2 border rounded-xl" /></div>
-              <div><label className="block text-sm font-medium mb-1">Paper (g) per Point</label><input type="number" value="50" className="w-full px-4 py-2 border rounded-xl" /></div>
-              <div><label className="block text-sm font-medium mb-1">Low Stock Threshold</label><input type="number" value="20" className="w-full px-4 py-2 border rounded-xl" /></div>
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-semibold transition shadow-md">Save System Settings</button>
+              <div>
+                <label className="block text-sm font-medium mb-1">Default Bottle Points</label>
+                <input type="number" defaultValue="5" className="w-full px-4 py-2 border rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Default Paper Points</label>
+                <input type="number" defaultValue="50" className="w-full px-4 py-2 border rounded-xl" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Low Stock Threshold</label>
+                <input type="number" defaultValue="20" className="w-full px-4 py-2 border rounded-xl" />
+              </div>
+              <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-semibold transition shadow-md">
+                Save System Settings
+              </button>
             </div>
           </SettingSection>
           <SettingSection title="Maintenance" icon={SettingsIcon}>
             <SettingRow label="Maintenance Mode" description="Put site under maintenance">
-              <button className="w-12 h-6 rounded-full bg-gray-300"><div className="w-5 h-5 bg-white rounded-full translate-x-1" /></button>
+              <button className="w-12 h-6 rounded-full bg-gray-300">
+                <div className="w-5 h-5 bg-white rounded-full translate-x-1" />
+              </button>
             </SettingRow>
             <SettingRow label="Auto Backup" description="Automatic daily backups">
-              <button className="w-12 h-6 rounded-full bg-green-600"><div className="w-5 h-5 bg-white rounded-full translate-x-6" /></button>
+              <button className="w-12 h-6 rounded-full bg-green-600">
+                <div className="w-5 h-5 bg-white rounded-full translate-x-6" />
+              </button>
             </SettingRow>
           </SettingSection>
         </div>
