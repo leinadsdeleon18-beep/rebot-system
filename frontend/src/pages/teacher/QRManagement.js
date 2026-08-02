@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { QrCode, Download, Search, Printer, Grid, List, Copy, FileText } from 'lucide-react';
+import { QrCode, Download, Search, Printer, Grid, List, Copy, FileText, Users, School } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// API Base URL
+const API_BASE = 'http://localhost:5000/api';
 
 export default function QRManagement() {
   const [students, setStudents] = useState([]);
@@ -9,22 +12,27 @@ export default function QRManagement() {
   const [selectedGrade, setSelectedGrade] = useState('all');
   const [loading, setLoading] = useState(true);
   const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
-  const [teacherInfo, setTeacherInfo] = useState({ fullName: '', assignedGrades: [] });
+  const [teacherAssignedSections, setTeacherAssignedSections] = useState([]);
+  const [teacherInfo, setTeacherInfo] = useState({ fullName: '', assignedGrades: [], assignedSections: [] });
+  const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('rebot_user') || '{}');
     setTeacherInfo({
       fullName: user.fullName || 'Teacher',
-      assignedGrades: user.assignedGrades || []
+      assignedGrades: user.assignedGrades || [],
+      assignedSections: user.assignedSections || []
     });
     setTeacherAssignedGrades(user.assignedGrades || []);
+    setTeacherAssignedSections(user.assignedSections || []);
+    setUserRole(user.role || '');
     fetchStudents();
   }, []);
 
   // Listen for section updates
   useEffect(() => {
     const handleSectionsUpdate = () => {
-      console.log('Sections updated, refreshing QR codes...');
+      console.log('📋 Sections updated, refreshing QR codes...');
       fetchStudents();
     };
     
@@ -36,22 +44,27 @@ export default function QRManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students', {
+      const response = await fetch(`${API_BASE}/students`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      console.log('Students for QR:', data);
+      console.log('📡 Students for QR:', data);
       
       if (data.success) {
         const formattedStudents = data.students.map(s => {
           let sectionName = 'N/A';
           let gradeLevel = s.grade || 'N/A';
+          let sectionId = null;
           
           if (s.sectionName) {
             sectionName = s.sectionName;
+            sectionId = s.sectionId;
           } else if (s.section && typeof s.section === 'object') {
             sectionName = s.section.sectionName || 'N/A';
             gradeLevel = s.section.gradeLevel || s.grade || 'N/A';
+            sectionId = s.section._id;
+          } else if (s.section && typeof s.section === 'string') {
+            sectionId = s.section;
           }
           
           return {
@@ -60,6 +73,7 @@ export default function QRManagement() {
             name: s.fullName,
             grade: gradeLevel,
             section: sectionName,
+            sectionId: sectionId,
             points: s.points || 0,
             qrCodeData: s.qrCodeData
           };
@@ -67,7 +81,7 @@ export default function QRManagement() {
         setStudents(formattedStudents);
       }
     } catch (error) {
-      console.error('Error fetching students:', error);
+      console.error('❌ Error fetching students:', error);
       toast.error('Failed to load students');
     } finally {
       setLoading(false);
@@ -77,7 +91,7 @@ export default function QRManagement() {
   const handleDownloadSingle = async (student) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${student.id}/qrcode`, {
+      const response = await fetch(`${API_BASE}/students/${student.id}/qrcode`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -108,7 +122,7 @@ export default function QRManagement() {
     for (const student of filteredStudents) {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:5000/api/students/${student.id}/qrcode`, {
+        const response = await fetch(`${API_BASE}/students/${student.id}/qrcode`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -181,33 +195,71 @@ export default function QRManagement() {
     toast.success('Student ID copied to clipboard!');
   };
 
-  // Filter students based on teacher's assigned grades
+  // Filter students based on teacher's assigned grades/sections
   const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = searchTerm === '' || 
+      student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrade = selectedGrade === 'all' || student.grade === selectedGrade;
     
-    // Teacher filtering based on assigned grades
-    let matchesTeacherGrade = true;
-    if (teacherAssignedGrades.length > 0) {
-      matchesTeacherGrade = teacherAssignedGrades.includes(student.grade);
+    // Teacher filtering based on assigned grades or sections
+    let matchesTeacherAccess = true;
+    
+    if (userRole === 'teacher') {
+      // Check if teacher has assigned sections
+      if (teacherAssignedSections && teacherAssignedSections.length > 0) {
+        // Only show students whose section ID is in the teacher's assigned sections
+        matchesTeacherAccess = student.sectionId && teacherAssignedSections.includes(student.sectionId);
+      } 
+      // Fallback to grade-based filtering if no sections assigned
+      else if (teacherAssignedGrades && teacherAssignedGrades.length > 0) {
+        matchesTeacherAccess = teacherAssignedGrades.includes(student.grade);
+      }
     }
     
-    return matchesSearch && matchesGrade && matchesTeacherGrade;
+    return matchesSearch && matchesGrade && matchesTeacherAccess;
   });
 
   // Get unique grades for filter (only from visible students)
   const uniqueGrades = ['all', ...new Set(filteredStudents.map(s => s.grade).filter(g => g !== 'N/A'))];
 
-  // Display assigned grades info
-  const assignedGradesText = teacherAssignedGrades.length > 0 
-    ? teacherAssignedGrades.join(', ') 
-    : 'All Grades';
+  // Display assigned info
+  const assignedInfo = () => {
+    if (userRole !== 'teacher') return 'All Sections (Admin)';
+    
+    if (teacherAssignedSections && teacherAssignedSections.length > 0) {
+      return `${teacherAssignedSections.length} assigned section(s)`;
+    }
+    if (teacherAssignedGrades && teacherAssignedGrades.length > 0) {
+      return `Grades: ${teacherAssignedGrades.join(', ')}`;
+    }
+    return 'No sections or grades assigned';
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  // Show message if teacher has no assigned grades/sections
+  if (userRole === 'teacher' && teacherAssignedGrades.length === 0 && teacherAssignedSections.length === 0) {
+    return (
+      <div className="bg-yellow-50 rounded-2xl p-8 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+            <School size={32} className="text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-yellow-800">No Grades or Sections Assigned</h2>
+          <p className="text-yellow-700 max-w-md">
+            You don't have any grades or sections assigned to your account yet.
+          </p>
+          <p className="text-sm text-yellow-600">
+            Please contact the administrator to assign grade levels or sections to your account.
+          </p>
+        </div>
       </div>
     );
   }
@@ -218,7 +270,8 @@ export default function QRManagement() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">QR Code Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Generate and manage student QR codes - You have access to: <span className="font-semibold text-green-600">{assignedGradesText}</span>
+            Generate and manage student QR codes - 
+            <span className="font-semibold text-green-600 ml-1">{assignedInfo()}</span>
           </p>
         </div>
         <div className="flex gap-3">
@@ -253,20 +306,27 @@ export default function QRManagement() {
             ))}
           </select>
           <div className="flex border border-gray-300 rounded-xl overflow-hidden">
-            <button onClick={() => setViewMode('grid')} className={`px-3 py-2 transition ${viewMode === 'grid' ? 'bg-green-600 text-white' : 'bg-white text-gray-600'}`}>
+            <button 
+              onClick={() => setViewMode('grid')} 
+              className={`px-3 py-2 transition ${viewMode === 'grid' ? 'bg-green-600 text-white' : 'bg-white text-gray-600'}`}
+            >
               <Grid size={18} />
             </button>
-            <button onClick={() => setViewMode('list')} className={`px-3 py-2 transition ${viewMode === 'list' ? 'bg-green-600 text-white' : 'bg-white text-gray-600'}`}>
+            <button 
+              onClick={() => setViewMode('list')} 
+              className={`px-3 py-2 transition ${viewMode === 'list' ? 'bg-green-600 text-white' : 'bg-white text-gray-600'}`}
+            >
               <List size={18} />
             </button>
           </div>
         </div>
       </div>
 
-      {filteredStudents.length === 0 && teacherAssignedGrades.length > 0 && (
+      {filteredStudents.length === 0 && userRole === 'teacher' && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
           <p className="text-yellow-700">
-            No students found in your assigned grades: {assignedGradesText}
+            No students found in your assigned {teacherAssignedSections.length > 0 ? 'sections' : 'grades'}.
+            {teacherAssignedGrades.length > 0 && ` Assigned grades: ${teacherAssignedGrades.join(', ')}`}
           </p>
         </div>
       )}
@@ -346,7 +406,13 @@ export default function QRManagement() {
             <h4 className="font-semibold text-blue-800">About QR Codes</h4>
             <p className="text-sm text-blue-700 mt-1">
               Student QR codes are used for quick identification. Each code is unique to the student and contains their student ID.
-              {teacherAssignedGrades.length > 0 && ` You only have access to students in: ${assignedGradesText}`}
+              {userRole === 'teacher' && (
+                <span className="block mt-1">
+                  You only have access to students in your assigned {teacherAssignedSections.length > 0 ? 'sections' : 'grades'}.
+                  {teacherAssignedSections.length > 0 && ` You have ${teacherAssignedSections.length} section(s) assigned.`}
+                  {teacherAssignedGrades.length > 0 && ` Assigned grades: ${teacherAssignedGrades.join(', ')}`}
+                </span>
+              )}
             </p>
           </div>
         </div>

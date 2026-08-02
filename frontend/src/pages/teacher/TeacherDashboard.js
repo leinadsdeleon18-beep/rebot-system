@@ -4,7 +4,7 @@ import {
   TrendingUp, Award, BarChart3, PieChart, Trophy, Target, 
   Activity, Crown, Medal, AlertCircle, CheckCircle,
   RefreshCw, Printer, Download, Eye, BadgeCheck, Sparkles, X, Settings, Save,
-  School
+  School, BookOpen
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -15,6 +15,9 @@ ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement, 
   BarElement, ArcElement, Title, Tooltip, Legend, Filler
 );
+
+// API Base URL
+const API_BASE = 'http://localhost:5000/api';
 
 // Custom Certificate Icon
 const CertificateIcon = ({ size = 18, className = "" }) => (
@@ -40,14 +43,15 @@ const CertificateIcon = ({ size = 18, className = "" }) => (
 
 export default function TeacherDashboard() {
   const [stats, setStats] = useState({ totalStudents: 0, totalPoints: 0, activeStudents: 0 });
-  const [students, setStudents] = useState([]);
+  const [allStudents, setAllStudents] = useState([]); // Raw data from API
+  const [filteredStudentsList, setFilteredStudentsList] = useState([]); // Filtered by teacher access
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [teacherInfo, setTeacherInfo] = useState({ fullName: '', assignedGrades: [] });
+  const [teacherInfo, setTeacherInfo] = useState({ fullName: '', assignedGrades: [], assignedSections: [] });
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -67,6 +71,9 @@ export default function TeacherDashboard() {
   const [availableSections, setAvailableSections] = useState([]);
   const [certificateData, setCertificateData] = useState(null);
   const [reportData, setReportData] = useState(null);
+  const [userRole, setUserRole] = useState('');
+  const [teacherAssignedSections, setTeacherAssignedSections] = useState([]);
+  const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
 
   // Badge definitions
   const badges = [
@@ -141,24 +148,24 @@ export default function TeacherDashboard() {
 
   // Generate Progress Report Data
   const generateProgressReport = () => {
-    if (students.length === 0) {
+    if (filteredStudentsList.length === 0) {
       toast.error('No students to generate report');
       return;
     }
     
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    const totalPoints = students.reduce((sum, s) => sum + s.points, 0);
-    const avgPoints = students.length > 0 ? Math.round(totalPoints / students.length) : 0;
+    const totalPoints = filteredStudentsList.reduce((sum, s) => sum + s.points, 0);
+    const avgPoints = filteredStudentsList.length > 0 ? Math.round(totalPoints / filteredStudentsList.length) : 0;
     const goalProgress = getGoalProgress();
     
     const gradeDistribution = {};
-    students.forEach(s => { gradeDistribution[s.grade] = (gradeDistribution[s.grade] || 0) + 1; });
+    filteredStudentsList.forEach(s => { gradeDistribution[s.grade] = (gradeDistribution[s.grade] || 0) + 1; });
     
     let totalBadges = 0;
-    students.forEach(s => { totalBadges += getStudentBadges(s.points).length; });
+    filteredStudentsList.forEach(s => { totalBadges += getStudentBadges(s.points).length; });
     
     setReportData({
-      students,
+      students: filteredStudentsList,
       totalPoints,
       avgPoints,
       goalProgress,
@@ -175,7 +182,7 @@ export default function TeacherDashboard() {
   const fetchTeacherSections = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students/teacher/sections', {
+      const response = await fetch(`${API_BASE}/students/teacher/sections`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -189,16 +196,35 @@ export default function TeacherDashboard() {
     }
   }, []);
 
+  // Check if student is accessible to the teacher
+  const isStudentAccessible = useCallback((student) => {
+    if (userRole !== 'teacher') return true;
+    
+    // Check assigned sections first
+    if (teacherAssignedSections && teacherAssignedSections.length > 0) {
+      return student.sectionId && teacherAssignedSections.includes(student.sectionId);
+    }
+    
+    // Fallback to grades
+    if (teacherAssignedGrades && teacherAssignedGrades.length > 0) {
+      return teacherAssignedGrades.includes(student.grade);
+    }
+    
+    return false;
+  }, [userRole, teacherAssignedSections, teacherAssignedGrades]);
+
   // Fetch students
   const fetchStudents = useCallback(async () => {
     if (!isDataLoaded) return;
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students', {
+      const response = await fetch(`${API_BASE}/students`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
+      
+      console.log('📡 Students API Response:', data);
       
       if (data.success) {
         const formatted = data.students.map(s => {
@@ -212,6 +238,9 @@ export default function TeacherDashboard() {
             sectionId = s.section._id;
           } else if (s.sectionName) {
             sectionName = s.sectionName;
+            sectionId = s.sectionId;
+          } else if (s.section && typeof s.section === 'string') {
+            sectionId = s.section;
           }
           
           return {
@@ -223,16 +252,23 @@ export default function TeacherDashboard() {
             points: s.points || 0,
             studentId: s.studentId,
             email: s.email,
-            lastActive: new Date(s.createdAt).toISOString().split('T')[0]
+            lastActive: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : 'N/A'
           };
         });
-        setStudents(formatted);
         
-        const totalPoints = formatted.reduce((sum, s) => sum + s.points, 0);
+        // Store all students
+        setAllStudents(formatted);
+        
+        // Filter students based on teacher access
+        const accessibleStudents = formatted.filter(student => isStudentAccessible(student));
+        setFilteredStudentsList(accessibleStudents);
+        
+        // Calculate stats based on accessible students only
+        const totalPoints = accessibleStudents.reduce((sum, s) => sum + s.points, 0);
         setStats({
-          totalStudents: formatted.length,
+          totalStudents: accessibleStudents.length,
           totalPoints: totalPoints,
-          activeStudents: formatted.length
+          activeStudents: accessibleStudents.length // Assuming all are active for now
         });
         
         if (teacherId) {
@@ -241,6 +277,7 @@ export default function TeacherDashboard() {
         
         await fetchTeacherSections();
         
+        // Generate recent activities
         const activities = [
           { icon: '⭐', message: 'earned points', color: 'bg-yellow-100 text-yellow-700' },
           { icon: '♻️', message: 'recycled items', color: 'bg-green-100 text-green-700' },
@@ -248,7 +285,7 @@ export default function TeacherDashboard() {
         ];
         const recent = [];
         for (let i = 0; i < 5; i++) {
-          const randomStudent = formatted[Math.floor(Math.random() * formatted.length)];
+          const randomStudent = accessibleStudents[Math.floor(Math.random() * accessibleStudents.length)];
           const randomActivity = activities[Math.floor(Math.random() * activities.length)];
           if (randomStudent) {
             recent.push({
@@ -267,7 +304,7 @@ export default function TeacherDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [isDataLoaded, teacherId, fetchTeacherSections]);
+  }, [isDataLoaded, teacherId, fetchTeacherSections, isStudentAccessible]);
 
   // Load user data
   useEffect(() => {
@@ -284,9 +321,14 @@ export default function TeacherDashboard() {
           const user = JSON.parse(userStr);
           setTeacherInfo({
             fullName: user.fullName || 'Teacher',
-            assignedGrades: user.assignedGrades || []
+            assignedGrades: user.assignedGrades || [],
+            assignedSections: user.assignedSections || []
           });
           setTeacherId(user.id);
+          setUserRole(user.role || '');
+          setTeacherAssignedSections(user.assignedSections || []);
+          setTeacherAssignedGrades(user.assignedGrades || []);
+          
           if (user.assignedGrades?.length > 0) {
             setFormData(prev => ({ ...prev, grade: user.assignedGrades[0] }));
           }
@@ -342,7 +384,7 @@ export default function TeacherDashboard() {
     setIsAddingStudent(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students', {
+      const response = await fetch(`${API_BASE}/students`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -377,7 +419,7 @@ export default function TeacherDashboard() {
     setIsAddingPoints(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${selectedStudent.id}/points`, {
+      const response = await fetch(`${API_BASE}/students/${selectedStudent.id}/points`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ points: parseInt(pointsToAdd) })
@@ -442,18 +484,18 @@ export default function TeacherDashboard() {
     window.print();
   };
 
-  // Class Competition Data
+  // Class Competition Data (only from filtered students)
   const getClassCompetitionData = () => {
-    const sectionsData = {};
-    students.forEach(s => {
-      if (!sectionsData[s.section]) {
-        sectionsData[s.section] = { totalPoints: 0, studentCount: 0, students: [] };
+    const sectionsDataMap = {};
+    filteredStudentsList.forEach(s => {
+      if (!sectionsDataMap[s.section]) {
+        sectionsDataMap[s.section] = { totalPoints: 0, studentCount: 0, students: [] };
       }
-      sectionsData[s.section].totalPoints += s.points;
-      sectionsData[s.section].studentCount++;
-      sectionsData[s.section].students.push(s);
+      sectionsDataMap[s.section].totalPoints += s.points;
+      sectionsDataMap[s.section].studentCount++;
+      sectionsDataMap[s.section].students.push(s);
     });
-    return Object.entries(sectionsData).map(([name, data]) => ({
+    return Object.entries(sectionsDataMap).map(([name, data]) => ({
       name,
       averagePoints: Math.round(data.totalPoints / data.studentCount),
       totalPoints: data.totalPoints,
@@ -465,7 +507,7 @@ export default function TeacherDashboard() {
   const goalProgress = getGoalProgress();
   const classCompetition = getClassCompetitionData();
 
-  // Chart Data
+  // Chart Data (only from filtered students)
   const getPointsDistributionData = () => {
     const ranges = [
       { label: '0-50', min: 0, max: 50, color: '#ef4444' },
@@ -476,13 +518,13 @@ export default function TeacherDashboard() {
     ];
     return {
       labels: ranges.map(r => r.label),
-      datasets: [{ data: ranges.map(r => students.filter(s => s.points >= r.min && s.points <= r.max).length), backgroundColor: ranges.map(r => r.color), borderWidth: 0 }]
+      datasets: [{ data: ranges.map(r => filteredStudentsList.filter(s => s.points >= r.min && s.points <= r.max).length), backgroundColor: ranges.map(r => r.color), borderWidth: 0 }]
     };
   };
 
   const getGradeDistributionData = () => {
     const gradeMap = {};
-    students.forEach(s => { gradeMap[s.grade] = (gradeMap[s.grade] || 0) + 1; });
+    filteredStudentsList.forEach(s => { gradeMap[s.grade] = (gradeMap[s.grade] || 0) + 1; });
     const sortedGrades = Object.keys(gradeMap).sort();
     return { labels: sortedGrades, datasets: [{ label: 'Number of Students', data: sortedGrades.map(g => gradeMap[g]), backgroundColor: '#3b82f6', borderRadius: 8 }] };
   };
@@ -493,7 +535,7 @@ export default function TeacherDashboard() {
 
   const getPointsByGradeData = () => {
     const gradePoints = {};
-    students.forEach(s => {
+    filteredStudentsList.forEach(s => {
       if (!gradePoints[s.grade]) gradePoints[s.grade] = { total: 0, count: 0 };
       gradePoints[s.grade].total += s.points;
       gradePoints[s.grade].count += 1;
@@ -505,7 +547,10 @@ export default function TeacherDashboard() {
   const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } };
   const barChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } };
 
-  const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredStudents = filteredStudentsList.filter(s => 
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.studentId?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Show loading screen while initializing
   if (initialLoading) {
@@ -513,21 +558,35 @@ export default function TeacherDashboard() {
   }
 
   // Show loading screen while fetching data
-  if (loading && students.length === 0) {
+  if (loading && filteredStudentsList.length === 0 && allStudents.length === 0) {
     return <LoadingScreen message="Loading your students..." />;
   }
 
   // Show no grades assigned message
-  if (isDataLoaded && teacherInfo.assignedGrades.length === 0) {
+  if (isDataLoaded && userRole === 'teacher' && teacherAssignedGrades.length === 0 && teacherAssignedSections.length === 0) {
     return (
       <div className="bg-yellow-50 rounded-2xl p-8 text-center">
-        <h2 className="text-xl font-semibold text-yellow-800 mb-2">No Grades Assigned</h2>
-        <p className="text-yellow-700">Please contact the administrator to assign grade levels to your account.</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+            <School size={32} className="text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-yellow-800">No Grades or Sections Assigned</h2>
+          <p className="text-yellow-700 max-w-md">
+            You don't have any grades or sections assigned to your account yet.
+          </p>
+          <p className="text-sm text-yellow-600">
+            Please contact the administrator to assign grade levels or sections to your account.
+          </p>
+        </div>
       </div>
     );
   }
 
-  const assignedGradesText = teacherInfo.assignedGrades.join(', ');
+  const assignedText = userRole === 'teacher' 
+    ? (teacherAssignedSections.length > 0 
+        ? `${teacherAssignedSections.length} assigned section(s)` 
+        : teacherAssignedGrades.join(', '))
+    : 'All Sections (Admin)';
 
   return (
     <div className="space-y-6">
@@ -536,7 +595,7 @@ export default function TeacherDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Teacher Dashboard</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Welcome back, {teacherInfo.fullName}! Access: <span className="font-semibold text-green-600">{assignedGradesText}</span>
+            Welcome back, {teacherInfo.fullName}! Access: <span className="font-semibold text-green-600">{assignedText}</span>
           </p>
         </div>
         <button
@@ -549,7 +608,7 @@ export default function TeacherDashboard() {
         </button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Using filtered stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border">
           <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Total Students</p><p className="text-3xl font-bold">{stats.totalStudents}</p></div><div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center"><Users className="text-white" size={24} /></div></div>
@@ -561,7 +620,7 @@ export default function TeacherDashboard() {
           <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Active Students</p><p className="text-3xl font-bold text-green-600">{stats.activeStudents}</p></div><div className="w-12 h-12 rounded-xl bg-green-600 flex items-center justify-center"><Award className="text-white" size={24} /></div></div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border">
-          <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Badges Awarded</p><p className="text-3xl font-bold text-purple-600">{students.reduce((sum, s) => sum + getStudentBadges(s.points).length, 0)}</p></div><div className="w-12 h-12 rounded-xl bg-purple-600 flex items-center justify-center"><BadgeCheck className="text-white" size={24} /></div></div>
+          <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Badges Awarded</p><p className="text-3xl font-bold text-purple-600">{filteredStudentsList.reduce((sum, s) => sum + getStudentBadges(s.points).length, 0)}</p></div><div className="w-12 h-12 rounded-xl bg-purple-600 flex items-center justify-center"><BadgeCheck className="text-white" size={24} /></div></div>
         </div>
       </div>
 
@@ -584,7 +643,7 @@ export default function TeacherDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {teacherSections.map(section => {
-              const sectionStudents = students.filter(s => s.sectionId === section._id);
+              const sectionStudents = filteredStudentsList.filter(s => s.sectionId === section._id);
               const totalPoints = sectionStudents.reduce((sum, s) => sum + (s.points || 0), 0);
               const averagePoints = sectionStudents.length > 0 ? Math.round(totalPoints / sectionStudents.length) : 0;
               
@@ -630,7 +689,7 @@ export default function TeacherDashboard() {
         <button onClick={() => setShowAddStudentModal(true)} className="flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition"><UserPlus size={18} /> Add Student</button>
         <button onClick={() => window.location.href = '/teacher/qr-codes'} className="flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition"><FileText size={18} /> QR Codes</button>
         <button onClick={generateProgressReport} className="flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition"><Printer size={18} /> Print Report</button>
-        <button onClick={() => { if (students.length > 0) generateCertificate(students[0]); else toast.error('No students'); }} className="flex items-center justify-center gap-2 p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition"><CertificateIcon size={18} /> Certificate</button>
+        <button onClick={() => { if (filteredStudentsList.length > 0) generateCertificate(filteredStudentsList[0]); else toast.error('No students'); }} className="flex items-center justify-center gap-2 p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition"><CertificateIcon size={18} /> Certificate</button>
         <button onClick={() => setShowGoalModal(true)} className="flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition"><Target size={18} /> Set Goal</button>
       </div>
 
@@ -689,7 +748,7 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
-      {/* Charts */}
+      {/* Charts - Using filtered students */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
           <h3 className="font-semibold mb-4 flex items-center gap-2"><TrendingUp size={20} className="text-green-600" /> Weekly Activity</h3>
@@ -709,17 +768,24 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
-      {/* Top Students */}
+      {/* Top Students - From filtered list */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
         <div className="p-6 border-b"><h3 className="font-semibold flex items-center gap-2"><Award size={20} className="text-yellow-500" /> Top Performing Students</h3></div>
         <div className="divide-y">
-          {[...students].sort((a, b) => b.points - a.points).slice(0, 5).map((student, index) => {
+          {[...filteredStudentsList].sort((a, b) => b.points - a.points).slice(0, 5).map((student, index) => {
             const earnedBadges = getStudentBadges(student.points);
             return (
               <div key={student.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white" style={{ backgroundColor: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#cd7f32' : '#22c55e' }}>{index + 1}</div>
-                  <div><p className="font-medium">{student.name}</p><p className="text-xs text-gray-500">{student.grade} - {student.section}</p><div className="flex gap-1 mt-1">{earnedBadges.slice(0, 3).map(b => <span key={b.id} className="text-xs" title={b.name}>{b.icon}</span>)}{earnedBadges.length > 3 && <span className="text-xs text-gray-400">+{earnedBadges.length - 3}</span>}</div></div>
+                  <div>
+                    <p className="font-medium">{student.name}</p>
+                    <p className="text-xs text-gray-500">
+                      {student.grade} - 
+                      <span className="font-semibold text-green-600 ml-1">{student.section}</span>
+                    </p>
+                    <div className="flex gap-1 mt-1">{earnedBadges.slice(0, 3).map(b => <span key={b.id} className="text-xs" title={b.name}>{b.icon}</span>)}{earnedBadges.length > 3 && <span className="text-xs text-gray-400">+{earnedBadges.length - 3}</span>}</div>
+                  </div>
                 </div>
                 <div className="text-right"><p className="text-xl font-bold text-green-600">{student.points}</p><div className="flex gap-2 mt-1"><button onClick={() => generateCertificate(student)} className="text-xs text-blue-600 hover:underline">Certificate</button><button onClick={() => handleViewBadges(student)} className="text-xs text-purple-600 hover:underline">Badges ({earnedBadges.length})</button></div></div>
               </div>
@@ -728,31 +794,104 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
-      {/* Students Table */}
+      {/* Students Table with Section Display - Using filtered students */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b"><div className="flex justify-between items-center"><h3 className="font-semibold">Your Students ({students.length})</h3><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-4 pr-4 py-2 border rounded-xl text-sm w-64" /></div></div>
+        <div className="p-6 border-b">
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Users size={20} className="text-blue-600" />
+              Your Students ({filteredStudentsList.length})
+            </h3>
+            <input 
+              type="text" 
+              placeholder="Search students..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="pl-4 pr-4 py-2 border rounded-xl text-sm w-64 focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-medium">Student Name</th><th className="px-6 py-3 text-left text-xs font-medium">Grade & Section</th><th className="px-6 py-3 text-left text-xs font-medium">Points</th><th className="px-6 py-3 text-left text-xs font-medium">Badges</th><th className="px-6 py-3 text-left text-xs font-medium">Actions</th></tr></thead>
-            <tbody className="divide-y">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Badges</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredStudents.map(student => {
                 const earnedBadges = getStudentBadges(student.points);
                 const nextBadge = getNextBadge(student.points);
                 const pointsToNext = nextBadge ? nextBadge.points - student.points : 0;
                 return (
-                  <tr key={student.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium">{student.name}</td>
-                    <td className="px-6 py-4 text-sm">{student.grade} - {student.section}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-green-600">{student.points} pts</td>
-                    <td className="px-6 py-4"><div className="flex gap-1">{earnedBadges.slice(0, 2).map(b => <span key={b.id} className="text-lg cursor-pointer" title={b.name}>{b.icon}</span>)}{earnedBadges.length > 2 && <span className="text-xs text-gray-500">+{earnedBadges.length - 2}</span>}{pointsToNext > 0 && pointsToNext < 100 && <p className="text-xs text-gray-400 mt-1">{pointsToNext} pts to {nextBadge?.name}</p>}</div></td>
-                    <td className="px-6 py-4"><div className="flex gap-2">
-                      <button onClick={() => { setSelectedStudent(student); setShowPointsModal(true); }} className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-medium hover:bg-green-200" disabled={isAddingPoints}>Add Points</button>
-                      <button onClick={() => generateCertificate(student)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-200">Cert</button>
-                      <button onClick={() => handleViewBadges(student)} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-200">Badges</button>
-                    </div></td>
+                  <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-800 dark:text-gray-200">{student.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{student.grade}</td>
+                    <td className="px-6 py-4 text-sm">
+                      {student.section !== 'N/A' ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                          <BookOpen size={12} />
+                          {student.section}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
+                          <AlertCircle size={12} />
+                          N/A
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-green-600 dark:text-green-400">{student.points} pts</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-1">
+                        {earnedBadges.slice(0, 3).map(b => (
+                          <span key={b.id} className="text-lg cursor-pointer" title={b.name}>{b.icon}</span>
+                        ))}
+                        {earnedBadges.length > 3 && (
+                          <span className="text-xs text-gray-500">+{earnedBadges.length - 3}</span>
+                        )}
+                        {pointsToNext > 0 && pointsToNext < 100 && (
+                          <p className="text-xs text-gray-400 w-full mt-1">{pointsToNext} pts to {nextBadge?.name}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        <button 
+                          onClick={() => { setSelectedStudent(student); setShowPointsModal(true); }} 
+                          className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium hover:bg-green-200 dark:hover:bg-green-800/50 transition"
+                          disabled={isAddingPoints}
+                        >
+                          Add Points
+                        </button>
+                        <button 
+                          onClick={() => generateCertificate(student)} 
+                          className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-800/50 transition"
+                        >
+                          Cert
+                        </button>
+                        <button 
+                          onClick={() => handleViewBadges(student)} 
+                          className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium hover:bg-purple-200 dark:hover:bg-purple-800/50 transition"
+                        >
+                          Badges
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
+              {filteredStudents.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                    No students found matching your search.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -930,7 +1069,7 @@ export default function TeacherDashboard() {
                           <tr key={student.id} className="border-b hover:bg-gray-50">
                             <td className="px-4 py-2 font-bold">{index + 1}</td>
                             <td className="px-4 py-2">{student.name}</td>
-                            <td className="px-4 py-2">{student.grade} - {student.section}</td>
+                            <td className="px-4 py-2">{student.grade} - <span className="font-semibold text-green-600">{student.section}</span></td>
                             <td className="px-4 py-2 font-bold text-orange-600">{student.points} pts</td>
                             <td className="px-4 py-2">{earnedBadges.map(b => b.icon).join(' ')} ({earnedBadges.length})</td>
                           </tr>
@@ -1042,6 +1181,15 @@ export default function TeacherDashboard() {
             visibility: visible;
           }
           #certificate-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+          }
+          #report-content, #report-content * {
+            visibility: visible;
+          }
+          #report-content {
             position: absolute;
             top: 0;
             left: 0;

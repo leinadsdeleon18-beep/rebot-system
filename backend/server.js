@@ -94,7 +94,6 @@ app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     
-    // Validate input
     if (!username || !password) {
       return res.status(400).json({ 
         success: false, 
@@ -108,7 +107,6 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Check if user is active
     if (user.isActive === false) {
       return res.status(401).json({ success: false, message: 'Account is deactivated' });
     }
@@ -141,6 +139,7 @@ app.post('/api/login', async (req, res) => {
         fullName: user.fullName,
         role: user.role?.name || 'administrator',
         assignedGrades: user.assignedGrades || [],
+        assignedSections: user.assignedSections || [],
         isActive: user.isActive !== false
       }
     });
@@ -193,8 +192,488 @@ app.get('/api/get-students', async (req, res) => {
   }
 });
 
+// ========== GET SECTIONS ==========
+app.get('/api/sections', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Database not connected' });
+    }
+    
+    console.log('📋 Fetching all sections...');
+    
+    const sections = await db.collection('sections').find({}).toArray();
+    console.log(`📋 Found ${sections.length} sections in database`);
+    
+    sections.forEach(s => {
+      console.log(`   - ${s.gradeLevel}: ${s.sectionName} (${s._id})`);
+    });
+    
+    res.json({ 
+      success: true, 
+      sections: sections.map(s => ({
+        _id: s._id,
+        gradeLevel: s.gradeLevel,
+        sectionName: s.sectionName,
+        adviser: s.adviser,
+        createdAt: s.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching sections:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ========== GET STUDENTS WITH SECTION DATA ==========
+app.get('/api/students', async (req, res) => {
+  try {
+    const { search, grade, section, page = 1, limit = 50 } = req.query;
+    const db = mongoose.connection.db;
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Database not connected' });
+    }
+    
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { studentId: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    if (grade && grade !== 'all') {
+      query.grade = grade;
+    }
+
+    if (section && section !== 'all') {
+      const ObjectId = mongoose.Types.ObjectId;
+      if (ObjectId.isValid(section)) {
+        query.section = new ObjectId(section);
+      } else {
+        query.sectionName = section;
+      }
+    }
+
+    console.log('🔍 Student query:', JSON.stringify(query));
+
+    const students = await db.collection('students')
+      .find(query)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .toArray();
+
+    const total = await db.collection('students').countDocuments(query);
+
+    // Get all sections for lookup
+    const sections = await db.collection('sections').find({}).toArray();
+    console.log(`📚 Found ${sections.length} sections in database`);
+    
+    const sectionMap = {};
+    sections.forEach(s => {
+      sectionMap[s._id.toString()] = {
+        _id: s._id,
+        sectionName: s.sectionName || 'N/A',
+        gradeLevel: s.gradeLevel || 'N/A'
+      };
+    });
+    console.log('📚 Section Map keys:', Object.keys(sectionMap));
+
+    // Format students with section data
+    const formattedStudents = students.map(student => {
+      let sectionName = 'N/A';
+      let gradeLevel = student.grade || 'N/A';
+      let sectionObj = null;
+      let sectionId = student.section || null;
+      
+      console.log(`🔍 Processing student: ${student.fullName}, section: ${student.section}`);
+      
+      // If student has a section reference
+      if (student.section) {
+        const sectionKey = student.section.toString();
+        console.log(`   Looking up section: ${sectionKey}`);
+        
+        if (sectionMap[sectionKey]) {
+          sectionName = sectionMap[sectionKey].sectionName || 'N/A';
+          gradeLevel = sectionMap[sectionKey].gradeLevel || student.grade || 'N/A';
+          sectionObj = {
+            _id: student.section,
+            sectionName: sectionName,
+            gradeLevel: gradeLevel
+          };
+          console.log(`   ✅ Found section: ${sectionName} (${gradeLevel})`);
+        } else {
+          console.log(`   ❌ Section not found in map: ${sectionKey}`);
+          // Try to find by grade as fallback
+          if (student.grade) {
+            for (const [key, sec] of Object.entries(sectionMap)) {
+              if (sec.gradeLevel === student.grade) {
+                sectionName = sec.sectionName;
+                sectionObj = {
+                  _id: sec._id,
+                  sectionName: sec.sectionName,
+                  gradeLevel: sec.gradeLevel
+                };
+                sectionId = sec._id;
+                console.log(`   ✅ Found by grade fallback: ${sectionName}`);
+                break;
+              }
+            }
+          }
+        }
+      } else {
+        console.log(`   ⚠️ No section reference for student`);
+        // Try to find by grade
+        if (student.grade) {
+          for (const [key, sec] of Object.entries(sectionMap)) {
+            if (sec.gradeLevel === student.grade) {
+              sectionName = sec.sectionName;
+              sectionObj = {
+                _id: sec._id,
+                sectionName: sec.sectionName,
+                gradeLevel: sec.gradeLevel
+              };
+              sectionId = sec._id;
+              console.log(`   ✅ Found by grade: ${sectionName}`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // If student has sectionName directly (legacy)
+      if (student.sectionName && student.sectionName !== 'N/A') {
+        sectionName = student.sectionName;
+        console.log(`   Using direct sectionName: ${sectionName}`);
+      }
+
+      return {
+        _id: student._id,
+        studentId: student.studentId,
+        fullName: student.fullName,
+        email: student.email || '',
+        grade: gradeLevel,
+        sectionName: sectionName,
+        sectionId: sectionId,
+        section: sectionObj,
+        points: student.points || 0,
+        isActive: student.isActive !== false,
+        qrCode: student.qrCode,
+        qrCodeData: student.qrCodeData,
+        createdAt: student.createdAt
+      };
+    });
+
+    console.log(`📋 Found ${formattedStudents.length} students with section data`);
+    if (formattedStudents.length > 0) {
+      console.log('📋 Sample student:', {
+        name: formattedStudents[0].fullName,
+        section: formattedStudents[0].sectionName,
+        sectionObj: formattedStudents[0].section
+      });
+    }
+
+    res.json({
+      success: true,
+      students: formattedStudents,
+      total: total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    console.error('❌ Error fetching students:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ========== GET STUDENT BY ID ==========
+app.get('/api/students/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = mongoose.connection.db;
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Database not connected' });
+    }
+    
+    const ObjectId = mongoose.Types.ObjectId;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid student ID' });
+    }
+
+    const student = await db.collection('students').findOne({ _id: new ObjectId(id) });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    // Get all sections for lookup
+    const sections = await db.collection('sections').find({}).toArray();
+    const sectionMap = {};
+    sections.forEach(s => {
+      sectionMap[s._id.toString()] = {
+        _id: s._id,
+        sectionName: s.sectionName || 'N/A',
+        gradeLevel: s.gradeLevel || 'N/A'
+      };
+    });
+
+    // Get section info
+    let sectionInfo = null;
+    let sectionName = 'N/A';
+    let gradeLevel = student.grade || 'N/A';
+    
+    if (student.section) {
+      const sectionKey = student.section.toString();
+      if (sectionMap[sectionKey]) {
+        sectionInfo = {
+          _id: student.section,
+          sectionName: sectionMap[sectionKey].sectionName,
+          gradeLevel: sectionMap[sectionKey].gradeLevel
+        };
+        sectionName = sectionMap[sectionKey].sectionName || 'N/A';
+        gradeLevel = sectionMap[sectionKey].gradeLevel || student.grade || 'N/A';
+      }
+    }
+
+    if (student.sectionName) {
+      sectionName = student.sectionName;
+    }
+
+    res.json({
+      success: true,
+      student: {
+        _id: student._id,
+        studentId: student.studentId,
+        fullName: student.fullName,
+        email: student.email || '',
+        grade: gradeLevel,
+        sectionName: sectionName,
+        sectionId: student.section || null,
+        section: sectionInfo,
+        points: student.points || 0,
+        isActive: student.isActive !== false,
+        qrCode: student.qrCode,
+        qrCodeData: student.qrCodeData,
+        createdAt: student.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching student:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ========== GET STUDENT BY QR CODE ==========
+app.get('/api/students/qr/:qrCode', async (req, res) => {
+  try {
+    const { qrCode } = req.params;
+    const db = mongoose.connection.db;
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Database not connected' });
+    }
+    
+    const ObjectId = mongoose.Types.ObjectId;
+
+    console.log(`🔍 Looking up student by QR: ${qrCode}`);
+
+    let student = await db.collection('students').findOne({ 
+      $or: [
+        { qrCode: qrCode },
+        { studentId: qrCode },
+        { rfidCode: qrCode }
+      ]
+    });
+
+    if (!student && ObjectId.isValid(qrCode)) {
+      student = await db.collection('students').findOne({ _id: new ObjectId(qrCode) });
+    }
+
+    if (!student) {
+      console.log(`   ❌ Student not found for QR: ${qrCode}`);
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    // Get all sections for lookup
+    const sections = await db.collection('sections').find({}).toArray();
+    const sectionMap = {};
+    sections.forEach(s => {
+      sectionMap[s._id.toString()] = {
+        _id: s._id,
+        sectionName: s.sectionName || 'N/A',
+        gradeLevel: s.gradeLevel || 'N/A'
+      };
+    });
+
+    let sectionInfo = null;
+    let sectionName = 'N/A';
+    let gradeLevel = student.grade || 'N/A';
+    
+    if (student.section) {
+      const sectionKey = student.section.toString();
+      if (sectionMap[sectionKey]) {
+        sectionInfo = {
+          _id: student.section,
+          sectionName: sectionMap[sectionKey].sectionName,
+          gradeLevel: sectionMap[sectionKey].gradeLevel
+        };
+        sectionName = sectionMap[sectionKey].sectionName || 'N/A';
+        gradeLevel = sectionMap[sectionKey].gradeLevel || student.grade || 'N/A';
+      }
+    }
+
+    if (student.sectionName) {
+      sectionName = student.sectionName;
+    }
+
+    console.log(`   ✅ Student found: ${student.fullName}`);
+
+    res.json({
+      success: true,
+      student: {
+        _id: student._id,
+        studentId: student.studentId,
+        fullName: student.fullName,
+        email: student.email || '',
+        grade: gradeLevel,
+        sectionName: sectionName,
+        sectionId: student.section || null,
+        section: sectionInfo,
+        points: student.points || 0,
+        isActive: student.isActive !== false,
+        qrCode: student.qrCode,
+        qrCodeData: student.qrCodeData
+      }
+    });
+  } catch (error) {
+    console.error('Error finding student by QR:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ========== FIX STUDENT SECTIONS ==========
+app.post('/api/fix-student-sections', async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Database not connected' });
+    }
+    
+    console.log('🔧 Fixing student sections...');
+    
+    // Get all sections
+    const sections = await db.collection('sections').find({}).toArray();
+    console.log(`📚 Found ${sections.length} sections in database`);
+    
+    // Log all sections for debugging
+    sections.forEach(s => {
+      console.log(`   - ${s.gradeLevel}: ${s.sectionName} (${s._id})`);
+    });
+    
+    // Get all students
+    const students = await db.collection('students').find({}).toArray();
+    console.log(`👨‍🎓 Found ${students.length} students`);
+    
+    let updated = 0;
+    let notFound = 0;
+    const updates = [];
+    const notFoundList = [];
+    
+    for (const student of students) {
+      // Check if student has a section reference
+      if (student.section) {
+        const sectionId = student.section.toString();
+        const sectionExists = sections.some(s => s._id.toString() === sectionId);
+        
+        if (!sectionExists) {
+          console.log(`⚠️ Student ${student.fullName} has invalid section: ${sectionId}`);
+          notFound++;
+          notFoundList.push({ student: student.fullName, sectionId, grade: student.grade });
+          
+          // Find a section by grade
+          const matchingSection = sections.find(s => s.gradeLevel === student.grade);
+          
+          if (matchingSection) {
+            // Update student with correct section
+            await db.collection('students').updateOne(
+              { _id: student._id },
+              { $set: { section: matchingSection._id } }
+            );
+            updated++;
+            updates.push({
+              student: student.fullName,
+              oldSection: sectionId,
+              newSection: matchingSection.sectionName,
+              grade: student.grade
+            });
+            console.log(`   ✅ Updated to ${matchingSection.sectionName} (${matchingSection.gradeLevel})`);
+          } else {
+            // No matching section found - try to find any section with similar name
+            const studentSectionName = student.sectionName || '';
+            const matchingByName = sections.find(s => 
+              studentSectionName && s.sectionName.toLowerCase().includes(studentSectionName.toLowerCase())
+            );
+            
+            if (matchingByName) {
+              await db.collection('students').updateOne(
+                { _id: student._id },
+                { $set: { section: matchingByName._id } }
+              );
+              updated++;
+              updates.push({
+                student: student.fullName,
+                oldSection: sectionId,
+                newSection: matchingByName.sectionName,
+                grade: student.grade
+              });
+              console.log(`   ✅ Updated by name to ${matchingByName.sectionName} (${matchingByName.gradeLevel})`);
+            } else {
+              console.log(`   ❌ No matching section found for grade: ${student.grade}`);
+            }
+          }
+        }
+      } else {
+        // Student has no section - try to find by grade
+        if (student.grade) {
+          const matchingSection = sections.find(s => s.gradeLevel === student.grade);
+          if (matchingSection) {
+            await db.collection('students').updateOne(
+              { _id: student._id },
+              { $set: { section: matchingSection._id } }
+            );
+            updated++;
+            updates.push({
+              student: student.fullName,
+              oldSection: 'none',
+              newSection: matchingSection.sectionName,
+              grade: student.grade
+            });
+            console.log(`   ✅ Assigned to ${matchingSection.sectionName} (${matchingSection.gradeLevel})`);
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Updated ${updated} students`);
+    console.log(`⚠️ ${notFound} students had invalid section references`);
+    
+    res.json({
+      success: true,
+      message: `Updated ${updated} students`,
+      updated,
+      notFound,
+      updates,
+      notFoundList
+    });
+  } catch (error) {
+    console.error('❌ Fix sections error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ========== REWARDS ENDPOINTS ==========
-// GET all rewards
 app.get('/api/rewards', async (req, res) => {
   try {
     const db = mongoose.connection.db;
@@ -236,7 +715,6 @@ app.get('/api/rewards', async (req, res) => {
   }
 });
 
-// GET inventory summary
 app.get('/api/rewards/inventory', async (req, res) => {
   try {
     const db = mongoose.connection.db;
@@ -268,7 +746,6 @@ app.get('/api/rewards/inventory', async (req, res) => {
   }
 });
 
-// UPDATE reward stock
 app.put('/api/rewards/:id/inventory', async (req, res) => {
   try {
     const { id } = req.params;
@@ -297,7 +774,6 @@ app.put('/api/rewards/:id/inventory', async (req, res) => {
 
     const updatedReward = await db.collection('rewards').findOne({ _id: new ObjectId(id) });
 
-    // Emit socket event for real-time updates
     const io = req.app.get('io');
     io.emit('reward-updated', {
       type: 'STOCK_UPDATED',
@@ -316,7 +792,6 @@ app.put('/api/rewards/:id/inventory', async (req, res) => {
   }
 });
 
-// CREATE new reward
 app.post('/api/rewards', async (req, res) => {
   try {
     const { name, description, pointsRequired, stock, category, imageUrl } = req.body;
@@ -344,7 +819,6 @@ app.post('/api/rewards', async (req, res) => {
 
     const result = await db.collection('rewards').insertOne(newReward);
 
-    // Emit socket event
     const io = req.app.get('io');
     io.emit('reward-created', {
       type: 'REWARD_CREATED',
@@ -366,7 +840,6 @@ app.post('/api/rewards', async (req, res) => {
   }
 });
 
-// UPDATE reward
 app.put('/api/rewards/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -410,7 +883,6 @@ app.put('/api/rewards/:id', async (req, res) => {
 
     const updatedReward = await db.collection('rewards').findOne({ _id: new ObjectId(id) });
 
-    // Emit socket event
     const io = req.app.get('io');
     io.emit('reward-updated', {
       type: 'REWARD_UPDATED',
@@ -428,7 +900,6 @@ app.put('/api/rewards/:id', async (req, res) => {
   }
 });
 
-// DELETE reward
 app.delete('/api/rewards/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -447,7 +918,6 @@ app.delete('/api/rewards/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Reward not found' });
     }
 
-    // Emit socket event
     const io = req.app.get('io');
     io.emit('reward-deleted', {
       type: 'REWARD_DELETED',
@@ -481,30 +951,25 @@ app.post('/api/transactions/redeem', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Student ID and Reward ID are required' });
     }
 
-    // Get student
     const student = await db.collection('students').findOne({ _id: new ObjectId(studentId) });
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    // Get reward
     const reward = await db.collection('rewards').findOne({ _id: new ObjectId(rewardId) });
     if (!reward) {
       return res.status(404).json({ success: false, message: 'Reward not found' });
     }
 
-    // Check if reward is active
     if (reward.isActive === false) {
       return res.status(400).json({ success: false, message: `${reward.name} is currently inactive` });
     }
 
-    // Check stock
     const currentStock = reward.stock || reward.stockQuantity || 0;
     if (currentStock <= 0) {
       return res.status(400).json({ success: false, message: `${reward.name} is out of stock` });
     }
 
-    // Check points
     const pointsRequired = reward.pointsRequired || reward.points || 100;
     if (student.points < pointsRequired) {
       return res.status(400).json({ 
@@ -514,21 +979,18 @@ app.post('/api/transactions/redeem', async (req, res) => {
       });
     }
 
-    // Update student points
     const newPoints = student.points - pointsRequired;
     await db.collection('students').updateOne(
       { _id: new ObjectId(studentId) },
       { $set: { points: newPoints, updatedAt: new Date() } }
     );
 
-    // Update reward stock
     const newStock = currentStock - 1;
     await db.collection('rewards').updateOne(
       { _id: new ObjectId(rewardId) },
       { $set: { stock: newStock, stockQuantity: newStock, updatedAt: new Date() } }
     );
 
-    // Create transaction record
     const transaction = {
       transactionNumber: `RDM-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       studentId: studentId,
@@ -543,7 +1005,6 @@ app.post('/api/transactions/redeem', async (req, res) => {
     
     const transactionResult = await db.collection('transactions').insertOne(transaction);
 
-    // Emit socket event
     const io = req.app.get('io');
     io.emit('redemption-completed', {
       type: 'REDEMPTION_COMPLETED',
@@ -568,176 +1029,6 @@ app.post('/api/transactions/redeem', async (req, res) => {
     });
   } catch (error) {
     console.error('Redemption error:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ========== GET STUDENT BY QR CODE ==========
-app.get('/api/students/qr/:qrCode', async (req, res) => {
-  try {
-    const { qrCode } = req.params;
-    const db = mongoose.connection.db;
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'Database not connected' });
-    }
-    
-    const ObjectId = mongoose.Types.ObjectId;
-
-    console.log(`🔍 Looking up student by QR: ${qrCode}`);
-
-    // Try to find by QR code or student ID
-    let student = await db.collection('students').findOne({ 
-      $or: [
-        { qrCode: qrCode },
-        { studentId: qrCode },
-        { rfidCode: qrCode }
-      ]
-    });
-
-    if (!student && ObjectId.isValid(qrCode)) {
-      student = await db.collection('students').findOne({ _id: new ObjectId(qrCode) });
-    }
-
-    if (!student) {
-      console.log(`   ❌ Student not found for QR: ${qrCode}`);
-      return res.status(404).json({ success: false, message: 'Student not found' });
-    }
-
-    // Get section info if available
-    let sectionInfo = null;
-    if (student.section) {
-      const section = await db.collection('sections').findOne({ _id: student.section });
-      if (section) {
-        sectionInfo = {
-          sectionName: section.sectionName,
-          gradeLevel: section.gradeLevel
-        };
-      }
-    }
-
-    console.log(`   ✅ Student found: ${student.fullName}`);
-
-    res.json({
-      success: true,
-      student: {
-        _id: student._id,
-        studentId: student.studentId,
-        fullName: student.fullName,
-        email: student.email || '',
-        grade: student.grade || sectionInfo?.gradeLevel || 'N/A',
-        sectionName: student.sectionName || sectionInfo?.sectionName || 'N/A',
-        points: student.points || 0,
-        isActive: student.isActive !== false,
-        qrCode: student.qrCode,
-        qrCodeData: student.qrCodeData
-      }
-    });
-  } catch (error) {
-    console.error('Error finding student by QR:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ========== GET STUDENTS WITH SEARCH ==========
-app.get('/api/students', async (req, res) => {
-  try {
-    const { search, grade, section, page = 1, limit = 50 } = req.query;
-    const db = mongoose.connection.db;
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'Database not connected' });
-    }
-    
-    const query = {};
-
-    if (search) {
-      query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { studentId: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ];
-    }
-
-    if (grade && grade !== 'all') {
-      query.grade = grade;
-    }
-
-    if (section && section !== 'all') {
-      query.sectionName = section;
-    }
-
-    const students = await db.collection('students')
-      .find(query)
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .toArray();
-
-    const total = await db.collection('students').countDocuments(query);
-
-    console.log(`📋 Found ${students.length} students matching criteria`);
-
-    res.json({
-      success: true,
-      students: students,
-      total: total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / parseInt(limit))
-    });
-  } catch (error) {
-    console.error('Error fetching students:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ========== GET STUDENT BY ID ==========
-app.get('/api/students/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const db = mongoose.connection.db;
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'Database not connected' });
-    }
-    
-    const ObjectId = mongoose.Types.ObjectId;
-
-    if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: 'Invalid student ID' });
-    }
-
-    const student = await db.collection('students').findOne({ _id: new ObjectId(id) });
-
-    if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
-    }
-
-    // Get section info
-    let sectionInfo = null;
-    if (student.section) {
-      const section = await db.collection('sections').findOne({ _id: student.section });
-      if (section) {
-        sectionInfo = {
-          sectionName: section.sectionName,
-          gradeLevel: section.gradeLevel
-        };
-      }
-    }
-
-    res.json({
-      success: true,
-      student: {
-        _id: student._id,
-        studentId: student.studentId,
-        fullName: student.fullName,
-        email: student.email || '',
-        grade: student.grade || sectionInfo?.gradeLevel || 'N/A',
-        sectionName: student.sectionName || sectionInfo?.sectionName || 'N/A',
-        points: student.points || 0,
-        isActive: student.isActive !== false,
-        qrCode: student.qrCode,
-        qrCodeData: student.qrCodeData
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching student:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -838,7 +1129,6 @@ app.post('/api/esp32/scan-barcode', async (req, res) => {
       source: 'esp8266'
     });
 
-    // Emit socket event
     const io = req.app.get('io');
     io.emit('scan-received', {
       type: 'BARCODE_SCAN',
@@ -890,7 +1180,6 @@ app.post('/api/esp32/add-points', async (req, res) => {
         source: 'esp8266'
       });
 
-      // Emit socket event
       const io = req.app.get('io');
       io.emit('points-added', {
         type: 'POINTS_ADDED',
@@ -1074,7 +1363,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST   /api/transactions/redeem - Process reward redemption`);
   console.log(`   GET    /api/transactions       - Get all transactions`);
   console.log('\n👨‍🎓 Student Endpoints:');
-  console.log(`   GET    /api/students           - Get students (with search)`);
+  console.log(`   GET    /api/students           - Get students with section data`);
   console.log(`   GET    /api/students/:id       - Get student by ID`);
   console.log(`   GET    /api/students/qr/:qrCode - Get student by QR code`);
   console.log('\n🌐 Web Endpoints:');

@@ -8,6 +8,9 @@ import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import LoadingScreen from '../../components/LoadingScreen';
 
+// API Base URL
+const API_BASE = 'http://localhost:5000/api';
+
 export default function StudentManagement() {
   const [students, setStudents] = useState([]);
   const [sectionsData, setSectionsData] = useState({});
@@ -103,7 +106,7 @@ export default function StudentManagement() {
       const token = localStorage.getItem('token');
       console.log('🔍 Fetching sections from API...');
       
-      const response = await fetch('http://localhost:5000/api/sections', {
+      const response = await fetch(`${API_BASE}/sections`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -157,10 +160,12 @@ export default function StudentManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/students', {
+      const response = await fetch(`${API_BASE}/students`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
+      
+      console.log('📡 Students API Response:', data);
       
       if (data.success) {
         const formattedStudents = data.students.map(s => {
@@ -218,7 +223,7 @@ export default function StudentManagement() {
     setIsDeletingStudent(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${studentToDelete.id}`, {
+      const response = await fetch(`${API_BASE}/students/${studentToDelete.id}`, {
         method: 'DELETE',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -255,7 +260,7 @@ export default function StudentManagement() {
       
       const selectedSectionObj = sectionsList.find(s => s.id === formData.section);
       
-      const response = await fetch('http://localhost:5000/api/students', {
+      const response = await fetch(`${API_BASE}/students`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -297,7 +302,7 @@ export default function StudentManagement() {
     setIsAddingPoints(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${selectedStudent.id}/points`, {
+      const response = await fetch(`${API_BASE}/students/${selectedStudent.id}/points`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -331,7 +336,7 @@ export default function StudentManagement() {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${student.id}/qrcode`, {
+      const response = await fetch(`${API_BASE}/students/${student.id}/qrcode`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -592,7 +597,7 @@ export default function StudentManagement() {
       
       console.log('📤 Importing students:', studentsToImport);
       
-      const response = await fetch('http://localhost:5000/api/students/bulk/advanced', {
+      const response = await fetch(`${API_BASE}/students/bulk/advanced`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -680,12 +685,29 @@ export default function StudentManagement() {
   const availableSections = sectionsList;
   const availableGrades = ['all', ...new Set(availableSections.map(s => s.gradeLevel))];
   
+  // Apply teacher filtering on the client side
   const filteredStudents = students.filter(student => {
     const matchesSearch = searchTerm === '' || 
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrade = selectedGrade === 'all' || student.grade === selectedGrade;
-    return matchesSearch && matchesGrade;
+    
+    // Teacher filtering based on assigned sections or grades
+    let matchesTeacherAccess = true;
+    
+    if (userRole === 'teacher') {
+      // Check if teacher has assigned sections
+      if (teacherAssignedSections && teacherAssignedSections.length > 0) {
+        // Only show students whose section ID is in the teacher's assigned sections
+        matchesTeacherAccess = student.sectionId && teacherAssignedSections.includes(student.sectionId);
+      } 
+      // Fallback to grade-based filtering if no sections assigned
+      else if (teacherAssignedGrades && teacherAssignedGrades.length > 0) {
+        matchesTeacherAccess = teacherAssignedGrades.includes(student.grade);
+      }
+    }
+    
+    return matchesSearch && matchesGrade && matchesTeacherAccess;
   });
 
   const totalPoints = filteredStudents.reduce((sum, s) => sum + s.points, 0);
@@ -850,7 +872,19 @@ export default function StudentManagement() {
                     <td className="px-6 py-4 text-sm font-mono text-gray-600">{student.studentId}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-800">{student.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{student.grade}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{student.section}</td>
+                    <td className="px-6 py-4 text-sm">
+                      {student.section !== 'N/A' ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                          <BookOpen size={12} />
+                          {student.section}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                          <AlertCircle size={12} />
+                          N/A
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm font-semibold text-green-600">{student.points} pts</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
@@ -1150,7 +1184,7 @@ export default function StudentManagement() {
         </div>
       )}
 
-      {/* Bulk Import Modal */}
+      {/* Bulk Import Modal - Keep existing code */}
       {showBulkImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -1162,7 +1196,6 @@ export default function StudentManagement() {
             </div>
             
             <div className="space-y-6">
-              {/* Help Section */}
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
                 <div className="flex items-start gap-3">
                   <HelpCircle size={20} className="text-blue-600 mt-0.5" />
@@ -1181,28 +1214,6 @@ export default function StudentManagement() {
                 </div>
               </div>
               
-              {/* Teacher Access Info */}
-              {userRole === 'teacher' && (
-                <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-                  <div className="flex items-start gap-2">
-                    <ShieldAlert size={16} className="text-purple-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-semibold text-purple-800">Your Access Permissions</p>
-                      <p className="text-xs text-purple-700 mt-1">
-                        {teacherAssignedSections.length > 0 ? (
-                          <>You have access to {teacherAssignedSections.length} specific section(s). Only students in these sections can be imported.</>
-                        ) : teacherAssignedGrades.length > 0 ? (
-                          <>You have access to grades: <strong>{teacherAssignedGrades.join(', ')}</strong>. All sections in these grades are available.</>
-                        ) : (
-                          <>You don't have any grades or sections assigned. Please contact administrator.</>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Template Download */}
               <button 
                 onClick={downloadTemplate} 
                 className="w-full py-3 border-2 border-dashed border-green-600 text-green-600 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-50 transition"
@@ -1210,7 +1221,6 @@ export default function StudentManagement() {
                 <FileDown size={20} /> Download Excel Template
               </button>
               
-              {/* File Upload */}
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-green-400 transition">
                 <Upload size={40} className="text-gray-400 mx-auto mb-3" />
                 <input 
@@ -1229,7 +1239,6 @@ export default function StudentManagement() {
                 <p className="text-xs text-gray-500 mt-2">Supported formats: .xlsx, .xls, .csv</p>
               </div>
               
-              {/* Preview Table with Visible Error Messages */}
               {importPreview.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
@@ -1277,25 +1286,9 @@ export default function StudentManagement() {
                       </tbody>
                     </table>
                   </div>
-                  {importPreview.some(s => !s.isValid) && (
-                    <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle size={16} className="text-yellow-600 mt-0.5" />
-                        <div className="text-xs text-yellow-700">
-                          <p className="font-semibold mb-1">How to fix invalid rows:</p>
-                          <ul className="list-disc list-inside space-y-1">
-                            <li><strong>Missing fields:</strong> Fill in the required information</li>
-                            <li><strong>Section not found:</strong> Create the section in Section Management first, or use an existing section</li>
-                            <li><strong>Access denied:</strong> You are not assigned to this grade/section. Contact admin to get access.</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
               
-              {/* Action Buttons */}
               <div className="flex gap-3 pt-2">
                 <button 
                   onClick={() => {
@@ -1360,11 +1353,6 @@ export default function StudentManagement() {
                         <p className="text-xs text-red-600 mt-1">{err.error}</p>
                       </div>
                     ))}
-                  </div>
-                  <div className="mt-3 p-2 bg-yellow-50 rounded-lg">
-                    <p className="text-xs text-yellow-700">
-                      💡 Tip: Fix the errors above and try importing only the failed students again.
-                    </p>
                   </div>
                 </div>
               )}

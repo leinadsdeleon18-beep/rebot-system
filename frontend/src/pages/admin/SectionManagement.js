@@ -15,6 +15,7 @@ export default function SectionManagement() {
   const [viewingSection, setViewingSection] = useState(null);
   const [teachers, setTeachers] = useState([]);
   const [studentsInSection, setStudentsInSection] = useState([]);
+  const [allStudents, setAllStudents] = useState([]); // Store all students for counting
   const [formData, setFormData] = useState({
     gradeLevel: 'Kindergarten',
     sectionName: '',
@@ -24,7 +25,6 @@ export default function SectionManagement() {
 
   const gradeLevels = ['Kindergarten', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
 
-  // Example custom section name suggestions
   const customSectionSuggestions = [
     'Sampaguita', 'Rose', 'Gumamela', 'Sunflower', 'Orchid', 'Daisy',
     'Pearl', 'Emerald', 'Ruby', 'Sapphire', 'Diamond', 'Gold',
@@ -34,25 +34,111 @@ export default function SectionManagement() {
   ];
 
   useEffect(() => {
-    fetchSections();
+    fetchAllData();
     fetchTeachers();
   }, []);
 
+  // Fetch sections and students together for counting
+  const fetchAllData = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Fetch both sections and students in parallel
+      const [sectionsResponse, studentsResponse] = await Promise.all([
+        fetch('http://localhost:5000/api/sections', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:5000/api/students', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+      
+      const sectionsData = await sectionsResponse.json();
+      const studentsData = await studentsResponse.json();
+      
+      console.log('All sections data:', sectionsData);
+      console.log('All students data:', studentsData);
+      
+      if (sectionsData.success) {
+        // Store all students for reference
+        const studentsList = studentsData.success ? studentsData.students || [] : [];
+        setAllStudents(studentsList);
+        
+        // Create a map of section ID to student count
+        const studentCountMap = {};
+        studentsList.forEach(student => {
+          // Get section ID - could be an object with _id or a string
+          const sectionId = student.section?._id || student.section;
+          if (sectionId) {
+            studentCountMap[sectionId] = (studentCountMap[sectionId] || 0) + 1;
+          }
+        });
+        
+        console.log('Student count map:', studentCountMap);
+        
+        // Add student count to each section
+        const sectionsWithCounts = sectionsData.sections.map(section => ({
+          ...section,
+          studentCount: studentCountMap[section._id] || 0
+        }));
+        
+        console.log('Sections with counts:', sectionsWithCounts);
+        setSections(sectionsWithCounts);
+        
+        window.dispatchEvent(new CustomEvent('sectionsLoaded'));
+      } else {
+        toast.error(sectionsData.message || 'Failed to load sections');
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Alternative: Just fetch sections and count students from the students endpoint
   const fetchSections = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/sections', {
+      
+      // First get all sections
+      const sectionsResponse = await fetch('http://localhost:5000/api/sections', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await response.json();
+      const sectionsData = await sectionsResponse.json();
       
-      if (data.success) {
-        setSections(data.sections);
-        // Dispatch event to notify other components that sections were loaded
+      if (sectionsData.success) {
+        // Then get all students
+        const studentsResponse = await fetch('http://localhost:5000/api/students', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const studentsData = await studentsResponse.json();
+        
+        const studentsList = studentsData.success ? studentsData.students || [] : [];
+        setAllStudents(studentsList);
+        
+        // Count students per section
+        const studentCountMap = {};
+        studentsList.forEach(student => {
+          const sectionId = student.section?._id || student.section;
+          if (sectionId) {
+            studentCountMap[sectionId] = (studentCountMap[sectionId] || 0) + 1;
+          }
+        });
+        
+        // Add counts to sections
+        const sectionsWithCounts = sectionsData.sections.map(section => ({
+          ...section,
+          studentCount: studentCountMap[section._id] || 0
+        }));
+        
+        setSections(sectionsWithCounts);
         window.dispatchEvent(new CustomEvent('sectionsLoaded'));
       } else {
-        toast.error(data.message || 'Failed to load sections');
+        toast.error(sectionsData.message || 'Failed to load sections');
       }
     } catch (error) {
       console.error('Error fetching sections:', error);
@@ -81,17 +167,27 @@ export default function SectionManagement() {
 
   const fetchStudentsInSection = async (sectionId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students?sectionId=${sectionId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      // Instead of making another API call, use the stored allStudents
+      const students = allStudents.filter(student => {
+        const studentSectionId = student.section?._id || student.section;
+        return studentSectionId === sectionId;
       });
-      const data = await response.json();
-      
-      if (data.success) {
-        setStudentsInSection(data.students);
-      }
+      setStudentsInSection(students);
     } catch (error) {
-      console.error('Error fetching students:', error);
+      console.error('Error filtering students:', error);
+      // Fallback: make API call
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:5000/api/students?section=${sectionId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success) {
+          setStudentsInSection(data.students);
+        }
+      } catch (err) {
+        console.error('Error fetching students:', err);
+      }
     }
   };
 
@@ -124,8 +220,6 @@ export default function SectionManagement() {
         setShowAddModal(false);
         setFormData({ gradeLevel: 'Kindergarten', sectionName: '', adviser: '' });
         await fetchSections();
-        // Dispatch event to notify other components that sections were updated
-        console.log('Dispatching sectionsUpdated event with new section:', data.section);
         window.dispatchEvent(new CustomEvent('sectionsUpdated', { detail: { section: data.section } }));
       } else {
         toast.error(data.message || 'Failed to add section');
@@ -168,8 +262,6 @@ export default function SectionManagement() {
         setEditingSection(null);
         setFormData({ gradeLevel: 'Kindergarten', sectionName: '', adviser: '' });
         await fetchSections();
-        // Dispatch event to notify other components that sections were updated
-        console.log('Dispatching sectionsUpdated event with updated section:', data.section);
         window.dispatchEvent(new CustomEvent('sectionsUpdated', { detail: { section: data.section } }));
       } else {
         toast.error(data.message || 'Failed to update section');
@@ -201,8 +293,6 @@ export default function SectionManagement() {
       if (data.success) {
         toast.success('Section deleted successfully!');
         await fetchSections();
-        // Dispatch event to notify other components that sections were updated
-        console.log('Dispatching sectionsUpdated event for deletion');
         window.dispatchEvent(new CustomEvent('sectionsUpdated'));
       } else {
         toast.error(data.message || 'Failed to delete section');
@@ -213,9 +303,9 @@ export default function SectionManagement() {
     }
   };
 
-  const handleViewSection = async (section) => {
+  const handleViewSection = (section) => {
     setViewingSection(section);
-    await fetchStudentsInSection(section._id);
+    fetchStudentsInSection(section._id);
     setShowViewModal(true);
   };
 
@@ -251,6 +341,9 @@ export default function SectionManagement() {
   const sortedGrades = ['Kindergarten', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6']
     .filter(grade => groupedSections[grade]);
 
+  // Calculate total students across all sections
+  const totalStudentsAll = sections.reduce((sum, section) => sum + (section.studentCount || 0), 0);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -273,6 +366,28 @@ export default function SectionManagement() {
           <button onClick={() => setShowAddModal(true)} className="px-5 py-2 bg-green-600 text-white rounded-full font-semibold flex items-center gap-2 hover:bg-green-700 transition shadow-sm">
             <Plus size={18} /> Add Section
           </button>
+        </div>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
+          <p className="text-sm text-blue-600 dark:text-blue-400">Total Sections</p>
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{sections.length}</p>
+        </div>
+        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-100 dark:border-green-800">
+          <p className="text-sm text-green-600 dark:text-green-400">Total Students</p>
+          <p className="text-2xl font-bold text-green-700 dark:text-green-300">{totalStudentsAll}</p>
+        </div>
+        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800">
+          <p className="text-sm text-purple-600 dark:text-purple-400">Grade Levels</p>
+          <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{sortedGrades.length}</p>
+        </div>
+        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-100 dark:border-orange-800">
+          <p className="text-sm text-orange-600 dark:text-orange-400">Avg Students/Section</p>
+          <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+            {sections.length > 0 ? Math.round(totalStudentsAll / sections.length) : 0}
+          </p>
         </div>
       </div>
 
@@ -309,86 +424,97 @@ export default function SectionManagement() {
             <p className="text-gray-400 dark:text-gray-500 mt-1">Click "Add Section" to create a new section with a custom name</p>
           </div>
         ) : (
-          sortedGrades.map(grade => (
-            <div key={grade} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-              <div className="px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{getGradeIcon(grade)}</span>
-                  <h2 className="text-lg font-semibold">{grade}</h2>
-                  <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                    {groupedSections[grade].length} section{groupedSections[grade].length !== 1 ? 's' : ''}
-                  </span>
+          sortedGrades.map(grade => {
+            const gradeSections = groupedSections[grade] || [];
+            const gradeTotalStudents = gradeSections.reduce((sum, s) => sum + (s.studentCount || 0), 0);
+            
+            return (
+              <div key={grade} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-2xl">{getGradeIcon(grade)}</span>
+                    <h2 className="text-lg font-semibold">{grade}</h2>
+                    <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                      {gradeSections.length} section{gradeSections.length !== 1 ? 's' : ''}
+                    </span>
+                    <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs">
+                      👨‍🎓 {gradeTotalStudents} student{gradeTotalStudents !== 1 ? 's' : ''} total
+                    </span>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Section Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned Teacher</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Students</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">School Year</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {gradeSections.map((section) => (
+                        <tr key={section._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                          <td className="px-6 py-4 text-sm font-medium">
+                            <div className="flex items-center gap-2">
+                              <BookOpen size={14} className="text-green-600" />
+                              <span className="text-gray-800 dark:text-gray-200 font-semibold">{section.sectionName}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                            {section.adviser ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <User size={14} className="text-blue-600" />
+                                </div>
+                                <span>{section.adviser.fullName}</span>
+                              </div>
+                            ) : (
+                              <span className="text-yellow-600">Not Assigned</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm">
+                            <button 
+                              onClick={() => handleViewSection(section)}
+                              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 group"
+                            >
+                              <Users size={16} />
+                              <span className="font-bold text-lg">{section.studentCount || 0}</span>
+                              <span className="text-gray-400 text-xs group-hover:text-blue-500">
+                                student{section.studentCount !== 1 ? 's' : ''}
+                              </span>
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {section.schoolYear}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => openEditModal(section)} 
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition" 
+                                title="Edit Section Name or Teacher"
+                              >
+                                <Edit size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteSection(section)} 
+                                className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition" 
+                                title="Delete Section"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Section Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned Teacher</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Students</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">School Year</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {groupedSections[grade].map((section) => (
-                      <tr key={section._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                        <td className="px-6 py-4 text-sm font-medium">
-                          <div className="flex items-center gap-2">
-                            <BookOpen size={14} className="text-green-600" />
-                            <span className="text-gray-800 dark:text-gray-200 font-semibold">{section.sectionName}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                          {section.adviser ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                <User size={14} className="text-blue-600" />
-                              </div>
-                              <span>{section.adviser.fullName}</span>
-                            </div>
-                          ) : (
-                            <span className="text-yellow-600">Not Assigned</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <button 
-                            onClick={() => handleViewSection(section)}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
-                          >
-                            <Users size={14} />
-                            <span>{section.students?.length || 0} students</span>
-                          </button>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          {section.schoolYear}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => openEditModal(section)} 
-                              className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition" 
-                              title="Edit Section Name or Teacher"
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteSection(section)} 
-                              className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition" 
-                              title="Delete Section"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
