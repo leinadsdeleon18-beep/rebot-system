@@ -19,7 +19,6 @@ import AdminSettings from './pages/admin/Settings';
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import StudentManagement from './pages/teacher/StudentManagement';
-import QRManagement from './pages/teacher/QRManagement';
 import TeacherSettings from './pages/teacher/Settings';
 
 // Canteen Pages
@@ -177,7 +176,6 @@ function AppContent() {
         }>
           <Route index element={<TeacherDashboard />} />
           <Route path="students" element={<StudentManagement />} />
-          <Route path="qr-codes" element={<QRManagement />} />
           <Route path="settings" element={<TeacherSettings />} />
         </Route>
         

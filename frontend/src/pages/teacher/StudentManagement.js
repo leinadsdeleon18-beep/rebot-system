@@ -37,6 +37,7 @@ export default function StudentManagement() {
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
   const [isAddingPoints, setIsAddingPoints] = useState(false);
+  const [isLoadingQRs, setIsLoadingQRs] = useState(false);
   const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
   const [teacherAssignedSections, setTeacherAssignedSections] = useState([]);
   const [teacherName, setTeacherName] = useState('');
@@ -673,13 +674,54 @@ export default function StudentManagement() {
     }
   };
 
-  const handlePrintQRCodes = () => {
+  // ============================================================
+  // UPDATED: Fetch QR codes first, then open print modal
+  // ============================================================
+  const handlePrintQRCodes = async () => {
     const filtered = filteredStudents;
     if (filtered.length === 0) {
       toast.error('No students to print');
       return;
     }
-    setShowPrintQRModal(true);
+
+    setIsLoadingQRs(true);
+    const loadingToast = toast.loading(`Loading ${filtered.length} QR codes...`);
+
+    try {
+      const token = localStorage.getItem('token');
+      const qrCodesMap = {};
+
+      // Fetch each student's QR from the existing endpoint
+      for (const student of filtered) {
+        try {
+          const response = await fetch(`${API_BASE}/students/${student.id}/qrcode`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success && data.qrCode) {
+            qrCodesMap[student.id] = data.qrCode;
+          }
+        } catch (err) {
+          console.error(`Failed QR for ${student.name}:`, err);
+        }
+      }
+
+      // Attach QR codes to the students array in state
+      setStudents(prev => prev.map(s => ({
+        ...s,
+        qrCodeData: qrCodesMap[s.id] || s.qrCodeData
+      })));
+
+      toast.dismiss(loadingToast);
+      toast.success(`Loaded ${Object.keys(qrCodesMap).length} QR codes`);
+      setShowPrintQRModal(true);
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error('Print QR error:', error);
+      toast.error('Failed to load QR codes');
+    } finally {
+      setIsLoadingQRs(false);
+    }
   };
 
   const availableSections = sectionsList;
@@ -814,8 +856,20 @@ export default function StudentManagement() {
               <option key={grade} value={grade}>{grade === 'all' ? 'All Grades' : grade}</option>
             ))}
           </select>
-          <button onClick={handlePrintQRCodes} className="px-4 py-2 border border-gray-300 rounded-xl flex items-center gap-2 hover:bg-gray-50">
-            <Printer size={18} /> Print QR Codes
+          <button 
+            onClick={handlePrintQRCodes} 
+            disabled={isLoadingQRs}
+            className="px-4 py-2 border border-gray-300 rounded-xl flex items-center gap-2 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isLoadingQRs ? (
+              <>
+                <RefreshCw size={18} className="animate-spin" /> Loading...
+              </>
+            ) : (
+              <>
+                <Printer size={18} /> Print QR Codes
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1184,7 +1238,7 @@ export default function StudentManagement() {
         </div>
       )}
 
-      {/* Bulk Import Modal - Keep existing code */}
+      {/* Bulk Import Modal */}
       {showBulkImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -1386,9 +1440,9 @@ export default function StudentManagement() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 {filteredStudents.map((student, index) => (
                   <div key={student.id} className="border rounded-xl p-4 text-center hover:shadow-lg transition">
-                    <div className="w-32 h-32 mx-auto bg-gray-100 rounded-lg flex items-center justify-center mb-3">
+                    <div className="w-32 h-32 mx-auto bg-gray-100 rounded-lg flex items-center justify-center mb-3 overflow-hidden">
                       {student.qrCodeData ? (
-                        <img src={student.qrCodeData} alt="QR Code" className="w-28 h-28" />
+                        <img src={student.qrCodeData} alt="QR Code" className="w-full h-full object-contain" />
                       ) : (
                         <QrCode size={48} className="text-gray-400" />
                       )}
@@ -1396,6 +1450,7 @@ export default function StudentManagement() {
                     <h4 className="font-semibold text-sm">{student.name}</h4>
                     <p className="text-xs text-gray-500 font-mono">{student.studentId}</p>
                     <p className="text-xs text-gray-500">{student.grade} - {student.section}</p>
+                    <p className="text-xs text-green-600 font-semibold mt-1">{student.points} pts</p>
                   </div>
                 ))}
               </div>

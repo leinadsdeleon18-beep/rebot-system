@@ -28,11 +28,11 @@ import {
   Calendar,
   BookOpen,
   AlertTriangle,
-  Loader
+  Loader,
+  ScanLine
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Logout Confirmation Modal Component
 const LogoutConfirmationModal = ({ isOpen, onClose, onConfirm, loading }) => {
   if (!isOpen) return null;
 
@@ -45,10 +45,10 @@ const LogoutConfirmationModal = ({ isOpen, onClose, onConfirm, loading }) => {
           </div>
           <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Logout Confirmation</h3>
         </div>
-        
+
         <p className="text-gray-600 dark:text-gray-400 mb-2">Are you sure you want to logout?</p>
         <p className="text-sm text-gray-500 dark:text-gray-500 mb-6">You will need to login again to access your account.</p>
-        
+
         <div className="flex gap-3">
           <button
             onClick={onClose}
@@ -92,7 +92,6 @@ export default function Layout() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Check if screen is mobile
   useEffect(() => {
     const checkScreen = () => {
       setIsMobile(window.innerWidth < 768);
@@ -102,13 +101,11 @@ export default function Layout() {
     return () => window.removeEventListener('resize', checkScreen);
   }, []);
 
-  // Update local state when user changes
   useEffect(() => {
     setCurrentUser(user);
     setUserAvatar(user?.avatar || null);
   }, [user]);
 
-  // Listen for avatar updates from Settings component
   useEffect(() => {
     const handleAvatarUpdate = (event) => {
       const newAvatarUrl = event.detail?.avatarUrl;
@@ -171,17 +168,18 @@ export default function Layout() {
         { name: 'Rewards', path: '/admin/rewards', icon: Gift, color: 'text-yellow-400' },
         { name: 'Reports', path: '/admin/reports', icon: BarChart3, color: 'text-purple-400' },
         { name: 'Inventory', path: '/admin/inventory', icon: Package, color: 'text-orange-400' },
+        { name: 'Scan QR', path: '/qr-scanner', icon: ScanLine, color: 'text-cyan-400' },
         { name: 'Settings', path: '/admin/settings', icon: SettingsIcon, color: 'text-gray-400' },
       ],
       teacher: [
         { name: 'Dashboard', path: '/teacher', icon: LayoutDashboard, color: 'text-blue-400' },
         { name: 'Students', path: '/teacher/students', icon: GraduationCap, color: 'text-green-400' },
-        { name: 'QR Codes', path: '/teacher/qr-codes', icon: QrCode, color: 'text-purple-400' },
         { name: 'Settings', path: '/teacher/settings', icon: SettingsIcon, color: 'text-gray-400' },
       ],
       canteen_staff: [
         { name: 'Dashboard', path: '/canteen', icon: LayoutDashboard, color: 'text-blue-400' },
         { name: 'Scan & Redeem', path: '/canteen/scan', icon: QrCode, color: 'text-green-400' },
+        { name: 'Scan QR (Points)', path: '/qr-scanner', icon: ScanLine, color: 'text-cyan-400' },
         { name: 'History', path: '/canteen/history', icon: ShoppingBag, color: 'text-purple-400' },
         { name: 'Rewards', path: '/canteen/rewards', icon: Gift, color: 'text-yellow-400' },
         { name: 'Settings', path: '/canteen/settings', icon: SettingsIcon, color: 'text-gray-400' },
@@ -236,10 +234,8 @@ export default function Layout() {
     return currentItem?.name || 'Dashboard';
   };
 
-  // Sidebar content component
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      {/* Logo Section - Always shows logo, text only when expanded */}
       <div className={`p-5 border-b border-white/10 ${sidebarCollapsed ? 'px-3' : ''}`}>
         <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
           <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center text-xl shadow-lg">
@@ -254,7 +250,6 @@ export default function Layout() {
         </div>
       </div>
 
-      {/* User Info Section - Only shows avatar when collapsed */}
       <div className={`p-4 border-b border-white/10 ${sidebarCollapsed ? 'px-2' : ''}`}>
         <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
           <div className="relative">
@@ -286,7 +281,6 @@ export default function Layout() {
         </div>
       </div>
 
-      {/* Navigation Menu */}
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <div className="space-y-1">
           {navItems.map((item) => {
@@ -320,7 +314,6 @@ export default function Layout() {
         </div>
       </nav>
 
-      {/* Footer Actions */}
       <div className={`p-4 border-t border-white/10 ${sidebarCollapsed ? 'px-2' : ''}`}>
         <div className="space-y-2">
           <button
@@ -356,7 +349,6 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      {/* Logout Confirmation Modal */}
       <LogoutConfirmationModal
         isOpen={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
@@ -364,7 +356,6 @@ export default function Layout() {
         loading={loggingOut}
       />
 
-      {/* Sidebar - Always visible, no hamburger menu */}
       <aside
         className={`
           fixed top-0 left-0 z-40 h-screen 
@@ -376,7 +367,6 @@ export default function Layout() {
         <SidebarContent />
       </aside>
 
-      {/* Arrow Button to Toggle Sidebar - Always visible */}
       <button
         onClick={toggleSidebar}
         className="fixed top-20 z-50 p-1.5 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full shadow-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
@@ -385,9 +375,7 @@ export default function Layout() {
         {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
 
-      {/* Main Content - Margin adjusts based on sidebar state */}
       <main className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-72'}`}>
-        {/* Top Header */}
         <header className="sticky top-0 z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 py-3 lg:px-6 lg:py-4">
             <div className="flex items-center justify-between">
@@ -410,7 +398,6 @@ export default function Layout() {
             </div>
           </div>
 
-          {/* Mobile Date Bar */}
           <div className="lg:hidden px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <Calendar size={12} />
@@ -426,7 +413,6 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* Page Content */}
         <div className="p-4 lg:p-8">
           <Outlet />
         </div>
