@@ -7,9 +7,10 @@ import {
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import LoadingScreen from '../../components/LoadingScreen';
+import { API_BASE_URL } from '../../services/apiService';
 
 // API Base URL
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = API_BASE_URL;
 
 export default function StudentManagement() {
   const [students, setStudents] = useState([]);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Package, AlertTriangle, ShoppingBag, Edit2, Plus, RefreshCw, X, Coffee, Utensils, Book, Gamepad, MoreHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 const categories = [
   { value: 'snacks', label: 'Snacks', icon: Coffee, color: 'bg-orange-100 text-orange-700' },
@@ -41,7 +42,7 @@ export default function AvailableRewards() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/rewards', {
+      const response = await fetch(apiUrl('/rewards'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -68,7 +69,7 @@ export default function AvailableRewards() {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/rewards', {
+      const response = await fetch(apiUrl('/rewards'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +118,7 @@ export default function AvailableRewards() {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/rewards/${editingReward._id}`, {
+      const response = await fetch(apiUrl(`/rewards/${editingReward._id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -157,7 +158,7 @@ export default function AvailableRewards() {
       const token = localStorage.getItem('token');
       const newStock = (selectedReward.stock || 0) + parseInt(restockAmount);
       
-      const response = await fetch(`http://localhost:5000/api/rewards/${selectedReward._id}`, {
+      const response = await fetch(apiUrl(`/rewards/${selectedReward._id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

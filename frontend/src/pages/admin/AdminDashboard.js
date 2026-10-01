@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { apiUrl } from '../../services/apiService';
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/get-stats')
+    fetch(apiUrl('/get-stats'))
       .then(res => res.json())
       .then(result => {
         console.log('Dashboard Data:', result);

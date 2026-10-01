@@ -10,6 +10,7 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import toast from 'react-hot-toast';
 import LoadingScreen from '../../components/LoadingScreen';
+import { API_BASE_URL } from '../../services/apiService';
 
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement, 
@@ -17,7 +18,7 @@ ChartJS.register(
 );
 
 // API Base URL
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = API_BASE_URL;
 
 // Custom Certificate Icon
 const CertificateIcon = ({ size = 18, className = "" }) => (

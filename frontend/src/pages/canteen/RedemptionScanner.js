@@ -6,6 +6,7 @@ import {
   ChevronRight, Clock, Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 export default function RedemptionScanner() {
   const [scanning, setScanning] = useState(false);
@@ -50,7 +51,7 @@ export default function RedemptionScanner() {
     setLoadingRewards(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/rewards', {
+      const response = await fetch(apiUrl('/rewards'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -69,7 +70,7 @@ export default function RedemptionScanner() {
   const fetchRecentRedemptions = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/transactions?type=redeem&limit=5', {
+      const response = await fetch(apiUrl('/transactions?type=redeem&limit=5'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -84,7 +85,7 @@ export default function RedemptionScanner() {
   const fetchStudentById = async (studentId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/${studentId}`, {
+      const response = await fetch(apiUrl(`/students/${studentId}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -109,7 +110,7 @@ export default function RedemptionScanner() {
   const fetchStudentByQR = async (qrCode) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students/qr/${qrCode}`, {
+      const response = await fetch(apiUrl(`/students/qr/${qrCode}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -218,7 +219,7 @@ export default function RedemptionScanner() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/students?search=${encodeURIComponent(searchQuery)}`, {
+      const response = await fetch(apiUrl(`/students?search=${encodeURIComponent(searchQuery)}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -270,7 +271,7 @@ export default function RedemptionScanner() {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:5000/api/transactions/redeem', {
+      const response = await fetch(apiUrl('/transactions/redeem'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

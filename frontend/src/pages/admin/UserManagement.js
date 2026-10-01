@@ -9,6 +9,7 @@ import {
   Star, Trophy, Zap, Heart, Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 const Coffee = ({ size = 18, className = "" }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className}>
@@ -179,7 +180,7 @@ export default function UserManagement() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/admin/users', {
+      const response = await fetch(apiUrl('/admin/users'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -196,7 +197,7 @@ export default function UserManagement() {
   const fetchRoles = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/admin/roles', {
+      const response = await fetch(apiUrl('/admin/roles'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -209,7 +210,7 @@ export default function UserManagement() {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/admin/sections', {
+      const response = await fetch(apiUrl('/admin/sections'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -239,7 +240,7 @@ export default function UserManagement() {
         return grade ? grade.name : code;
       });
       
-      const response = await fetch('http://localhost:5000/api/admin/users', {
+      const response = await fetch(apiUrl('/admin/users'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -286,7 +287,7 @@ export default function UserManagement() {
         return grade ? grade.name : code;
       });
       
-      const response = await fetch(`http://localhost:5000/api/admin/users/${selectedUser._id}`, {
+      const response = await fetch(apiUrl(`/admin/users/${selectedUser._id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
@@ -326,7 +327,7 @@ export default function UserManagement() {
     setConfirmLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/admin/users/${pendingUser._id}/toggle-status`, {
+      const response = await fetch(apiUrl(`/admin/users/${pendingUser._id}/toggle-status`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ isActive: newStatus })

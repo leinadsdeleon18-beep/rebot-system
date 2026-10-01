@@ -1,6 +1,7 @@
 console.log('✅✅✅ ADMIN DASHBOARD COMPONENT IS LOADING ✅✅✅');
 
 import React, { useState, useEffect } from 'react';
+import { apiUrl } from '../services/apiService';
 
 export default function AdminDashboard() {
   console.log('🟢 AdminDashboard component RENDERED');
@@ -12,7 +13,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     console.log('🔵 useEffect RUNNING - fetching data...');
     
-    fetch('http://localhost:5000/api/get-stats')
+    fetch(apiUrl('/get-stats'))
       .then(res => {
         console.log('📡 Response status:', res.status);
         return res.json();

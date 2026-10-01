@@ -4,6 +4,7 @@ import { ShoppingBag, Star, Scan, RefreshCw, TrendingUp, Clock, Package, AlertTr
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -30,19 +31,19 @@ export default function CanteenDashboard() {
       const token = localStorage.getItem('token');
       
       // Fetch rewards for stock data
-      const rewardsRes = await fetch('http://localhost:5000/api/rewards', {
+      const rewardsRes = await fetch(apiUrl('/rewards'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const rewardsData = await rewardsRes.json();
       
       // Fetch transactions for redemption data
-      const transactionsRes = await fetch('http://localhost:5000/api/transactions', {
+      const transactionsRes = await fetch(apiUrl('/transactions'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const transactionsData = await transactionsRes.json();
       
       // Fetch students for points data
-      const studentsRes = await fetch('http://localhost:5000/api/students', {
+      const studentsRes = await fetch(apiUrl('/students'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const studentsData = await studentsRes.json();

@@ -20,6 +20,7 @@ import {
   Filler
 } from 'chart.js';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 ChartJS.register(
   CategoryScale,
@@ -98,7 +99,7 @@ export default function Reports() {
   const fetchSections = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/sections', {
+      const response = await fetch(apiUrl('/sections'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -122,7 +123,7 @@ export default function Reports() {
         reportType: reportType
       });
       
-      const response = await fetch(`http://localhost:5000/api/reports/data?${params}`, {
+      const response = await fetch(apiUrl(`/reports/data?${params}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -150,7 +151,7 @@ export default function Reports() {
         section: selectedSection
       });
       
-      const response = await fetch(`http://localhost:5000/api/reports/recycling?${params}`, {
+      const response = await fetch(apiUrl(`/reports/recycling?${params}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -173,7 +174,7 @@ export default function Reports() {
         section: selectedSection
       });
       
-      const response = await fetch(`http://localhost:5000/api/reports/redemption?${params}`, {
+      const response = await fetch(apiUrl(`/reports/redemption?${params}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();

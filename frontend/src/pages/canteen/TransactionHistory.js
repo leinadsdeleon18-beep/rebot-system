@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { History, Search, Download, Calendar, ChevronLeft, ChevronRight, RefreshCw, Filter, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 export default function TransactionHistory() {
   const [transactions, setTransactions] = useState([]);
@@ -20,7 +21,7 @@ export default function TransactionHistory() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/transactions', {
+      const response = await fetch(apiUrl('/transactions'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();

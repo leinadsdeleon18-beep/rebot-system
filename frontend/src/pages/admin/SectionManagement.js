@@ -3,6 +3,7 @@ import {
   Plus, Edit, Trash2, Search, X, BookOpen, User, RefreshCw, Users, GraduationCap, School, AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 export default function SectionManagement() {
   const [sections, setSections] = useState([]);
@@ -46,10 +47,10 @@ export default function SectionManagement() {
       
       // Fetch both sections and students in parallel
       const [sectionsResponse, studentsResponse] = await Promise.all([
-        fetch('http://localhost:5000/api/sections', {
+        fetch(apiUrl('/sections'), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:5000/api/students', {
+        fetch(apiUrl('/students'), {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -105,14 +106,14 @@ export default function SectionManagement() {
       const token = localStorage.getItem('token');
       
       // First get all sections
-      const sectionsResponse = await fetch('http://localhost:5000/api/sections', {
+      const sectionsResponse = await fetch(apiUrl('/sections'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const sectionsData = await sectionsResponse.json();
       
       if (sectionsData.success) {
         // Then get all students
-        const studentsResponse = await fetch('http://localhost:5000/api/students', {
+        const studentsResponse = await fetch(apiUrl('/students'), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const studentsData = await studentsResponse.json();
@@ -151,7 +152,7 @@ export default function SectionManagement() {
   const fetchTeachers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/admin/users', {
+      const response = await fetch(apiUrl('/admin/users'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -178,7 +179,7 @@ export default function SectionManagement() {
       // Fallback: make API call
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:5000/api/students?section=${sectionId}`, {
+        const response = await fetch(apiUrl(`/students?section=${sectionId}`), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -200,7 +201,7 @@ export default function SectionManagement() {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/sections', {
+      const response = await fetch(apiUrl('/sections'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -241,7 +242,7 @@ export default function SectionManagement() {
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/sections/${editingSection._id}`, {
+      const response = await fetch(apiUrl(`/sections/${editingSection._id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -281,7 +282,7 @@ export default function SectionManagement() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/sections/${section._id}`, {
+      const response = await fetch(apiUrl(`/sections/${section._id}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

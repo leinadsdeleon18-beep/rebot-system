@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiUrl } from '../services/apiService';
 import { 
   User, 
   Lock, 
@@ -540,7 +541,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     // You can also send to API if needed
     // try {
     //   const token = localStorage.getItem('token');
-    //   await fetch('http://localhost:5000/api/settings/bottle-points', {
+    //   await fetch(apiUrl('/settings/bottle-points'), {
     //     method: 'PUT',
     //     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     //     body: JSON.stringify({ type, points })
@@ -568,7 +569,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     const fetchUserProfile = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5000/api/upload/profile', {
+        const response = await fetch(apiUrl('/upload/profile'), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -668,7 +669,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
       formData.append('avatar', compressedFile);
       
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/upload/avatar', {
+      const response = await fetch(apiUrl('/upload/avatar'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -695,7 +696,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/upload/avatar', {
+      const response = await fetch(apiUrl('/upload/avatar'), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -728,7 +729,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:5000/api/auth/profile', {
+      const response = await fetch(apiUrl('/auth/profile'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -791,7 +792,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:5000/api/auth/change-password', {
+      const response = await fetch(apiUrl('/auth/change-password'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

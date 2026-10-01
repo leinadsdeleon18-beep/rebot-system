@@ -3,11 +3,13 @@ import axios from 'axios';
 
 // IMPORTANT: Include /api in the URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+export const API_BASE_URL = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+export const apiUrl = (endpoint) => `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
 console.log('🔧 API Service initialized with URL:', API_URL);
 
 // Strip trailing slash to avoid double-slash issues
-const BASE_URL = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+const BASE_URL = API_BASE_URL;
 
 // Helper: build a path - KEEP THE PATH AS IS
 const path = (p) => {

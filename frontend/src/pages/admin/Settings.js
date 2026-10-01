@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import Settings from '../../components/settings';
 import toast from 'react-hot-toast';
+import { apiUrl } from '../../services/apiService';
 
 export default function AdminSettings() {
   const { user, logout } = useAuth();
@@ -36,7 +37,7 @@ export default function AdminSettings() {
     try {
       const token = localStorage.getItem('token');
       console.log('Fetching rewards from API...');
-      const response = await fetch('http://localhost:5000/api/rewards', {
+      const response = await fetch(apiUrl('/rewards'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -60,7 +61,7 @@ export default function AdminSettings() {
   const handleUpdatePoints = async (rewardId, newPoints) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/rewards/${rewardId}`, {
+      const response = await fetch(apiUrl(`/rewards/${rewardId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
