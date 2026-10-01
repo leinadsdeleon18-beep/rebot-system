@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Star, Scan, RefreshCw, TrendingUp, Clock, Package, AlertTriangle, Gift } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -7,6 +8,7 @@ import toast from 'react-hot-toast';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 export default function CanteenDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({ 
     todayRedemptions: 0, 
     totalPoints: 0, 
@@ -254,9 +256,9 @@ export default function CanteenDashboard() {
       )}
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <button
-          onClick={() => window.location.href = '/canteen/scan'}
+          onClick={() => navigate('/canteen/scan')}
           className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition shadow-md"
         >
           <Scan size={24} />
@@ -266,7 +268,7 @@ export default function CanteenDashboard() {
           </div>
         </button>
         <button
-          onClick={() => window.location.href = '/canteen/rewards'}
+          onClick={() => navigate('/canteen/rewards')}
           className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition shadow-md"
         >
           <Gift size={24} />

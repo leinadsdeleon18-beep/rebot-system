@@ -5,6 +5,7 @@ const Student = require('../models/Student');
 const Reward = require('../models/Reward');
 const Section = require('../models/Section');
 const Role = require('../models/Role');
+const Device = require('../models/Device');              // <-- ADD THIS
 const authMiddleware = require('../middleware/authMiddleware');
 const bcrypt = require('bcryptjs');
 

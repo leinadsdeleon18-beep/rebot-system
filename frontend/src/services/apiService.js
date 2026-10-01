@@ -70,15 +70,17 @@ export const transactionsAPI = {
   getAll:       (limit = 100) => api.get(path(`/transactions?limit=${limit}`)),
   getByStudent: (studentId)   => api.get(path(`/transactions/student/${studentId}`)),
   create:       (data)        => api.post(path('/transactions'), data),
+  addPoints:    (data)        => api.post(path('/transactions/add-points'), data),
   getHistory:   (limit = 100) => api.get(path(`/transactions/history?limit=${limit}`)),
 };
 
 // ========== STUDENTS API ==========
 export const studentsAPI = {
+  getMyDashboard: ()            => api.get(path('/students/me/dashboard')),
   getAll:       (params = {}) => api.get(path('/students'), { params }),
   getById:      (id)          => api.get(path(`/students/${id}`)),
   getByBarcode: (barcode)     => api.get(path(`/students/barcode/${barcode}`)),
-  getByQR:      (qrValue)     => api.get(path(`/students/barcode/${qrValue}`)),
+  getByQR:      (qrValue)     => api.get(path(`/students/qr/${encodeURIComponent(qrValue)}`)),
   updatePoints: (id, points)  => api.put(path(`/students/${id}/points`), { points }),
 };
 
@@ -92,10 +94,14 @@ export const dashboardAPI = {
 
 // ========== AUTH API ==========
 export const authAPI = {
-  login:          (credentials) => api.post('/login', credentials),
+  login:          (credentials) => api.post(path('/auth/login'), credentials),
   register:       (userData)    => api.post(path('/auth/register'), userData),
   getMe:          ()            => api.get(path('/auth/me')),
   changePassword: (data)        => api.put(path('/auth/change-password'), data),
+  forgotPassword: (data)        => api.post(path('/auth/forgot-password'), data),
+  resendOtp:      (data)        => api.post(path('/auth/resend-otp'), data),
+  verifyOtp:      (data)        => api.post(path('/auth/verify-otp'), data),
+  resetPassword:  (data)        => api.post(path('/auth/reset-password'), data),
 };
 
 export default api;

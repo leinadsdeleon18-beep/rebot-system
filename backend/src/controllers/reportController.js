@@ -150,9 +150,10 @@ const getReportData = async (req, res) => {
     
     // Monthly data for selected year
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const selectedYear = parseInt(year, 10) || 2026;
     const monthlyData = months.map((month, index) => ({
       month,
-      points: monthlyPoints[`${selectedYear || 2026}-${index}`] || 0
+      points: monthlyPoints[`${selectedYear}-${index}`] || 0
     }));
     
     // Grade performance
@@ -193,6 +194,25 @@ const getReportData = async (req, res) => {
     const totalPoints = transactions.reduce((sum, t) => sum + (t.pointsEarned || 0), 0);
     const totalRedemptions = transactions.filter(t => t.type === 'redeem').length;
     const averagePoints = totalStudents > 0 ? Math.round(totalPoints / totalStudents) : 0;
+    const recyclingData = transactions
+      .filter(transaction => transaction.type === 'earn')
+      .map(transaction => ({
+        id: transaction._id,
+        studentName: transaction.student?.fullName || 'Unknown',
+        grade: transaction.student?.grade || 'N/A',
+        section: transaction.student?.sectionName || 'N/A',
+        points: transaction.pointsEarned || 0,
+        date: transaction.createdAt?.toISOString().split('T')[0] || ''
+      }));
+    const redemptionData = transactions
+      .filter(transaction => transaction.type === 'redeem')
+      .map(transaction => ({
+        id: transaction._id,
+        studentName: transaction.student?.fullName || 'Unknown',
+        rewardName: transaction.reward?.name || 'Unknown reward',
+        points: transaction.pointsSpent || 0,
+        date: transaction.createdAt?.toISOString().split('T')[0] || ''
+      }));
     
     res.json({
       success: true,
@@ -214,6 +234,8 @@ const getReportData = async (req, res) => {
         gradePerformance: gradeData,
         sectionPerformance: sectionData,
         topStudents,
+        recyclingData,
+        redemptionData,
         students: students.map(s => ({
           ...s.toObject(),
           pointsEarned: studentPoints[s._id.toString()]?.points || 0

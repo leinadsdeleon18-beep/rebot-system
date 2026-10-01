@@ -17,10 +17,8 @@ import {
   Sun,
   QrCode,
   ShoppingBag,
-  Truck,
   GraduationCap,
   Coffee,
-  Recycle,
   Shield,
   ChevronLeft,
   ChevronRight,
@@ -28,8 +26,7 @@ import {
   Calendar,
   BookOpen,
   AlertTriangle,
-  Loader,
-  ScanLine
+  Loader
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -168,7 +165,6 @@ export default function Layout() {
         { name: 'Rewards', path: '/admin/rewards', icon: Gift, color: 'text-yellow-400' },
         { name: 'Reports', path: '/admin/reports', icon: BarChart3, color: 'text-purple-400' },
         { name: 'Inventory', path: '/admin/inventory', icon: Package, color: 'text-orange-400' },
-        { name: 'Scan QR', path: '/qr-scanner', icon: ScanLine, color: 'text-cyan-400' },
         { name: 'Settings', path: '/admin/settings', icon: SettingsIcon, color: 'text-gray-400' },
       ],
       teacher: [
@@ -179,17 +175,9 @@ export default function Layout() {
       canteen_staff: [
         { name: 'Dashboard', path: '/canteen', icon: LayoutDashboard, color: 'text-blue-400' },
         { name: 'Scan & Redeem', path: '/canteen/scan', icon: QrCode, color: 'text-green-400' },
-        { name: 'Scan QR (Points)', path: '/qr-scanner', icon: ScanLine, color: 'text-cyan-400' },
         { name: 'History', path: '/canteen/history', icon: ShoppingBag, color: 'text-purple-400' },
         { name: 'Rewards', path: '/canteen/rewards', icon: Gift, color: 'text-yellow-400' },
         { name: 'Settings', path: '/canteen/settings', icon: SettingsIcon, color: 'text-gray-400' },
-      ],
-      junk_shop_personnel: [
-        { name: 'Dashboard', path: '/junk', icon: LayoutDashboard, color: 'text-blue-400' },
-        { name: 'Collection Status', path: '/junk/status', icon: Truck, color: 'text-green-400' },
-        { name: 'Pickups', path: '/junk/pickups', icon: Recycle, color: 'text-purple-400' },
-        { name: 'History', path: '/junk/history', icon: BarChart3, color: 'text-orange-400' },
-        { name: 'Settings', path: '/junk/settings', icon: SettingsIcon, color: 'text-gray-400' },
       ],
       student: [
         { name: 'Dashboard', path: '/student', icon: LayoutDashboard, color: 'text-blue-400' },
@@ -208,7 +196,6 @@ export default function Layout() {
       administrator: 'from-green-700 to-green-900',
       teacher: 'from-blue-700 to-blue-900',
       canteen_staff: 'from-orange-700 to-orange-900',
-      junk_shop_personnel: 'from-emerald-700 to-emerald-900',
       student: 'from-teal-700 to-teal-900',
     };
     return colors[role] || 'from-green-700 to-green-900';
@@ -220,7 +207,6 @@ export default function Layout() {
       administrator: 'Administrator',
       teacher: 'Teacher',
       canteen_staff: 'Canteen Staff',
-      junk_shop_personnel: 'Junk Shop',
       student: 'Student',
     };
     return names[role] || 'User';
@@ -228,10 +214,14 @@ export default function Layout() {
 
   const navItems = getNavItems();
   const currentPath = location.pathname;
+  const activeNavItem = navItems
+    .filter((item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`))
+    .reduce((activeItem, item) => (
+      !activeItem || item.path.length > activeItem.path.length ? item : activeItem
+    ), null);
 
   const getPageTitle = () => {
-    const currentItem = navItems.find(item => currentPath === item.path || currentPath.startsWith(item.path + '/'));
-    return currentItem?.name || 'Dashboard';
+    return activeNavItem?.name || 'Dashboard';
   };
 
   const SidebarContent = () => (
@@ -284,7 +274,7 @@ export default function Layout() {
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         <div className="space-y-1">
           {navItems.map((item) => {
-            const isActive = currentPath === item.path || (item.path !== '/admin' && currentPath?.startsWith(item.path));
+            const isActive = activeNavItem?.path === item.path;
             return (
               <button
                 key={item.name}

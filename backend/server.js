@@ -26,6 +26,7 @@ const statsRoutes = require('./src/routes/statsRoutes');
 const canteenRoutes = require('./src/routes/canteenRoutes');
 const inventoryRoutes = require('./src/routes/inventoryRoutes');
 const junkShopRoutes = require('./src/routes/junkShopRoutes');
+const reportRoutes = require('./src/routes/reportRoutes');
 const teacherRoutes = require('./src/routes/teacherRoutes');
 const sectionRoutes = require('./src/routes/sectionRoutes');
 const uploadRoutes = require('./src/routes/uploadRoutes');
@@ -34,7 +35,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.100.80:3000', 'https://rebot-system.onrender.com'],
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.100.80:3000', 'https://rebot-system.onrender.com', 'https://bibot-64134.web.app', 'https://bibot-64134.firebaseapp.com'],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true
   }
@@ -69,7 +70,7 @@ mongoose.connect(MONGODB_URI)
 // Middleware
 app.use(helmet({ contentSecurityPolicy: false, hsts: false }));
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.100.80:3000', 'https://rebot-system.onrender.com'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.100.80:3000', 'https://rebot-system.onrender.com', 'https://bibot-64134.web.app', 'https://bibot-64134.firebaseapp.com'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -1307,6 +1308,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/canteen', canteenRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/junk', junkShopRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/sections', sectionRoutes);
 app.use('/api/upload', uploadRoutes);

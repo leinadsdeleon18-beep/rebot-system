@@ -3,6 +3,7 @@ const router = express.Router();
 const Student = require('../models/Student');
 const Section = require('../models/Section');
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 const authMiddleware = require('../middleware/authMiddleware');
 const QRCode = require('qrcode');
 
@@ -31,6 +32,58 @@ async function generateUniqueStudentId() {
   
   return studentId;
 }
+
+router.get('/me/dashboard', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const email = req.user.email?.trim().toLowerCase();
+    if (!email) {
+      return res.status(404).json({ success: false, message: 'No student profile is linked to this login' });
+    }
+
+    const student = await Student.findOne({ email }).populate('section', 'sectionName gradeLevel');
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'No student profile is linked to this login' });
+    }
+
+    const studentId = student._id;
+    const recentTransactions = await Transaction.collection.find({
+      $or: [
+        { student: studentId },
+        { studentId },
+        { studentId: studentId.toString() }
+      ]
+    }).sort({ createdAt: -1 }).limit(5).toArray();
+
+    res.json({
+      success: true,
+      student: {
+        fullName: student.fullName,
+        studentId: student.studentId,
+        grade: student.section?.gradeLevel || student.grade || null,
+        section: student.section?.sectionName || null,
+        points: student.points || 0,
+        totalPointsEarned: student.totalPointsEarned || 0,
+        totalBottlesRecycled: student.totalBottlesRecycled || 0
+      },
+      transactions: recentTransactions.map((transaction) => ({
+        id: transaction._id.toString(),
+        type: transaction.type || (transaction.pointsSpent ? 'redeem' : 'earn'),
+        description: transaction.description || '',
+        rewardName: transaction.rewardName || '',
+        pointsEarned: transaction.pointsEarned || transaction.totalPoints || transaction.points || 0,
+        pointsSpent: transaction.pointsSpent || 0,
+        createdAt: transaction.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('Get student dashboard error:', error);
+    res.status(500).json({ success: false, message: 'Unable to load student dashboard' });
+  }
+});
 
 // Get teacher's assigned sections with student counts
 router.get('/teacher/sections', authMiddleware, async (req, res) => {

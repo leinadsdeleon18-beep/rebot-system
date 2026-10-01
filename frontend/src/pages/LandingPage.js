@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { authAPI } from '../services/apiService';
 import toast from 'react-hot-toast';
 import LoadingScreen from '../components/LoadingScreen';
 
@@ -44,19 +45,9 @@ export default function LandingPage() {
     guidelines: {}
   });
 
-  const userDatabase = {
-    teacher: { email: 'teacher@rebot.ph', username: 'teacher123', password: 'teacher123', fullName: 'Maria Santos' },
-    canteen: { email: 'canteen@rebot.ph', username: 'canteen123', password: 'canteen123', fullName: 'Rosa Mercado' },
-    junk: { email: 'junk@rebot.ph', username: 'junk123', password: 'junk123', fullName: 'Juan Reyes' },
-    utility: { email: 'utility@rebot.ph', username: 'utility123', password: 'utility123', fullName: 'Utility Staff' },
-    admin: { email: 'admin@rebot.ph', username: 'admin123', password: 'admin123', fullName: 'Admin User' }
-  };
-
   const roles = [
     { value: 'teacher', label: 'Teacher', icon: 'fas fa-chalkboard-user', desc: 'Class points and student records' },
     { value: 'canteen', label: 'Canteen', icon: 'fas fa-utensils', desc: 'Reward claiming and inventory' },
-    { value: 'junk', label: 'Junk Shop', icon: 'fas fa-recycle', desc: 'Pickup and recyclable records' },
-    { value: 'utility', label: 'Utility', icon: 'fas fa-tools', desc: 'Bin status and maintenance' },
     { value: 'admin', label: 'Admin', icon: 'fas fa-user-shield', desc: 'Full system management' }
   ];
 
@@ -78,7 +69,6 @@ export default function LandingPage() {
           'administrator': '/admin',
           'teacher': '/teacher',
           'canteen_staff': '/canteen',
-          'junk_shop_personnel': '/junk',
           'student': '/student'
         };
         const redirectPath = roleMap[userData.role];
@@ -187,25 +177,10 @@ export default function LandingPage() {
     setLoginError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: loginUsername,
-          password: loginPassword
-        })
-      });
+      const result = await login(loginUsername, loginPassword);
 
-      const data = await response.json();
-
-      if (data.success) {
-        localStorage.clear();
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('rebot_user', JSON.stringify(data.user));
-
-        toast.success(`Welcome back, ${data.user.fullName}!`);
+      if (result.success) {
+        const userData = result.user;
 
         setLoginModalOpen(false);
         setLoginUsername('');
@@ -216,32 +191,26 @@ export default function LandingPage() {
           'administrator': '/admin',
           'teacher': '/teacher',
           'canteen_staff': '/canteen',
-          'junk_shop_personnel': '/junk',
           'student': '/student'
         };
 
-        const redirectPath = roleMap[data.user.role] || '/';
+        const redirectPath = roleMap[userData.role] || '/';
         window.location.href = redirectPath;
 
       } else {
-        setLoginError(data.message || 'Login failed');
-        toast.error(data.message || 'Login failed');
+        setLoginError(result.error || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
-      setLoginError('Network error. Please make sure the backend server is running on port 5000');
+      setLoginError('Network error. Please check your API connection and try again.');
       toast.error('Network error');
     } finally {
       setIsLoggingIn(false);
     }
   };
 
-  const quickFillCredentials = (role) => {
-    const creds = userDatabase[role];
-    if (!creds) return;
+  const handleRoleSelect = (role) => {
     setSelectedRole(role);
-    setLoginUsername(creds.username);
-    setLoginPassword(creds.password);
     setLoginError('');
   };
 
@@ -276,13 +245,7 @@ export default function LandingPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail })
-      });
-
-      const data = await response.json();
+      const { data } = await authAPI.forgotPassword({ email: resetEmail });
 
       if (data.success) {
         setResetSuccess('Verification code sent to your email!');
@@ -305,13 +268,7 @@ export default function LandingPage() {
     setResetSuccess('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/resend-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail })
-      });
-
-      const data = await response.json();
+      const { data } = await authAPI.resendOtp({ email: resetEmail });
 
       if (data.success) {
         setResetSuccess('New verification code sent!');
@@ -335,13 +292,7 @@ export default function LandingPage() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: resetEmail, otp: code })
-      });
-
-      const data = await response.json();
+      const { data } = await authAPI.verifyOtp({ email: resetEmail, otp: code });
 
       if (data.success) {
         setResetToken(data.resetToken);
@@ -380,16 +331,10 @@ export default function LandingPage() {
     setIsResetting(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: resetToken,
-          newPassword: newPassword
-        })
+      const { data } = await authAPI.resetPassword({
+        token: resetToken,
+        newPassword
       });
-
-      const data = await response.json();
 
       if (data.success) {
         toast.success('Password reset successfully! Please login with your new password.');
@@ -528,7 +473,7 @@ export default function LandingPage() {
                   <i className="fas fa-chart-line"></i>
                 </div>
                 <h3 className="font-black text-green-950">Role-Based Monitoring</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">Teachers, canteen staff, utility staff, junk shop personnel, and admins have their own dashboard views.</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">Teachers, canteen staff, and admins have their own dashboard views.</p>
               </div>
             </div>
           </div>
@@ -575,7 +520,7 @@ export default function LandingPage() {
             </div>
             <h2 className="text-4xl font-black leading-tight sm:text-5xl">One system for every school operation.</h2>
             <p className="mt-5 max-w-xl leading-8 text-white/70">
-              Teachers, canteen staff, utility personnel, junk shop partners, and admins can access dashboards designed for their responsibilities.
+              Teachers, canteen staff, and admins can access dashboards designed for their responsibilities.
             </p>
           </div>
 
@@ -642,7 +587,7 @@ export default function LandingPage() {
                   Manage recycling with a smarter dashboard.
                 </h2>
                 <p className="mt-5 max-w-md text-sm leading-7 text-white/70">
-                  Access the tools you need based on your role: student records, reward claiming, pickup records, bin monitoring, and system management.
+                  Access the tools you need based on your role: student records, reward claiming, and system management.
                 </p>
               </div>
 
@@ -665,7 +610,7 @@ export default function LandingPage() {
                     </div>
                     <div>
                       <p className="font-black">Clean System Access</p>
-                      <p className="text-xs text-white/60">Designed for teachers, canteen, utility, junk shop, and admin users.</p>
+                      <p className="text-xs text-white/60">Designed for teachers, canteen, and admin users.</p>
                     </div>
                   </div>
                 </div>
@@ -681,7 +626,7 @@ export default function LandingPage() {
                     Secure Login
                   </div>
                   <h3 className="text-4xl font-black tracking-tight text-green-950">Welcome back</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">Select your role below. Demo credentials will be filled automatically.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">Sign in with your school-issued account credentials.</p>
                 </div>
                 <button onClick={() => setLoginModalOpen(false)} className="icon-close"><i className="fas fa-times"></i></button>
               </div>
@@ -705,7 +650,7 @@ export default function LandingPage() {
                   <button
                     key={role.value}
                     type="button"
-                    onClick={() => quickFillCredentials(role.value)}
+                    onClick={() => handleRoleSelect(role.value)}
                     className={`rounded-3xl border-2 p-4 text-center transition ${selectedRole === role.value ? 'border-green-600 bg-green-50 shadow-lg shadow-green-900/5' : 'border-slate-200 bg-white hover:border-green-300 hover:bg-green-50/50'}`}
                   >
                     <div className={`mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl ${selectedRole === role.value ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
@@ -887,6 +832,7 @@ export default function LandingPage() {
         .input:focus { border-color: #16a34a; background: white; box-shadow: 0 0 0 4px rgba(34,197,94,.1); }
         .form-label { margin-bottom: .5rem; display: block; font-size: .875rem; font-weight: 900; color: #334155; }
         .field-wrap { position: relative; }
+        .field-wrap > .input { padding-left: 3rem; }
         .field-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; z-index: 2; pointer-events: none; }
         .password-toggle { position: absolute; right: .55rem; top: 50%; transform: translateY(-50%); display: grid; height: 2.35rem; width: 2.35rem; place-items: center; border-radius: .85rem; color: #64748b; transition: all .2s ease; }
         .icon-close { display: grid; height: 2.75rem; width: 2.75rem; place-items: center; border-radius: 1rem; border: 1px solid #e2e8f0; color: #64748b; transition: all .2s ease; }

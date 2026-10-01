@@ -16,9 +16,25 @@ export default function RewardsManagement() {
     description: '' 
   });
 
+  const closeModal = () => {
+    setShowModal(false);
+    setEditingReward(null);
+  };
+
   useEffect(() => {
     fetchRewards();
   }, []);
+
+  useEffect(() => {
+    if (!showModal) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closeModal();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showModal]);
 
   const fetchRewards = async () => {
     setLoading(true);
@@ -174,13 +190,24 @@ export default function RewardsManagement() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">{editingReward ? 'Edit Reward' : 'Add Reward'}</h3>
-              <button onClick={() => { setShowModal(false); setEditingReward(null); }} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/50 p-4 animate-fadeIn"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeModal();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reward-modal-title"
+            className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-scaleUp"
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
+              <h3 id="reward-modal-title" className="text-xl font-bold">{editingReward ? 'Edit Reward' : 'Add Reward'}</h3>
+              <button onClick={closeModal} aria-label="Close reward form" className="grid h-10 w-10 place-items-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 text-2xl">&times;</button>
             </div>
-            <div className="space-y-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
+              <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Reward Name</label>
                 <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border rounded-xl" />
@@ -205,6 +232,7 @@ export default function RewardsManagement() {
               <button onClick={handleSubmit} className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700">
                 {editingReward ? 'Save Changes' : 'Add Reward'}
               </button>
+              </div>
             </div>
           </div>
         </div>

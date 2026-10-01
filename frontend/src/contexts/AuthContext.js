@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     setLoading(true);
     try {
-      const response = await authAPI.login(username, password);
+      const response = await authAPI.login({ username, password });
       const { token, user: userData } = response.data;
 
       localStorage.setItem('token', token);
@@ -56,7 +56,11 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: userData };
     } catch (error) {
       console.error('AuthContext - Login error:', error);
-      const message = error.response?.data?.message || 'Login failed';
+      const message = error.response?.data?.message || (
+        error.response
+          ? 'Login failed'
+          : 'Unable to reach the server. Please check your connection and try again.'
+      );
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -86,8 +90,6 @@ export const AuthProvider = ({ children }) => {
     isAdmin:    roleName === 'administrator',
     isTeacher:  roleName === 'teacher',
     isCanteen:  roleName === 'canteen_staff',
-    isJunk:     roleName === 'junk_shop_personnel',
-    isUtility:  roleName === 'utility_staff'
   };
 
   return (

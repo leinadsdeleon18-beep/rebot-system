@@ -80,24 +80,32 @@ router.post('/redeem', authMiddleware, async (req, res) => {
 // Add points (earn points)
 router.post('/add-points', authMiddleware, async (req, res) => {
   try {
+    const allowedRoles = ['administrator', 'teacher', 'canteen_staff'];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Your role cannot award points' });
+    }
+
     const { studentId, points, reason } = req.body;
+    const pointsToAdd = Number(points);
+
+    if (!studentId || !Number.isInteger(pointsToAdd) || pointsToAdd <= 0) {
+      return res.status(400).json({ success: false, message: 'A student and positive whole-number points are required' });
+    }
     
     const student = await Student.findById(studentId);
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
     
-    // Add points
-    student.points += points;
+    student.points += pointsToAdd;
+    student.totalPointsEarned = (student.totalPointsEarned || 0) + pointsToAdd;
     await student.save();
     
-    // Create transaction
     const transaction = new Transaction({
-      studentId,
-      pointsEarned: points,
-      reason,
-      type: 'earn',
-      status: 'completed'
+      student: student._id,
+      pointsEarned: pointsToAdd,
+      description: reason?.trim() || 'Points awarded by QR scan',
+      type: 'earn'
     });
     
     await transaction.save();
@@ -106,6 +114,13 @@ router.post('/add-points', authMiddleware, async (req, res) => {
       success: true,
       message: 'Points added successfully',
       transaction,
+      student: {
+        id: student._id,
+        studentId: student.studentId,
+        fullName: student.fullName,
+        grade: student.grade,
+        points: student.points
+      },
       totalPoints: student.points
     });
   } catch (error) {

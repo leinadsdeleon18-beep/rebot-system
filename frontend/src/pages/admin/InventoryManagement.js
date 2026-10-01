@@ -62,7 +62,7 @@ export default function InventoryManagement() {
       }
 
       // Fetch inventory items from rewards
-      const rewardsRes = await rewardsAPI.getRewards();
+      const rewardsRes = await rewardsAPI.getAll();
       if (rewardsRes?.data?.success) {
         const items = rewardsRes.data.rewards.map(reward => ({
           id: reward._id,

@@ -519,12 +519,24 @@ export default function UserManagement() {
             </div>
             <p className="text-sm text-gray-500 ml-12">Manage system users, roles, and access permissions</p>
           </div>
-          <button 
-            onClick={handleOpenAddModal} 
-            className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg"
-          >
-            <UserPlus size={18} /> Add User
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={fetchUsers}
+              disabled={loading}
+              title="Refresh users"
+              aria-label="Refresh users"
+              className="p-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <button 
+              onClick={handleOpenAddModal} 
+              className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg"
+            >
+              <UserPlus size={18} /> Add User
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards - Only 3 cards now */}

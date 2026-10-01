@@ -18,11 +18,11 @@ export default function RedemptionScanner() {
   const [redemptionSuccess, setRedemptionSuccess] = useState(false);
   const [successReward, setSuccessReward] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [scannerInstance, setScannerInstance] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [loadingRewards, setLoadingRewards] = useState(false);
   const [recentRedemptions, setRecentRedemptions] = useState([]);
   const scannerRef = useRef(null);
+  const scannerInstanceRef = useRef(null);
 
   const categories = [
     { value: 'All', label: 'All' },
@@ -36,11 +36,12 @@ export default function RedemptionScanner() {
   useEffect(() => {
     fetchRewards();
     fetchRecentRedemptions();
-    checkCameraPermission();
 
     return () => {
-      if (scannerInstance) {
-        scannerInstance.clear();
+      const scanner = scannerInstanceRef.current;
+      scannerInstanceRef.current = null;
+      if (scanner) {
+        scanner.clear().catch((error) => console.warn('Unable to stop QR scanner:', error));
       }
     };
   }, []);
@@ -130,16 +131,6 @@ export default function RedemptionScanner() {
     }
   };
 
-  const checkCameraPermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop());
-      setCameraError(false);
-    } catch (err) {
-      setCameraError(true);
-    }
-  };
-
   const startScanner = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       toast.error('Camera is not supported on this device');
@@ -148,11 +139,9 @@ export default function RedemptionScanner() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop());
-
-      if (scannerInstance) {
-        scannerInstance.clear();
+      if (scannerInstanceRef.current) {
+        await scannerInstanceRef.current.clear();
+        scannerInstanceRef.current = null;
       }
 
       setScanning(true);
@@ -171,27 +160,33 @@ export default function RedemptionScanner() {
         false
       );
 
-      setScannerInstance(scanner);
+      scannerInstanceRef.current = scanner;
       scanner.render(onScanSuccess, onScanError);
       toast.success('Camera started. Scan student QR code.');
     } catch (err) {
+      scannerInstanceRef.current = null;
       setCameraError(true);
       setScanning(false);
       toast.error('Unable to access camera. Please check permissions.');
     }
   };
 
-  const stopScanner = () => {
-    if (scannerInstance) {
-      scannerInstance.clear();
-      setScannerInstance(null);
-      setScanning(false);
-      toast('Scanner stopped');
+  const stopScanner = async () => {
+    const scanner = scannerInstanceRef.current;
+    scannerInstanceRef.current = null;
+    if (scanner) {
+      try {
+        await scanner.clear();
+      } catch (error) {
+        console.warn('Unable to stop QR scanner:', error);
+      }
     }
+    setScanning(false);
+    toast('Scanner stopped');
   };
 
   const onScanSuccess = async (decodedText) => {
-    stopScanner();
+    await stopScanner();
     setLoading(true);
     try {
       const studentData = await fetchStudentByQR(decodedText);
@@ -421,14 +416,12 @@ export default function RedemptionScanner() {
               {!scanning ? (
                 <button
                   onClick={startScanner}
-                  disabled={cameraError}
-                  className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition shadow-md disabled:opacity-50"
+                  className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition shadow-md"
                 >
                   <Camera size={20} /> Start Camera
                 </button>
               ) : (
                 <div>
-                  <div id="qr-reader" className="w-full rounded-lg overflow-hidden" ref={scannerRef}></div>
                   <button
                     onClick={stopScanner}
                     className="mt-4 w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition"
@@ -437,6 +430,7 @@ export default function RedemptionScanner() {
                   </button>
                 </div>
               )}
+              <div id="qr-reader" className={`w-full rounded-lg overflow-hidden ${scanning ? 'mt-4' : 'hidden'}`} ref={scannerRef}></div>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
