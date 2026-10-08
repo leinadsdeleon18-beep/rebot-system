@@ -30,6 +30,7 @@ const reportRoutes = require('./src/routes/reportRoutes');
 const teacherRoutes = require('./src/routes/teacherRoutes');
 const sectionRoutes = require('./src/routes/sectionRoutes');
 const uploadRoutes = require('./src/routes/uploadRoutes');
+const esp32Routes = require('./src/routes/esp32Routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -89,6 +90,7 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/', limiter);
+app.use('/api/esp32', esp32Routes);
 
 // ========== LOGIN ROUTE ==========
 app.post('/api/login', async (req, res) => {
@@ -1167,7 +1169,7 @@ app.post('/api/esp32/add-points', async (req, res) => {
       { $inc: { points: points || 1 } }
     );
 
-    if (result.modifiedCount > 0) {
+    if (result.matchedCount > 0) {
       const student = await db.collection('students').findOne({ _id: new ObjectId(studentId) });
       console.log(`   ✅ Student now has ${student?.points || 0} total points`);
 
