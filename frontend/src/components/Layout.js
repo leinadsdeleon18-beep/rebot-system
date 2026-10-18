@@ -26,7 +26,8 @@ import {
   Calendar,
   BookOpen,
   AlertTriangle,
-  Loader
+  Loader,
+  Recycle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -35,7 +36,7 @@ const LogoutConfirmationModal = ({ isOpen, onClose, onConfirm, loading }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-scaleUp">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl animate-scaleUp">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
             <LogOut size={24} className="text-yellow-600 dark:text-yellow-400" />
@@ -85,18 +86,9 @@ export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userAvatar, setUserAvatar] = useState(user?.avatar || null);
   const [currentUser, setCurrentUser] = useState(user);
-  const [isMobile, setIsMobile] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    const checkScreen = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkScreen();
-    window.addEventListener('resize', checkScreen);
-    return () => window.removeEventListener('resize', checkScreen);
-  }, []);
 
   useEffect(() => {
     setCurrentUser(user);
@@ -190,17 +182,6 @@ export default function Layout() {
     return navItems[role] || navItems.student;
   };
 
-  const getRoleColor = () => {
-    const role = currentUser?.role;
-    const colors = {
-      administrator: 'from-green-700 to-green-900',
-      teacher: 'from-blue-700 to-blue-900',
-      canteen_staff: 'from-orange-700 to-orange-900',
-      student: 'from-teal-700 to-teal-900',
-    };
-    return colors[role] || 'from-green-700 to-green-900';
-  };
-
   const getRoleDisplayName = () => {
     const role = currentUser?.role;
     const names = {
@@ -226,10 +207,10 @@ export default function Layout() {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className={`p-5 border-b border-white/10 ${sidebarCollapsed ? 'px-3' : ''}`}>
+      <div className={`p-5 border-b border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? 'px-3' : ''}`}>
         <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
-          <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center text-xl shadow-lg">
-            ♻️
+          <div className="w-10 h-10 bg-primary-50 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+            <Recycle size={21} className="text-primary-700 dark:text-primary-300" />
           </div>
           {!sidebarCollapsed && (
             <div className="flex-1">
@@ -240,10 +221,10 @@ export default function Layout() {
         </div>
       </div>
 
-      <div className={`p-4 border-b border-white/10 ${sidebarCollapsed ? 'px-2' : ''}`}>
+      <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? 'px-2' : ''}`}>
         <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
           <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-white/20 to-white/10 rounded-full flex items-center justify-center text-lg font-bold ring-2 ring-white/30 overflow-hidden">
+            <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-lg font-bold overflow-hidden">
               {userAvatar ? (
                 <img
                   src={userAvatar}
@@ -252,19 +233,19 @@ export default function Layout() {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <span className="text-white text-lg font-bold">
+                <span className="text-gray-700 dark:text-gray-200 text-lg font-bold">
                   {currentUser?.fullName?.charAt(0) || 'U'}
                 </span>
               )}
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white/20"></div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-gray-800"></div>
           </div>
           {!sidebarCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">{currentUser?.fullName || 'User'}</p>
+              <p className="text-sm font-semibold truncate text-gray-800 dark:text-gray-100">{currentUser?.fullName || 'User'}</p>
               <div className="flex items-center gap-1 mt-0.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${currentUser?.isActive !== false ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                <p className="text-xs text-white/70 capitalize">{getRoleDisplayName()}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{getRoleDisplayName()}</p>
               </div>
             </div>
           )}
@@ -280,21 +261,21 @@ export default function Layout() {
                 key={item.name}
                 onClick={() => navigate(item.path)}
                 className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+                  w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
                   ${sidebarCollapsed ? 'justify-center' : ''}
                   ${isActive
-                    ? 'bg-white/20 text-white shadow-lg'
-                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                    ? 'bg-primary-50 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
                   }
                 `}
                 title={sidebarCollapsed ? item.name : ''}
               >
-                <item.icon size={20} className={isActive ? 'text-white' : item.color} />
+                <item.icon size={19} className={isActive ? 'text-primary-700 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400'} />
                 {!sidebarCollapsed && (
                   <>
                     <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
                     {isActive && (
-                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                      <div className="w-1.5 h-1.5 bg-primary-600 rounded-full" />
                     )}
                   </>
                 )}
@@ -304,12 +285,12 @@ export default function Layout() {
         </div>
       </nav>
 
-      <div className={`p-4 border-t border-white/10 ${sidebarCollapsed ? 'px-2' : ''}`}>
+      <div className={`p-4 border-t border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? 'px-2' : ''}`}>
         <div className="space-y-2">
           <button
             onClick={toggleDarkMode}
             className={`
-              w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-all duration-200
+              w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100
               ${sidebarCollapsed ? 'justify-center' : ''}
             `}
             title={sidebarCollapsed ? (darkMode ? 'Light Mode' : 'Dark Mode') : ''}
@@ -322,7 +303,7 @@ export default function Layout() {
           <button
             onClick={handleLogoutClick}
             className={`
-              w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/70 hover:bg-red-500/20 hover:text-red-300 transition-all duration-200
+              w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-150 dark:text-gray-400 dark:hover:bg-red-900/20 dark:hover:text-red-300
               ${sidebarCollapsed ? 'justify-center' : ''}
             `}
             title={sidebarCollapsed ? 'Logout' : ''}
@@ -338,7 +319,7 @@ export default function Layout() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="app-shell min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <LogoutConfirmationModal
         isOpen={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
@@ -348,29 +329,47 @@ export default function Layout() {
 
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-screen 
-          bg-gradient-to-b ${getRoleColor()} text-white
-          transition-all duration-300 ease-in-out shadow-2xl
-          ${sidebarCollapsed ? 'w-20' : 'w-72'}
+          fixed top-0 left-0 z-40 h-screen bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-100
+          border-r border-gray-200 dark:border-gray-700 transition-all duration-200 ease-in-out
+          md:translate-x-0 ${sidebarCollapsed ? 'md:w-20' : 'md:w-72'} w-72
+          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         <SidebarContent />
       </aside>
 
+      {mobileNavOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 z-30 bg-gray-950/30 md:hidden"
+        />
+      )}
+
       <button
         onClick={toggleSidebar}
-        className="fixed top-20 z-50 p-1.5 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full shadow-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+        className="fixed top-20 z-50 hidden p-1.5 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 md:block"
         style={{ left: sidebarCollapsed ? '70px' : '288px' }}
       >
         {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
 
-      <main className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-20' : 'ml-72'}`}>
-        <header className="sticky top-0 z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <main className={`transition-all duration-200 ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'}`}>
+        <header className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 py-3 lg:px-6 lg:py-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(true)}
+                  aria-label="Open navigation"
+                  className="grid h-9 w-9 place-items-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 md:hidden"
+                >
+                  <Menu size={18} />
+                </button>
+                <div>
+                <h1 className="text-lg lg:text-xl font-semibold text-gray-800 dark:text-gray-100">
                   {getPageTitle()}
                 </h1>
                 <div className="hidden lg:flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -384,11 +383,12 @@ export default function Layout() {
                     })}
                   </span>
                 </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="lg:hidden px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
+          <div className="lg:hidden px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
               <Calendar size={12} />
               <span>
@@ -403,7 +403,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <div className="p-4 lg:p-8">
+        <div className="p-4 lg:p-7">
           <Outlet />
         </div>
       </main>

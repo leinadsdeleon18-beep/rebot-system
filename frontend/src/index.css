@@ -258,6 +258,185 @@
   color: #1f2937 !important;
 }
 
+/* Shared ReBot interface foundations */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #f3f5f1;
+  color: #242b26;
+  font-family: 'Aptos', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+  background: #f3f5f1;
+  color: #242b26;
+}
+
+.dark body,
+.dark .app-shell {
+  background: #171c18;
+  color: #e7ebe7;
+}
+
+.app-shell main [class*="rounded-2xl"],
+.app-shell main [class*="rounded-3xl"],
+.app-shell main [class*="rounded-["] {
+  border-radius: 8px;
+}
+
+.app-shell main [class*="shadow-"] {
+  box-shadow: 0 1px 2px rgba(20, 30, 22, 0.06);
+}
+
+.app-shell main button {
+  border-radius: 6px;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.app-shell main input,
+.app-shell main select,
+.app-shell main textarea {
+  border-radius: 6px;
+}
+
+.app-shell main input:focus,
+.app-shell main select:focus,
+.app-shell main textarea:focus {
+  outline: 2px solid rgba(36, 118, 83, 0.2);
+  outline-offset: 1px;
+}
+
+.app-shell main table {
+  border-collapse: collapse;
+}
+
+.app-shell main th {
+  color: #58645b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.app-shell main h1,
+.app-shell main h2,
+.app-shell main h3 {
+  letter-spacing: 0;
+}
+
+.dark .app-shell .bg-white {
+  background-color: #202620;
+}
+
+.dark .app-shell .bg-gray-50 {
+  background-color: #171c18;
+}
+
+.dark .app-shell .bg-gray-100 {
+  background-color: #282f29;
+}
+
+.dark .app-shell .text-gray-900,
+.dark .app-shell .text-gray-800 {
+  color: #e7ebe7;
+}
+
+/* Public landing and account dialogs */
+.landing-page {
+  background: #f7f8f5;
+  color: #242b26;
+  font-family: 'Aptos', 'Segoe UI', sans-serif;
+}
+
+.landing-page [class*="bg-gradient"] {
+  background-image: none !important;
+}
+
+.landing-page [class*="blur-3xl"] {
+  display: none;
+}
+
+.landing-page [class*="rounded-"]:not([class~="rounded-full"]) {
+  border-radius: 8px !important;
+}
+
+.landing-page [class*="shadow-"] {
+  box-shadow: 0 1px 3px rgba(20, 30, 22, 0.08) !important;
+}
+
+.landing-page .bg-clip-text {
+  background: none;
+  color: #174a36;
+  -webkit-text-fill-color: #174a36;
+}
+
+.landing-page section[class*="from-green-950"] {
+  background: #edf1ec;
+  color: #243129;
+}
+
+.landing-page section[class*="from-green-950"] [class*="text-white"] {
+  color: #243129;
+}
+
+.landing-page section[class*="from-green-950"] [class*="bg-white/10"] {
+  background-color: #ffffff;
+}
+
+.landing-page .bg-gradient-to-br.from-slate-950,
+.landing-page .bg-gradient-to-r.from-green-700 {
+  background: #edf1ec;
+  color: #243129;
+}
+
+.landing-page .bg-gradient-to-br.from-slate-950 [class*="text-white"],
+.landing-page .bg-gradient-to-r.from-green-700 [class*="text-white"] {
+  color: #243129;
+}
+
+.landing-page .btn-primary {
+  border-radius: 6px;
+  background: #236b4c;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.landing-page .btn-primary:hover {
+  background: #19583d;
+  box-shadow: none;
+  transform: none;
+}
+
+.landing-page .btn-secondary {
+  border: 1px solid #cfd8d0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #315841;
+  font-weight: 600;
+}
+
+.landing-page .btn-secondary:hover {
+  border-color: #95b09d;
+  background: #f4f7f3;
+  transform: none;
+}
+
+.landing-page .input {
+  border: 1px solid #cfd8d0;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
+  font-weight: 400;
+}
+
+.landing-page .input:focus {
+  border-color: #438563;
+  box-shadow: 0 0 0 2px rgba(35, 107, 76, 0.12);
+}
+
 .landing-page .text-gray-700 {
   color: #374151 !important;
 }

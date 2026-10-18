@@ -794,6 +794,129 @@ app.put('/api/rewards/:id/inventory', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// ========== ESP32 REWARD DISPENSED (inventory decrement) ==========
+// Called by ESP32 when the drop IR confirms a reward physically fell.
+// Body: { reward: 1|2, device_id, device_type }
+app.post('/api/esp32/reward-dispensed', async (req, res) => {
+  try {
+    const { reward, device_id, device_type } = req.body;
+    const db = mongoose.connection.db;
+    if (!db) {
+      return res.status(500).json({ success: false, message: 'Database not connected' });
+    }
+
+    const slot = parseInt(reward, 10);
+    if (![1, 2].includes(slot)) {
+      return res.status(400).json({ success: false, message: 'reward must be 1 or 2' });
+    }
+
+    console.log('\n╔════════════════════════════════════════════╗');
+    console.log('║         REWARD PHYSICALLY DISPENSED        ║');
+    console.log('╚════════════════════════════════════════════╝');
+    console.log(`   Slot:   ${slot}`);
+    console.log(`   Device: ${device_id || 'unknown'} (${device_type || 'unknown'})`);
+
+    // 1st priority: explicit `slot` field set by admin
+    let rewardDoc = await db.collection('rewards').findOne({ slot: slot });
+
+    // 2nd priority: fall back to pointsRequired (matches Arduino REWARD1_COST/REWARD2_COST)
+    if (!rewardDoc) {
+      const expectedPoints = slot === 1 ? 12 : 15;
+      rewardDoc = await db.collection('rewards').findOne({
+        $or: [
+          { pointsRequired: expectedPoints },
+          { points: expectedPoints }
+        ],
+        isActive: { $ne: false }
+      });
+      if (rewardDoc) {
+        console.log(`   ⚠️ No 'slot' field; matched by pointsRequired=${expectedPoints}`);
+      }
+    }
+
+    if (!rewardDoc) {
+      console.log(`   ❌ No reward mapped to slot ${slot}`);
+      return res.status(404).json({
+        success: false,
+        message: `No reward mapped to slot ${slot}. Set a 'slot' field on the reward or use pointsRequired=${slot === 1 ? 12 : 15}.`
+      });
+    }
+
+    const currentStock = rewardDoc.stock ?? rewardDoc.stockQuantity ?? rewardDoc.quantity ?? 0;
+
+    if (currentStock <= 0) {
+      console.log(`   ⚠️ ${rewardDoc.name} already at stock 0 — underflow blocked`);
+      await db.collection('reward_dispenses').insertOne({
+        rewardId: rewardDoc._id,
+        rewardName: rewardDoc.name,
+        slot: slot,
+        deviceId: device_id,
+        deviceType: device_type || 'ESP32',
+        stockBefore: currentStock,
+        stockAfter: 0,
+        status: 'UNDERFLOW',
+        timestamp: new Date()
+      });
+      const io = req.app.get('io');
+      io.emit('reward-out-of-stock', {
+        type: 'REWARD_UNDERFLOW',
+        rewardId: rewardDoc._id,
+        rewardName: rewardDoc.name,
+        slot: slot,
+        deviceId: device_id,
+        timestamp: new Date()
+      });
+      return res.status(409).json({
+        success: false,
+        message: `${rewardDoc.name} is already out of stock`
+      });
+    }
+
+    const newStock = currentStock - 1;
+
+    await db.collection('rewards').updateOne(
+      { _id: rewardDoc._id },
+      { $set: { stock: newStock, stockQuantity: newStock, updatedAt: new Date() } }
+    );
+
+    await db.collection('reward_dispenses').insertOne({
+      rewardId: rewardDoc._id,
+      rewardName: rewardDoc.name,
+      slot: slot,
+      deviceId: device_id,
+      deviceType: device_type || 'ESP32',
+      stockBefore: currentStock,
+      stockAfter: newStock,
+      status: 'DISPENSED',
+      timestamp: new Date()
+    });
+
+    console.log(`   ✅ ${rewardDoc.name} stock: ${currentStock} → ${newStock}`);
+
+    const io = req.app.get('io');
+    io.emit('reward-dispensed', {
+      type: 'REWARD_DISPENSED',
+      rewardId: rewardDoc._id,
+      rewardName: rewardDoc.name,
+      slot: slot,
+      oldStock: currentStock,
+      newStock: newStock,
+      deviceId: device_id,
+      timestamp: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: `${rewardDoc.name} dispensed — stock ${currentStock} → ${newStock}`,
+      rewardId: rewardDoc._id,
+      rewardName: rewardDoc.name,
+      newStock: newStock
+    });
+  } catch (error) {
+    console.error('reward-dispensed error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 app.post('/api/rewards', async (req, res) => {
   try {

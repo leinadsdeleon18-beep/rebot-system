@@ -396,7 +396,7 @@ export default function LandingPage() {
 
   // ========== JSX RETURN ==========
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f7fbf7] font-sans text-slate-800">
+    <div className="landing-page min-h-screen overflow-x-hidden bg-[#f7fbf7] font-sans text-slate-800">
       {/* Navigation */}
       <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 shadow-lg shadow-green-900/5 backdrop-blur-xl' : 'bg-white/70 backdrop-blur-md'}`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
