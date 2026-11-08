@@ -25,7 +25,7 @@ export default function AdminDashboard() {
               ? transaction.pointsSpent || 0
               : transaction.pointsEarned || 0,
             reward: transaction.reward?.name || transaction.rewardName || '',
-            createdAt: transaction.createdAt
+            createdAt: transaction.createdAt || transaction.timestamp
           }))
         );
         setLoading(false);

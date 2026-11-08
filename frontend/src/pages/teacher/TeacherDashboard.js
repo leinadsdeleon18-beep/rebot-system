@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, UserPlus, FileText, Star, Calendar, 
+  Users, UserPlus, Star, Calendar,
   TrendingUp, Award, BarChart3, PieChart, Trophy, Target, 
   Activity, Crown, Medal, AlertCircle, CheckCircle,
   RefreshCw, Printer, Download, Eye, BadgeCheck, Sparkles, X, Settings, Save,
@@ -290,7 +290,7 @@ export default function TeacherDashboard() {
             .slice(0, 8)
             .map(transaction => {
               const isRedemption = transaction.type === 'redeem';
-              const timestamp = new Date(transaction.createdAt);
+              const timestamp = new Date(transaction.createdAt || transaction.timestamp);
               return {
                 id: transaction._id,
                 studentName: transaction.student?.fullName || transaction.studentName || 'Unknown student',
@@ -299,7 +299,7 @@ export default function TeacherDashboard() {
                   ? `claimed ${transaction.reward?.name || transaction.rewardName || 'a reward'} (${transaction.pointsSpent || transaction.points || 0} pts)`
                   : `stored ${transaction.pointsEarned || 0} points`,
                 color: isRedemption ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700',
-                time: `${timestamp.toLocaleDateString()} • ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                time: Number.isNaN(timestamp.getTime()) ? 'Time unavailable' : `${timestamp.toLocaleDateString()} • ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
               };
             });
           setRecentActivities(recent);
@@ -694,9 +694,8 @@ export default function TeacherDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button onClick={() => setShowAddStudentModal(true)} className="flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition"><UserPlus size={18} /> Add Student</button>
-        <button onClick={() => window.location.href = '/teacher/qr-codes'} className="flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition"><FileText size={18} /> QR Codes</button>
         <button onClick={generateProgressReport} className="flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition"><Printer size={18} /> Print Report</button>
         <button onClick={() => { if (filteredStudentsList.length > 0) generateCertificate(filteredStudentsList[0]); else toast.error('No students'); }} className="flex items-center justify-center gap-2 p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition"><CertificateIcon size={18} /> Certificate</button>
         <button onClick={() => setShowGoalModal(true)} className="flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition"><Target size={18} /> Set Goal</button>

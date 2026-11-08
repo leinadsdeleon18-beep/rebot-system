@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Star, Scan, RefreshCw, TrendingUp, Clock, Package, AlertTriangle, Gift } from 'lucide-react';
+import { ShoppingBag, Star, RefreshCw, TrendingUp, Clock, Package, AlertTriangle, Gift } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import toast from 'react-hot-toast';
@@ -81,7 +81,7 @@ export default function CanteenDashboard() {
             id: t._id,
             student: t.studentName || t.student?.fullName || 'Unknown',
             points: t.pointsSpent || t.points || 0,
-            time: new Date(t.createdAt).toLocaleString([], {
+            time: new Date(t.createdAt || t.timestamp).toLocaleString([], {
               year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             }),
             item: t.rewardName || 'Reward',
@@ -260,16 +260,6 @@ export default function CanteenDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <button
-          onClick={() => navigate('/canteen/scan')}
-          className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition shadow-md"
-        >
-          <Scan size={24} />
-          <div className="text-left">
-            <p className="font-semibold">Scan Student QR</p>
-            <p className="text-sm opacity-90">Quickly verify and process redemption</p>
-          </div>
-        </button>
         <button
           onClick={() => navigate('/canteen/rewards')}
           className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition shadow-md"
