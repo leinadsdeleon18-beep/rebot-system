@@ -1,0 +1,15 @@
+name: Keep ReBot Backend Awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend
+        run: |
+          curl --fail --show-error --silent --max-time 30 \
+            "https://rebot-system.onrender.com/api/esp32/ping"

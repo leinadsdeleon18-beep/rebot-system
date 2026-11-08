@@ -1474,6 +1474,19 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0', () => {
   const dbStatus = mongoose.connection.readyState;
+
+  // Keep an active Render instance awake when a public URL is configured.
+  // A scheduled external request is still required to wake a service from sleep.
+  const publicUrl = process.env.PUBLIC_BACKEND_URL || 'https://rebot-system.onrender.com';
+  const keepAliveInterval = setInterval(async () => {
+    try {
+      const response = await fetch(`${publicUrl.replace(/\/$/, '')}/api/esp32/ping`);
+      console.log(`🔄 Backend keep-alive: HTTP ${response.status}`);
+    } catch (error) {
+      console.log(`⚠️ Backend keep-alive failed: ${error.message}`);
+    }
+  }, 10 * 60 * 1000);
+  keepAliveInterval.unref();
   const statusMap = {
     0: 'disconnected',
     1: 'connected',
