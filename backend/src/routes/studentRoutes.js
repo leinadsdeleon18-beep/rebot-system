@@ -522,41 +522,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Add points
+// Add points (administrator only)
 router.patch('/:id/points', authMiddleware, async (req, res) => {
   try {
-    const allowedRoles = ['administrator', 'teacher'];
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.user.role !== 'administrator') {
+      return res.status(403).json({ success: false, message: 'Only administrators can add or remove student points' });
     }
     
     const { points } = req.body;
     
     if (!points || points <= 0) {
       return res.status(400).json({ success: false, message: 'Points must be a positive number' });
-    }
-    
-    if (req.user.role === 'teacher') {
-      const student = await Student.findById(req.params.id).populate('section');
-      if (student) {
-        const teacher = await User.findById(req.user.id);
-        const assignedGrades = teacher.assignedGrades || [];
-        const assignedSections = teacher.assignedSections || [];
-        
-        if (assignedSections.length > 0) {
-          if (!student.section || !assignedSections.includes(student.section._id.toString())) {
-            return res.status(403).json({ 
-              success: false, 
-              message: 'You do not have permission to add points to this student' 
-            });
-          }
-        } else if (assignedGrades.length > 0 && !assignedGrades.includes(student.grade)) {
-          return res.status(403).json({ 
-            success: false, 
-            message: 'You do not have permission to add points to this student' 
-          });
-        }
-      }
     }
     
     const updatedStudent = await Student.findByIdAndUpdate(

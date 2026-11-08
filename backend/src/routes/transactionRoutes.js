@@ -79,12 +79,11 @@ router.post('/redeem', authMiddleware, async (req, res) => {
   }
 });
 
-// Add points (earn points)
+// Add points (earn points) — administrator only
 router.post('/add-points', authMiddleware, async (req, res) => {
   try {
-    const allowedRoles = ['administrator', 'teacher', 'canteen_staff'];
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Your role cannot award points' });
+    if (req.user.role !== 'administrator') {
+      return res.status(403).json({ success: false, message: 'Only administrators can award points manually' });
     }
 
     const { studentId, points, reason } = req.body;

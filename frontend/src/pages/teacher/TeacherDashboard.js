@@ -50,16 +50,13 @@ export default function TeacherDashboard() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
-  const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [teacherInfo, setTeacherInfo] = useState({ fullName: '', assignedGrades: [], assignedSections: [] });
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  const [showPointsModal, setShowPointsModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [pointsToAdd, setPointsToAdd] = useState('');
   const [formData, setFormData] = useState({ name: '', grade: '', section: '', email: '', phone: '' });
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [classGoal, setClassGoal] = useState(1000);
@@ -420,49 +417,6 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleAddPoints = async () => {
-    if (!pointsToAdd || pointsToAdd <= 0) {
-      toast.error('Please enter valid points');
-      return;
-    }
-    setIsAddingPoints(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/students/${selectedStudent.id}/points`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ points: parseInt(pointsToAdd) })
-      });
-      const data = await response.json();
-      if (data.success) {
-        const newPoints = selectedStudent.points + parseInt(pointsToAdd);
-        const earnedBadges = getStudentBadges(newPoints);
-        const previousBadges = getStudentBadges(selectedStudent.points);
-        const newBadges = earnedBadges.filter(b => !previousBadges.find(pb => pb.id === b.id));
-        
-        toast.success(`Added ${pointsToAdd} points to ${selectedStudent.name}`);
-        if (newBadges.length > 0) {
-          toast.success(`🎉 ${selectedStudent.name} earned: ${newBadges.map(b => b.name).join(', ')}!`);
-        }
-        
-        const newTotalPoints = stats.totalPoints + parseInt(pointsToAdd);
-        if (stats.totalPoints < classGoal && newTotalPoints >= classGoal) {
-          toast.success(`🎉🎉🎉 CONGRATULATIONS! Your class has reached the ${classGoal.toLocaleString()} points goal! 🎉🎉🎉`, { duration: 8000 });
-        }
-        
-        setShowPointsModal(false);
-        setSelectedStudent(null);
-        setPointsToAdd('');
-        await fetchStudents();
-      } else {
-        toast.error(data.message || 'Failed to add points');
-      }
-    } catch (error) {
-      toast.error('Failed to add points');
-    } finally {
-      setIsAddingPoints(false);
-    }
-  };
 
   const handleSetGoal = () => {
     if (!goalInput || goalInput <= 0) {
@@ -870,13 +824,6 @@ export default function TeacherDashboard() {
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-2">
                         <button 
-                          onClick={() => { setSelectedStudent(student); setShowPointsModal(true); }} 
-                          className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium hover:bg-green-200 dark:hover:bg-green-800/50 transition"
-                          disabled={isAddingPoints}
-                        >
-                          Add Points
-                        </button>
-                        <button 
                           onClick={() => generateCertificate(student)} 
                           className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-800/50 transition"
                         >
@@ -1155,25 +1102,6 @@ export default function TeacherDashboard() {
               <input type="email" placeholder="Email (optional)" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
               <input type="tel" placeholder="Phone (optional)" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-2 border rounded-xl" />
               <button onClick={handleAddStudent} disabled={isAddingStudent} className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">{isAddingStudent ? 'Adding...' : 'Add Student'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Points Modal */}
-      {showPointsModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">Add Points</h3><button onClick={() => setShowPointsModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button></div>
-            <div className="space-y-4">
-              <p>Student: <span className="font-semibold">{selectedStudent.name}</span></p>
-              <p>Current Points: <span className="font-semibold text-green-600">{selectedStudent.points}</span></p>
-              <p className="text-sm text-gray-500">Next Badge: {getNextBadge(selectedStudent.points).name} ({getNextBadge(selectedStudent.points).points - selectedStudent.points} points needed)</p>
-              <input type="number" placeholder="Points to add" value={pointsToAdd} onChange={(e) => setPointsToAdd(e.target.value)} className="w-full px-4 py-2 border rounded-xl" min="1" />
-              <div className="flex gap-3">
-                <button onClick={() => setShowPointsModal(false)} className="flex-1 px-4 py-2 border rounded-xl">Cancel</button>
-                <button onClick={handleAddPoints} disabled={isAddingPoints} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50">{isAddingPoints ? 'Adding...' : 'Add Points'}</button>
-              </div>
             </div>
           </div>
         </div>

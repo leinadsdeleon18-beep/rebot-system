@@ -27,17 +27,14 @@ export default function StudentManagement() {
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [showImportResults, setShowImportResults] = useState(false);
   const [showPrintQRModal, setShowPrintQRModal] = useState(false);
-  const [showPointsModal, setShowPointsModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [importResults, setImportResults] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentToDelete, setStudentToDelete] = useState(null);
-  const [pointsToAdd, setPointsToAdd] = useState('');
   const [importPreview, setImportPreview] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
-  const [isAddingPoints, setIsAddingPoints] = useState(false);
   const [isLoadingQRs, setIsLoadingQRs] = useState(false);
   const [teacherAssignedGrades, setTeacherAssignedGrades] = useState([]);
   const [teacherAssignedSections, setTeacherAssignedSections] = useState([]);
@@ -295,42 +292,6 @@ export default function StudentManagement() {
     }
   };
 
-  const handleAddPoints = async () => {
-    if (!pointsToAdd || pointsToAdd <= 0) {
-      toast.error('Please enter valid points');
-      return;
-    }
-    
-    setIsAddingPoints(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/students/${selectedStudent.id}/points`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ points: parseInt(pointsToAdd) })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success(`Added ${pointsToAdd} points to ${selectedStudent.name}`);
-        setShowPointsModal(false);
-        setSelectedStudent(null);
-        setPointsToAdd('');
-        fetchStudents();
-      } else {
-        toast.error(data.message || 'Failed to add points');
-      }
-    } catch (error) {
-      console.error('Add points error:', error);
-      toast.error('Failed to add points');
-    } finally {
-      setIsAddingPoints(false);
-    }
-  };
 
   const handleViewQR = async (student) => {
     setSelectedStudent(student);
@@ -947,13 +908,6 @@ export default function StudentManagement() {
                           <QrCode size={18} />
                         </button>
                         <button onClick={() => {
-                          setSelectedStudent(student);
-                          setPointsToAdd('');
-                          setShowPointsModal(true);
-                        }} className="p-1 text-green-600 hover:bg-green-50 rounded-lg" title="Add Points">
-                          <Star size={18} />
-                        </button>
-                        <button onClick={() => {
                           setStudentToDelete(student);
                           setShowDeleteModal(true);
                         }} className="p-1 text-red-600 hover:bg-red-50 rounded-lg" title="Delete Student">
@@ -1093,85 +1047,6 @@ export default function StudentManagement() {
               >
                 {isAddingStudent ? 'Adding...' : 'Add Student'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Points Modal */}
-      {showPointsModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                <Star size={20} className="text-yellow-500" /> Add Points
-              </h3>
-              <button onClick={() => {
-                setShowPointsModal(false);
-                setSelectedStudent(null);
-                setPointsToAdd('');
-              }} className="text-gray-400 hover:text-gray-600">
-                <X size={24} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-xl">
-                <p className="text-sm text-gray-600">Student: <span className="font-semibold text-gray-800">{selectedStudent.name}</span></p>
-                <p className="text-sm text-gray-600 mt-1">Current Points: <span className="font-semibold text-green-600">{selectedStudent.points} pts</span></p>
-                <p className="text-sm text-gray-600 mt-1">Student ID: <span className="font-mono text-gray-500">{selectedStudent.studentId}</span></p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Points to Add</label>
-                <input 
-                  type="number" 
-                  placeholder="Enter points amount" 
-                  value={pointsToAdd} 
-                  onChange={(e) => setPointsToAdd(e.target.value)} 
-                  className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-lg"
-                  min="1"
-                  autoFocus
-                />
-              </div>
-              
-              <div className="grid grid-cols-3 gap-2">
-                <button onClick={() => setPointsToAdd('10')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+10</button>
-                <button onClick={() => setPointsToAdd('25')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+25</button>
-                <button onClick={() => setPointsToAdd('50')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+50</button>
-                <button onClick={() => setPointsToAdd('100')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+100</button>
-                <button onClick={() => setPointsToAdd('500')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+500</button>
-                <button onClick={() => setPointsToAdd('1000')} className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium hover:bg-gray-200">+1000</button>
-              </div>
-              
-              <div className="flex gap-3 pt-2">
-                <button 
-                  onClick={() => {
-                    setShowPointsModal(false);
-                    setSelectedStudent(null);
-                    setPointsToAdd('');
-                  }} 
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleAddPoints} 
-                  disabled={isAddingPoints || !pointsToAdd || pointsToAdd <= 0} 
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isAddingPoints ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <Star size={16} />
-                      Add {pointsToAdd} Points
-                    </>
-                  )}
-                </button>
-              </div>
             </div>
           </div>
         </div>
