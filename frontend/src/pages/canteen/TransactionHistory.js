@@ -22,7 +22,7 @@ export default function TransactionHistory() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(apiUrl('/transactions'), {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await response.json();
       
@@ -32,8 +32,8 @@ export default function TransactionHistory() {
           student: t.studentName || t.student?.fullName || 'Unknown',
           item: t.rewardName || (t.type === 'redeem' ? 'Reward Redemption' : 'Recycling'),
           points: t.type === 'redeem' ? (t.pointsSpent || 0) : (t.pointsEarned || 0),
-          date: new Date(t.createdAt).toISOString().split('T')[0],
-          time: new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          date: new Date(t.createdAt || t.timestamp).toISOString().split('T')[0],
+          time: new Date(t.createdAt || t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           staff: t.processedBy?.fullName || t.user?.fullName || 'System',
           status: t.status || 'completed',
           type: t.type,
@@ -112,12 +112,12 @@ export default function TransactionHistory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Transaction History</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">Transaction History</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">View and export all redemption and recycling transactions</p>
         </div>
-        <div className="flex gap-3">
+        <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3">
           <button 
             onClick={() => setShowFilters(!showFilters)}
             className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl font-semibold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition"

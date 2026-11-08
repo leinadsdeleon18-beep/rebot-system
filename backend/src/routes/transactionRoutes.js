@@ -58,10 +58,12 @@ router.post('/redeem', authMiddleware, async (req, res) => {
     
     // Create transaction
     const transaction = new Transaction({
-      studentId,
-      rewardId,
+      student: student._id,
+      reward: reward._id,
       pointsSpent: reward.pointsRequired,
-      status: 'completed'
+      type: 'redeem',
+      description: `Reward claimed: ${reward.name}`,
+      createdAt: new Date()
     });
     
     await transaction.save();

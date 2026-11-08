@@ -48,7 +48,7 @@ export default function Timestamps() {
     if (Number.isNaN(date.getTime())) return { date: 'Time unavailable', time: '' };
     return {
       date: date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }),
-      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     };
   };
 
@@ -98,7 +98,7 @@ export default function Timestamps() {
                   </div>
                   <div className="col-start-2 flex items-end justify-between gap-3 sm:col-start-auto sm:block sm:text-right">
                     <p className={`font-bold ${redemption ? 'text-orange-700 dark:text-orange-300' : 'text-green-700 dark:text-green-300'}`}>{redemption ? '-' : '+'}{redemption ? (transaction.pointsSpent || transaction.points || 0) : (transaction.pointsEarned || transaction.points || 0)} pts</p>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 sm:justify-end"><Clock3 size={13} /> {displayedDate.date} • {displayedDate.time}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 sm:justify-end"><Clock3 size={13} /> {redemption ? 'Claimed at' : 'Stored at'} {displayedDate.date} • {displayedDate.time}</p>
                   </div>
                 </article>
               );

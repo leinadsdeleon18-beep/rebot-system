@@ -570,6 +570,12 @@ body {
 
 @media (max-width: 767px) {
   html { font-size: 15px; }
+  body, #root, .app-shell, .app-shell main { width: 100%; max-width: 100vw; overflow-x: hidden; }
+  .app-shell main > div, .app-shell main section, .app-shell main article { width: 100%; max-width: 100%; }
+  .app-shell main .flex-wrap { flex-wrap: wrap; }
+  .app-shell main [class*="flex-nowrap"] { flex-wrap: wrap; }
+  .app-shell main .grid { min-width: 0; }
+  .app-shell main button { max-width: 100%; white-space: normal; }
   .app-shell main .p-4 { padding: 0.75rem; }
   .app-shell main button,
   .app-shell main input,
