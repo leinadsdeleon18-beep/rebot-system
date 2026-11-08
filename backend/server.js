@@ -58,10 +58,30 @@ io.on('connection', (socket) => {
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/bibot';
 
 mongoose.connect(MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('✅ MongoDB connected successfully');
     const dbName = mongoose.connection.db?.databaseName || 'unknown';
     console.log(`📊 Database: ${dbName}`);
+
+    // Older transaction records may not have transactionNumber. Remove the legacy
+    // unique index so multiple missing/old values cannot cause E11000 errors.
+    try {
+      const transactions = mongoose.connection.db.collection('transactions');
+      const indexes = await transactions.indexes();
+      const legacyUniqueNumberIndex = indexes.find(index =>
+        index.unique && index.key && index.key.transactionNumber === 1
+      );
+      if (legacyUniqueNumberIndex) {
+        await transactions.dropIndex(legacyUniqueNumberIndex.name);
+        console.log('🛠️ Removed legacy unique transactionNumber index');
+      }
+      await transactions.updateMany(
+        { $or: [{ transactionNumber: null }, { transactionNumber: { $exists: false } }] },
+        [{ $set: { transactionNumber: { $concat: ['LEGACY-', { $toString: '$_id' }] } } }]
+      );
+    } catch (error) {
+      console.error('⚠️ Transaction index cleanup warning:', error.message);
+    }
   })
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err);

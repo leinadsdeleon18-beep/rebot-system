@@ -354,17 +354,17 @@ export default function SectionManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
+    <div className="w-full max-w-full space-y-6 p-2 sm:p-0">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Section Management</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage sections from Kindergarten to Grade 6 with custom section names</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={fetchSections} className="px-4 py-2 border border-blue-600 text-blue-600 rounded-full font-semibold flex items-center gap-2 hover:bg-blue-50 transition">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
+          <button onClick={fetchSections} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-blue-600 px-4 py-2 font-semibold text-blue-600 transition hover:bg-blue-50 sm:flex-none dark:text-blue-400 dark:hover:bg-blue-900/20">
             <RefreshCw size={18} /> Refresh
           </button>
-          <button onClick={() => setShowAddModal(true)} className="px-5 py-2 bg-green-600 text-white rounded-full font-semibold flex items-center gap-2 hover:bg-green-700 transition shadow-sm">
+          <button onClick={() => setShowAddModal(true)} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-2 font-semibold text-white shadow-sm transition hover:bg-green-700 sm:flex-none">
             <Plus size={18} /> Add Section
           </button>
         </div>
@@ -393,12 +393,12 @@ export default function SectionManagement() {
       </div>
 
       {/* Info Alert about custom section names */}
-      <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
+      <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4 dark:border-blue-500 dark:bg-blue-900/20">
         <div className="flex items-start gap-3">
-          <AlertCircle size={20} className="text-blue-500 mt-0.5" />
-          <div>
-            <h4 className="font-semibold text-blue-800">Custom Section Names</h4>
-            <p className="text-sm text-blue-700 mt-1">
+          <AlertCircle size={20} className="mt-0.5 flex-none text-blue-500 dark:text-blue-400" />
+          <div className="min-w-0">
+            <h4 className="font-semibold text-blue-800 dark:text-blue-300">Custom Section Names</h4>
+            <p className="mt-1 text-sm leading-relaxed text-blue-700 dark:text-blue-200">
               You can use any custom name for sections (e.g., Sampaguita, Rose, Section A, Mangga, etc.). 
               When you update a section name, it will automatically update across all teacher dashboards and student records.
             </p>
@@ -406,7 +406,7 @@ export default function SectionManagement() {
         </div>
       </div>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
         <input
           type="text"
@@ -443,8 +443,8 @@ export default function SectionManagement() {
                     </span>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <div className="w-full overflow-x-auto">
+                  <table className="min-w-[720px] w-full">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Section Name</th>
