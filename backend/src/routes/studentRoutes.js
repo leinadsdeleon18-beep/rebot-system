@@ -522,47 +522,50 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// Add points (administrator only)
+// Add or remove points (administrator only)
 router.patch('/:id/points', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'administrator') {
       return res.status(403).json({ success: false, message: 'Only administrators can add or remove student points' });
     }
-    
-    const { points } = req.body;
-    
-    if (!points || points <= 0) {
-      return res.status(400).json({ success: false, message: 'Points must be a positive number' });
+
+    const adjustment = Number(req.body.points);
+    if (!Number.isFinite(adjustment) || !Number.isInteger(adjustment) || adjustment === 0) {
+      return res.status(400).json({ success: false, message: 'Points must be a non-zero whole number' });
     }
-    
-    const updatedStudent = await Student.findByIdAndUpdate(
-      req.params.id,
-      { 
-        $inc: { 
-          points: points, 
-          totalPointsEarned: points 
-        } 
-      },
-      { new: true }
-    ).populate('section');
-    
-    if (!updatedStudent) {
+
+    const student = await Student.findById(req.params.id);
+    if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
-    
-    const studentObj = updatedStudent.toObject();
-    if (updatedStudent.section) {
-      studentObj.sectionName = updatedStudent.section.sectionName;
-      studentObj.gradeLevel = updatedStudent.section.gradeLevel;
+    if (adjustment < 0 && student.points < Math.abs(adjustment)) {
+      return res.status(400).json({ success: false, message: `Cannot remove more than the student's current ${student.points} points` });
     }
-    
-    res.json({ 
-      success: true, 
-      student: studentObj, 
-      message: `Added ${points} points to ${updatedStudent.fullName}` 
+
+    student.points += adjustment;
+    if (adjustment > 0) student.totalPointsEarned = (student.totalPointsEarned || 0) + adjustment;
+    await student.save();
+
+    await Transaction.create({
+      student: student._id,
+      pointsEarned: adjustment > 0 ? adjustment : 0,
+      pointsSpent: adjustment < 0 ? Math.abs(adjustment) : 0,
+      type: 'adjustment',
+      description: adjustment > 0
+        ? `Administrator added ${adjustment} points`
+        : `Administrator removed ${Math.abs(adjustment)} points`
+    });
+
+    const studentObj = await Student.findById(student._id).populate('section');
+    res.json({
+      success: true,
+      student: studentObj,
+      message: adjustment > 0
+        ? `Added ${adjustment} points to ${student.fullName}`
+        : `Removed ${Math.abs(adjustment)} points from ${student.fullName}`
     });
   } catch (error) {
-    console.error('❌ Add points error:', error);
+    console.error('? Adjust points error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
