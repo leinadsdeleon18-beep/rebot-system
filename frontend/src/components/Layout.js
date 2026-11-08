@@ -27,7 +27,8 @@ import {
   BookOpen,
   AlertTriangle,
   Loader,
-  Recycle
+  Recycle,
+  Clock3
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -152,6 +153,7 @@ export default function Layout() {
     const navItems = {
       administrator: [
         { name: 'Dashboard', path: '/admin', icon: LayoutDashboard, color: 'text-blue-400' },
+        { name: 'Timestamps', path: '/admin/timestamps', icon: Clock3, color: 'text-cyan-400' },
         { name: 'User Management', path: '/admin/users', icon: Users, color: 'text-green-400' },
         { name: 'Section Management', path: '/admin/sections', icon: BookOpen, color: 'text-indigo-400' },
         { name: 'Rewards', path: '/admin/rewards', icon: Gift, color: 'text-yellow-400' },
@@ -161,11 +163,13 @@ export default function Layout() {
       ],
       teacher: [
         { name: 'Dashboard', path: '/teacher', icon: LayoutDashboard, color: 'text-blue-400' },
+        { name: 'Timestamps', path: '/teacher/timestamps', icon: Clock3, color: 'text-cyan-400' },
         { name: 'Students', path: '/teacher/students', icon: GraduationCap, color: 'text-green-400' },
         { name: 'Settings', path: '/teacher/settings', icon: SettingsIcon, color: 'text-gray-400' },
       ],
       canteen_staff: [
         { name: 'Dashboard', path: '/canteen', icon: LayoutDashboard, color: 'text-blue-400' },
+        { name: 'Timestamps', path: '/canteen/timestamps', icon: Clock3, color: 'text-cyan-400' },
         { name: 'Scan & Redeem', path: '/canteen/scan', icon: QrCode, color: 'text-green-400' },
         { name: 'History', path: '/canteen/history', icon: ShoppingBag, color: 'text-purple-400' },
         { name: 'Rewards', path: '/canteen/rewards', icon: Gift, color: 'text-yellow-400' },

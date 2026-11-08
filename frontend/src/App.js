@@ -7,6 +7,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import LoadingScreen from './components/LoadingScreen';
+import Timestamps from './pages/Timestamps';
 import { rewardsAPI, studentsAPI } from './services/apiService';
 
 // Admin Pages
@@ -350,6 +351,7 @@ function AppContent() {
           </ProtectedRoute>
         }>
           <Route index element={<AdminDashboard />} />
+          <Route path="timestamps" element={<Timestamps />} />
           <Route path="users" element={<UserManagement />} />
           <Route path="rewards" element={<RewardsManagement />} />
           <Route path="sections" element={<SectionManagement />} />
@@ -365,6 +367,7 @@ function AppContent() {
           </ProtectedRoute>
         }>
           <Route index element={<TeacherDashboard />} />
+          <Route path="timestamps" element={<Timestamps />} />
           <Route path="students" element={<StudentManagement />} />
           <Route path="settings" element={<TeacherSettings />} />
         </Route>
@@ -376,6 +379,7 @@ function AppContent() {
           </ProtectedRoute>
         }>
           <Route index element={<CanteenDashboard />} />
+          <Route path="timestamps" element={<Timestamps />} />
           <Route path="scan" element={<RedemptionScanner />} />
           <Route path="history" element={<TransactionHistory />} />
           <Route path="rewards" element={<AvailableRewards />} />

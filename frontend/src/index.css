@@ -576,7 +576,11 @@ body {
   .app-shell main select,
   .app-shell main textarea { font-size: 16px; }
   .app-shell main [class*="grid-cols-"] { grid-template-columns: minmax(0, 1fr); }
-  .app-shell main [class*="overflow-x-auto"] { -webkit-overflow-scrolling: touch; }
+  .app-shell main [class*="overflow-x-auto"] { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+  .app-shell main table { width: 100%; min-width: 640px; }
+  .app-shell main { width: 100%; overflow-x: hidden; }
+  .app-shell main > div { width: 100%; max-width: 100%; }
+  .app-shell main header { width: 100%; }
   .landing-page .modal-backdrop { align-items: flex-end; padding: 0 !important; }
   .landing-page .modal-backdrop > div {
     width: 100%;
