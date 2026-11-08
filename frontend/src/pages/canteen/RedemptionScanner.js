@@ -670,7 +670,7 @@ export default function RedemptionScanner() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-orange-600">-{redemption.pointsSpent} pts</p>
-                    <p className="text-xs text-gray-400">{new Date(redemption.createdAt).toLocaleTimeString()}</p>
+                    <p className="text-xs text-gray-400">{new Date(redemption.createdAt).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                 </div>
               ))}

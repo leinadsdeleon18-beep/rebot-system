@@ -259,7 +259,7 @@ export default function Layout() {
             return (
               <button
                 key={item.name}
-                onClick={() => navigate(item.path)}
+                onClick={() => { navigate(item.path); setMobileNavOpen(false); }}
                 className={`
                   w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
                   ${sidebarCollapsed ? 'justify-center' : ''}

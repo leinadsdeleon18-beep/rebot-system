@@ -278,26 +278,34 @@ export default function TeacherDashboard() {
         
         await fetchTeacherSections();
         
-        // Generate recent activities
-        const activities = [
-          { icon: '⭐', message: 'earned points', color: 'bg-yellow-100 text-yellow-700' },
-          { icon: '♻️', message: 'recycled items', color: 'bg-green-100 text-green-700' },
-          { icon: '🏆', message: 'reached a milestone!', color: 'bg-purple-100 text-purple-700' },
-        ];
-        const recent = [];
-        for (let i = 0; i < 5; i++) {
-          const randomStudent = accessibleStudents[Math.floor(Math.random() * accessibleStudents.length)];
-          const randomActivity = activities[Math.floor(Math.random() * activities.length)];
-          if (randomStudent) {
-            recent.push({
-              id: i,
-              studentName: randomStudent.name,
-              ...randomActivity,
-              time: `${Math.floor(Math.random() * 60)} minutes ago`
+        const transactionResponse = await fetch(`${API_BASE}/transactions`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const transactionData = await transactionResponse.json();
+        if (transactionData.success) {
+          const accessibleIds = new Set(accessibleStudents.map(student => student.id));
+          const recent = transactionData.transactions
+            .filter(transaction => accessibleIds.has(String(transaction.student?._id || transaction.student)))
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            .slice(0, 8)
+            .map(transaction => {
+              const isRedemption = transaction.type === 'redeem';
+              const timestamp = new Date(transaction.createdAt);
+              return {
+                id: transaction._id,
+                studentName: transaction.student?.fullName || transaction.studentName || 'Unknown student',
+                icon: isRedemption ? '🎁' : '♻️',
+                message: isRedemption
+                  ? `claimed ${transaction.reward?.name || transaction.rewardName || 'a reward'} (${transaction.pointsSpent || transaction.points || 0} pts)`
+                  : `stored ${transaction.pointsEarned || 0} points`,
+                color: isRedemption ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700',
+                time: `${timestamp.toLocaleDateString()} • ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              };
             });
-          }
+          setRecentActivities(recent);
+        } else {
+          setRecentActivities([]);
         }
-        setRecentActivities(recent);
       }
     } catch (error) {
       console.error('Error fetching students:', error);

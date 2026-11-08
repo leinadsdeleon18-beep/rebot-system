@@ -33,7 +33,7 @@ export default function TransactionHistory() {
           item: t.rewardName || (t.type === 'redeem' ? 'Reward Redemption' : 'Recycling'),
           points: t.type === 'redeem' ? (t.pointsSpent || 0) : (t.pointsEarned || 0),
           date: new Date(t.createdAt).toISOString().split('T')[0],
-          time: new Date(t.createdAt).toLocaleTimeString(),
+          time: new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           staff: t.processedBy?.fullName || t.user?.fullName || 'System',
           status: t.status || 'completed',
           type: t.type,

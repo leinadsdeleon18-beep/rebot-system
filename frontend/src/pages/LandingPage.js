@@ -297,7 +297,7 @@ export default function LandingPage() {
       if (data.success) {
         setResetToken(data.resetToken);
         setResetSuccess('OTP verified! You can now reset your password.');
-        return true;
+        return data.resetToken;
       } else {
         setResetError(data.message || 'Invalid verification code');
         return false;
@@ -323,16 +323,17 @@ export default function LandingPage() {
       return;
     }
 
-    if (!resetToken) {
-      const verified = await handleVerifyOTP();
-      if (!verified) return;
+    let activeResetToken = resetToken;
+    if (!activeResetToken) {
+      activeResetToken = await handleVerifyOTP();
+      if (!activeResetToken) return;
     }
 
     setIsResetting(true);
 
     try {
       const { data } = await authAPI.resetPassword({
-        token: resetToken,
+        token: activeResetToken,
         newPassword
       });
 

@@ -2,6 +2,11 @@ const axios = require('axios');
 
 const sendOTPEmail = async (email, otp, fullName) => {
   const apiKey = process.env.BREVO_API_KEY;
+
+  if (!apiKey) {
+    console.error('Brevo email service is not configured: BREVO_API_KEY is missing');
+    return false;
+  }
   
   const data = {
     sender: {
@@ -67,6 +72,11 @@ const sendOTPEmail = async (email, otp, fullName) => {
 
 const sendPasswordResetConfirmation = async (email, fullName) => {
   const apiKey = process.env.BREVO_API_KEY;
+
+  if (!apiKey) {
+    console.error('Brevo email service is not configured: BREVO_API_KEY is missing');
+    return false;
+  }
   
   const data = {
     sender: {

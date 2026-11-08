@@ -526,3 +526,72 @@ body {
     animation: none;
   }
 }
+
+/* Responsive application foundations */
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+.app-shell,
+.app-shell main,
+.landing-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.app-shell main {
+  min-height: 100dvh;
+}
+
+.app-shell [class*="overflow-x-auto"],
+.app-shell table,
+.landing-page [class*="overflow-x-auto"] {
+  max-width: 100%;
+}
+
+.app-shell img,
+.app-shell video,
+.app-shell canvas,
+.landing-page img,
+.landing-page video,
+.landing-page canvas {
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  html { font-size: 15px; }
+  .app-shell main .p-4 { padding: 0.75rem; }
+  .app-shell main button,
+  .app-shell main input,
+  .app-shell main select,
+  .app-shell main textarea { font-size: 16px; }
+  .app-shell main [class*="grid-cols-"] { grid-template-columns: minmax(0, 1fr); }
+  .app-shell main [class*="overflow-x-auto"] { -webkit-overflow-scrolling: touch; }
+  .landing-page .modal-backdrop { align-items: flex-end; padding: 0 !important; }
+  .landing-page .modal-backdrop > div {
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 1.25rem 1.25rem 0 0 !important;
+  }
+  .landing-page input,
+  .landing-page select,
+  .landing-page textarea,
+  .landing-page button { font-size: 16px; }
+}
+
+@media (max-width: 420px) {
+  .app-shell main { padding-bottom: env(safe-area-inset-bottom); }
+  .landing-page h1 { font-size: 2rem; }
+  .landing-page h2 { font-size: 1.75rem; }
+  .landing-page h3 { font-size: 1.35rem; }
+}

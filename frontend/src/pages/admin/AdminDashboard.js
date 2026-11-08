@@ -3,14 +3,31 @@ import { apiUrl } from '../../services/apiService';
 
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
+  const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(apiUrl('/get-stats'))
-      .then(res => res.json())
-      .then(result => {
-        console.log('Dashboard Data:', result);
+    const token = localStorage.getItem('token');
+    Promise.all([
+      fetch(apiUrl('/get-stats')),
+      fetch(apiUrl('/transactions'), { headers: { Authorization: 'Bearer ' + token } })
+    ])
+      .then(async ([statsResponse, transactionResponse]) => {
+        const result = await statsResponse.json();
+        const transactionResult = await transactionResponse.json();
         setData(result);
+        setRecentTransactions(
+          (transactionResult.transactions || []).slice(0, 8).map(transaction => ({
+            id: transaction._id,
+            student: transaction.student?.fullName || transaction.studentName || 'Unknown student',
+            type: transaction.type,
+            points: transaction.type === 'redeem'
+              ? transaction.pointsSpent || 0
+              : transaction.pointsEarned || 0,
+            reward: transaction.reward?.name || transaction.rewardName || '',
+            createdAt: transaction.createdAt
+          }))
+        );
         setLoading(false);
       })
       .catch(err => {
@@ -67,6 +84,41 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
           <p className="text-green-700 font-medium">✅ Connected to Database - {data.totalStudents} students found</p>
+        </div>
+      </div>
+
+      {/* Recent point and redemption activity */}
+      <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800">Recent Student Activity</h2>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {recentTransactions.map(transaction => {
+            const date = new Date(transaction.createdAt);
+            return (
+              <div key={transaction.id} className="flex items-center justify-between gap-4 px-6 py-4">
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800 truncate">{transaction.student}</p>
+                  <p className="text-sm text-gray-500">
+                    {transaction.type === 'redeem'
+                      ? `Claimed ${transaction.reward || 'a reward'}`
+                      : 'Stored recycling points'}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className={`font-semibold ${transaction.type === 'redeem' ? 'text-orange-600' : 'text-green-600'}`}>
+                    {transaction.type === 'redeem' ? '-' : '+'}{transaction.points} pts
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {Number.isNaN(date.getTime()) ? 'Time unavailable' : `${date.toLocaleDateString()} • ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+          {recentTransactions.length === 0 && (
+            <p className="px-6 py-8 text-center text-sm text-gray-500">No student activity recorded yet.</p>
+          )}
         </div>
       </div>
 

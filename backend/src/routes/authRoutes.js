@@ -147,14 +147,13 @@ router.post('/register', async (req, res) => {
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     
-    console.log('Forgot password request for:', email);
-    
-    if (!email) {
+    if (!normalizedEmail) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
     
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     
     if (!user) {
       console.log('User not found:', email);
@@ -197,20 +196,16 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const submittedOTP = String(otp || '').trim();
     
-    console.log('Verifying OTP for:', email);
-    console.log('Received OTP:', otp);
-    
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     
-    console.log('Stored OTP:', user.passwordResetOTP);
-    console.log('OTP Expiry:', user.otpExpiry);
-    
-    if (user.passwordResetOTP !== otp) {
+    if (!/^\d{6}$/.test(submittedOTP) || user.passwordResetOTP !== submittedOTP) {
       return res.status(400).json({ success: false, message: 'Invalid OTP' });
     }
     
@@ -239,10 +234,9 @@ router.post('/verify-otp', async (req, res) => {
 router.post('/resend-otp', async (req, res) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     
-    console.log('Resend OTP request for:', email);
-    
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });

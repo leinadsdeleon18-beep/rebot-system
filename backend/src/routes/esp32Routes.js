@@ -182,13 +182,18 @@ router.post('/add-points', async (req, res) => {
 
     // Points are saved. Everything below is non-critical and must never cause a 500.
     try {
+      const isRedemption = pointsToAdd < 0;
       await db.collection('transactions').insertOne({
         transactionNumber: `ESP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        student: student._id,
         studentId: student._id.toString(),
         studentName: student.fullName || student.name || 'Unknown',
-        pointsEarned: pointsToAdd,
+        pointsEarned: isRedemption ? 0 : pointsToAdd,
+        pointsSpent: isRedemption ? Math.abs(pointsToAdd) : 0,
+        points: isRedemption ? Math.abs(pointsToAdd) : pointsToAdd,
         reason: reason || 'QR Scan',
-        type: pointsToAdd > 0 ? 'earn' : 'redeem',
+        type: isRedemption ? 'redeem' : 'earn',
+        createdAt: new Date(),
         timestamp: new Date(),
         source: 'esp'
       });
@@ -204,6 +209,8 @@ router.post('/add-points', async (req, res) => {
           studentId: student._id.toString(),
           studentName: student.fullName || student.name || 'Unknown',
           pointsAdded: pointsToAdd,
+          pointsChanged: pointsToAdd,
+          transactionType: pointsToAdd < 0 ? 'redeem' : 'earn',
           newPoints: newPoints,
           timestamp: new Date()
         });

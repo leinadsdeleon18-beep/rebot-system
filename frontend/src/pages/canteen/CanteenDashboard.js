@@ -81,7 +81,9 @@ export default function CanteenDashboard() {
             id: t._id,
             student: t.studentName || t.student?.fullName || 'Unknown',
             points: t.pointsSpent || t.points || 0,
-            time: new Date(t.createdAt).toLocaleTimeString(),
+            time: new Date(t.createdAt).toLocaleString([], {
+              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            }),
             item: t.rewardName || 'Reward',
             status: t.status || 'completed'
           }));

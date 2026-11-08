@@ -9,8 +9,8 @@ const authMiddleware = require('../middleware/authMiddleware');
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const transactions = await Transaction.find()
-      .populate('studentId', 'name rfid points')
-      .populate('rewardId', 'name pointsRequired')
+      .populate('student', 'fullName studentId points')
+      .populate('reward', 'name pointsRequired')
       .sort({ createdAt: -1 });
     
     res.json({ success: true, transactions });
@@ -22,8 +22,8 @@ router.get('/', authMiddleware, async (req, res) => {
 // Get student transactions
 router.get('/student/:studentId', authMiddleware, async (req, res) => {
   try {
-    const transactions = await Transaction.find({ studentId: req.params.studentId })
-      .populate('rewardId', 'name pointsRequired')
+    const transactions = await Transaction.find({ student: req.params.studentId })
+        .populate('reward', 'name pointsRequired')
       .sort({ createdAt: -1 });
     
     res.json({ success: true, transactions });
