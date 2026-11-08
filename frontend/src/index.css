@@ -570,6 +570,7 @@ body {
 
 @media (max-width: 767px) {
   html { font-size: 15px; }
+  .app-shell main { width: 100% !important; margin-left: 0 !important; }
   body, #root, .app-shell, .app-shell main { width: 100%; max-width: 100vw; overflow-x: hidden; }
   .app-shell main > div, .app-shell main section, .app-shell main article { width: 100%; max-width: 100%; }
   .app-shell main .flex-wrap { flex-wrap: wrap; }
@@ -597,6 +598,17 @@ body {
   .landing-page select,
   .landing-page textarea,
   .landing-page button { font-size: 16px; }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .app-shell main [class*="grid-cols-4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-shell main [class*="grid-cols-5"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-shell main [class*="grid-cols-3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 768px) and (max-width: 900px) {
+  .app-shell main [class*="grid-cols-3"],
+  .app-shell main [class*="grid-cols-4"] { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 420px) {

@@ -359,7 +359,10 @@ export default function Layout() {
         {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
       </button>
 
-      <main className={`transition-all duration-200 ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'}`}>
+      <main
+        className={`w-full min-w-0 transition-all duration-200 ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'}`}
+        style={{ width: sidebarCollapsed ? 'calc(100% - 5rem)' : 'calc(100% - 18rem)' }}
+      >
         <header className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 py-3 lg:px-6 lg:py-4">
             <div className="flex items-center justify-between">
