@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { Award, Gift, Recycle, RefreshCw, TrendingUp } from 'lucide-react';
+import { Award, Gift, Recycle, TrendingUp } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
+import { DashboardEmpty, DashboardHeader, DashboardMetrics, DashboardPanel, DashboardRefresh } from './components/Dashboard';
 import LandingPage from './pages/LandingPage';
 import LoadingScreen from './components/LoadingScreen';
 import Timestamps from './pages/Timestamps';
@@ -86,164 +87,84 @@ const StudentDashboard = () => {
     .slice(0, 6);
   const numberFormat = new Intl.NumberFormat();
 
+  const className = [student?.grade, student?.section].filter(Boolean).join(' · ');
+
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-green-700 dark:text-green-400">STUDENT OVERVIEW</p>
-          <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Welcome, {student?.fullName || user?.fullName || 'Student'}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Your recycling points and latest activity.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setRefreshKey((current) => current + 1)}
-          disabled={loading}
-          aria-label="Refresh dashboard"
-          title="Refresh dashboard"
-          className="rounded-lg border border-gray-200 bg-white p-2.5 text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-        >
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-        </button>
-      </header>
+    <div className="rb-dashboard">
+      <DashboardHeader title={'Welcome, ' + (student?.fullName || user?.fullName || 'student')} description={className || 'Your recycling points, activity, and rewards.'}>
+        <DashboardRefresh busy={loading} onClick={() => setRefreshKey(current => current + 1)} />
+      </DashboardHeader>
 
-      {error && (
-        <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-          {error}
-        </div>
-      )}
-
+      {error && <p className="rb-dash-notice" role="alert">{error}</p>}
+      {loading && !student && <p className="rb-dash-notice" role="status">Loading your recycling activity…</p>}
       {student && (
         <>
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Student recycling totals">
-            <div className="rounded-xl border border-green-200 bg-green-50 p-5 dark:border-green-900 dark:bg-green-900/20">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-green-900 dark:text-green-200">Points balance</p>
-                <Award size={20} className="text-green-700 dark:text-green-300" />
-              </div>
-              <p className="mt-3 text-3xl font-bold text-green-950 dark:text-white">
-                {loading ? '...' : numberFormat.format(student.points)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-900 dark:bg-orange-900/20">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-orange-900 dark:text-orange-200">Bottles recycled</p>
-                <Recycle size={20} className="text-orange-700 dark:text-orange-300" />
-              </div>
-              <p className="mt-3 text-3xl font-bold text-orange-950 dark:text-white">
-                {loading ? '...' : numberFormat.format(student.totalBottlesRecycled)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-900 dark:bg-blue-900/20">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Points earned</p>
-                <TrendingUp size={20} className="text-blue-700 dark:text-blue-300" />
-              </div>
-              <p className="mt-3 text-3xl font-bold text-blue-950 dark:text-white">
-                {loading ? '...' : numberFormat.format(student.totalPointsEarned)}
-              </p>
-            </div>
-          </section>
-
-          <section className="space-y-3" aria-label="Reward progress">
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Rewards to work toward</h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Your points progress toward available rewards.</p>
-            </div>
-            {availableRewards.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {availableRewards.map((reward) => {
-                  const pointsRequired = Number(reward.pointsRequired) || 0;
-                  const stock = Number(reward.stock ?? reward.stockQuantity) || 0;
-                  const progress = pointsRequired > 0
-                    ? Math.min((student.points / pointsRequired) * 100, 100)
-                    : 0;
-                  const status = stock <= 0
-                    ? 'Out of stock'
-                    : student.points >= pointsRequired
-                      ? 'Ready to claim at the canteen'
-                      : `${numberFormat.format(pointsRequired - student.points)} points to go`;
-
-                  return (
-                    <article key={reward._id} className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Gift size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />
-                          <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{reward.name}</h3>
+          <DashboardMetrics label="Your recycling totals" items={[
+            { label: 'Points balance', value: student.points, icon: Award, primary: true },
+            { label: 'Bottles recycled', value: student.totalBottlesRecycled, icon: Recycle },
+            { label: 'Lifetime points earned', value: student.totalPointsEarned, icon: TrendingUp }
+          ]} />
+          <div className="rb-dash-split rb-dash-even">
+            <DashboardPanel title="Reward progress" description="Rewards you can claim at the canteen">
+              {availableRewards.length ? (
+                <ul className="rb-dash-list">
+                  {availableRewards.map(reward => {
+                    const required = Number(reward.pointsRequired) || 0;
+                    const stock = Number(reward.stock ?? reward.stockQuantity) || 0;
+                    const progress = required > 0 ? Math.max(0, Math.min(100, (student.points / required) * 100)) : 100;
+                    const ready = stock > 0 && student.points >= required;
+                    const status = stock <= 0
+                      ? 'Out of stock'
+                      : ready ? 'Ready to claim' : numberFormat.format(required - student.points) + ' points to go';
+                    return (
+                      <li key={reward._id} className="rb-dash-panel-body">
+                        <div className="rb-dash-reward-name">
+                          <span><Gift className="rb-dash-row-icon" size={18} aria-hidden="true" /> <strong>{reward.name}</strong></span>
+                          <span>{numberFormat.format(required)} pts</span>
                         </div>
-                        <span className="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                          {numberFormat.format(pointsRequired)} pts
-                        </span>
-                      </div>
-                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700" role="progressbar" aria-label={`${reward.name} points progress`} aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
-                        <div className="h-full rounded-full bg-green-500 transition-[width]" style={{ width: `${progress}%` }} />
-                      </div>
-                      <p className={`mt-2 text-xs ${stock <= 0 ? 'text-gray-500 dark:text-gray-400' : student.points >= pointsRequired ? 'font-medium text-green-700 dark:text-green-300' : 'text-gray-500 dark:text-gray-400'}`}>
-                        {status}
-                      </p>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="rounded-lg border border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                {rewardsError || 'No rewards are available right now.'}
-              </p>
-            )}
-          </section>
-
-          <section className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-            <div className="border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Recent activity</h2>
-              {(student.grade || student.section) && (
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {[student.grade, student.section].filter(Boolean).join(' · ')}
-                </p>
+                        <div className="rb-dash-track" role="progressbar" aria-label={reward.name + ' points progress'} aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
+                          <div style={{ width: progress + '%' }} />
+                        </div>
+                        <p className={'rb-dash-goal-note ' + (ready ? 'rb-dash-positive' : '')}>{status}</p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <DashboardEmpty icon={Gift} title={rewardsError ? 'Rewards unavailable' : 'No rewards available'}>{rewardsError}</DashboardEmpty>
               )}
-            </div>
-            {transactions.length > 0 ? (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {transactions.map((transaction) => {
-                  const redeemed = transaction.type === 'redeem' || transaction.pointsSpent > 0;
-                  const amount = redeemed ? transaction.pointsSpent : transaction.pointsEarned;
-                  const title = redeemed
-                    ? transaction.rewardName || 'Reward claimed'
-                    : transaction.description || 'Recycling points earned';
-                  return (
-                    <li key={transaction.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${redeemed ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'}`}>
-                          {redeemed ? <Gift size={17} /> : <Recycle size={17} />}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{title}</p>
-                          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                            {transaction.createdAt ? new Date(transaction.createdAt).toLocaleDateString() : 'Date unavailable'}
-                          </p>
+            </DashboardPanel>
+
+            <DashboardPanel title="Recent activity" description="Recycling deposits and reward claims">
+              {transactions.length ? (
+                <ul className="rb-dash-list">
+                  {transactions.map(transaction => {
+                    const redeemed = transaction.type === 'redeem' || transaction.pointsSpent > 0;
+                    const amount = redeemed ? transaction.pointsSpent : transaction.pointsEarned;
+                    const title = redeemed
+                      ? transaction.rewardName || 'Reward claimed'
+                      : transaction.description || 'Recycling points earned';
+                    return (
+                      <li key={transaction.id} className="rb-dash-row">
+                        <div>
+                          <strong>{title}</strong>
+                          <small>{transaction.createdAt ? new Date(transaction.createdAt).toLocaleDateString() : 'Date unavailable'}</small>
                         </div>
-                      </div>
-                      <span className={`shrink-0 text-sm font-semibold ${redeemed ? 'text-amber-700 dark:text-amber-300' : 'text-green-700 dark:text-green-300'}`}>
-                        {redeemed ? '-' : '+'}{numberFormat.format(amount || 0)} pts
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                {loading ? 'Loading activity...' : 'No recycling or reward activity yet.'}
-              </p>
-            )}
-          </section>
+                        <strong className={redeemed ? 'rb-dash-negative' : 'rb-dash-positive'}>{redeemed ? '−' : '+'}{numberFormat.format(amount || 0)} pts</strong>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <DashboardEmpty icon={Recycle} title="No activity yet">Your recycling deposits and reward claims will appear here.</DashboardEmpty>
+              )}
+            </DashboardPanel>
+          </div>
         </>
       )}
     </div>
   );
 };
-
 const StudentSettings = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();

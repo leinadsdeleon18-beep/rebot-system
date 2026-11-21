@@ -1,316 +1,142 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, Star, RefreshCw, TrendingUp, Clock, Package, AlertTriangle, Gift } from 'lucide-react';
+﻿import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowUpRight, Coins, Gift, Package, QrCode, ShoppingBag } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
-import toast from 'react-hot-toast';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler } from 'chart.js';
+import { DashboardEmpty, DashboardHeader, DashboardMetrics, DashboardPanel, DashboardRefresh } from '../../components/Dashboard';
+import { useTheme } from '../../contexts/ThemeContext';
 import { apiUrl } from '../../services/apiService';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
+
+function dayKey(date) {
+  return date.toDateString();
+}
 
 export default function CanteenDashboard() {
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({ 
-    todayRedemptions: 0, 
-    totalPoints: 0, 
-    totalStock: 0,
-    totalRewards: 0,
-    lowStockItems: 0
-  });
-  const [recentRedemptions, setRecentRedemptions] = useState([]);
+  const { darkMode } = useTheme();
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [redemptionTrends, setRedemptionTrends] = useState([0, 0, 0, 0, 0, 0, 0]);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const refresh = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
-      const token = localStorage.getItem('token');
-      
-      // Fetch rewards for stock data
-      const rewardsRes = await fetch(apiUrl('/rewards'), {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const rewardsData = await rewardsRes.json();
-      
-      // Fetch transactions for redemption data
-      const transactionsRes = await fetch(apiUrl('/transactions'), {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const transactionsData = await transactionsRes.json();
-      
-      // Fetch students for points data
-      const studentsRes = await fetch(apiUrl('/students'), {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const studentsData = await studentsRes.json();
-      
-      let totalPoints = 0;
-      if (studentsData.success) {
-        totalPoints = studentsData.students.reduce((sum, s) => sum + (s.points || 0), 0);
-      }
-      
-      let totalStock = 0;
-      let totalRewards = 0;
-      let lowStockItems = 0;
-      
-      if (rewardsData.success) {
-        totalRewards = rewardsData.rewards.length;
-        totalStock = rewardsData.rewards.reduce((sum, r) => sum + (r.stock || 0), 0);
-        lowStockItems = rewardsData.rewards.filter(r => (r.stock || 0) > 0 && (r.stock || 0) < 10).length;
-      }
-      
-      let redemptions = [];
-      let redemptionCount = 0;
-      
-      if (transactionsData.success) {
-        const today = new Date().toISOString().split('T')[0];
-        const todayTransactions = transactionsData.transactions.filter(t => {
-          const transactionDate = new Date(t.createdAt).toISOString().split('T')[0];
-          return (t.type === 'redeem') && transactionDate === today;
-        });
-        redemptionCount = todayTransactions.length;
-        
-        redemptions = transactionsData.transactions
-          .filter(t => t.type === 'redeem')
-          .slice(0, 5)
-          .map(t => ({
-            id: t._id,
-            student: t.studentName || t.student?.fullName || 'Unknown',
-            points: t.pointsSpent || t.points || 0,
-            time: new Date(t.createdAt || t.timestamp).toLocaleString([], {
-              year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-            }),
-            item: t.rewardName || 'Reward',
-            status: t.status || 'completed'
-          }));
-      }
-      
-      setStats({
-        todayRedemptions: redemptionCount,
-        totalPoints: totalPoints,
-        totalStock: totalStock,
-        totalRewards: totalRewards,
-        lowStockItems: lowStockItems
-      });
-      
-      setRecentRedemptions(redemptions);
-      
-      // Generate weekly trend data from actual transactions
-      const weeklyData = [0, 0, 0, 0, 0, 0, 0];
-      if (transactionsData.success) {
-        transactionsData.transactions
-          .filter(t => t.type === 'redeem')
-          .forEach(t => {
-            const date = new Date(t.createdAt);
-            const dayIndex = date.getDay();
-            weeklyData[dayIndex] += 1;
-          });
-      }
-      setRedemptionTrends(weeklyData);
-      
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      const results = await Promise.all(['/rewards', '/transactions?type=redeem&limit=500', '/students'].map(async endpoint => {
+        const response = await fetch(apiUrl(endpoint), { headers });
+        if (!response.ok) throw new Error('Could not load canteen data.');
+        const result = await response.json();
+        if (!result.success) throw new Error('Could not load canteen data.');
+        return result;
+      }));
+      const [{ rewards = [] }, { transactions = [] }, { students = [] }] = results;
+      setData({ rewards, students, redemptions: transactions.filter(transaction => transaction.type === 'redeem') });
+    } catch (requestError) {
+      setError(requestError.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const redemptionData = {
-    labels: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const today = new Date();
+  const week = Array.from({ length: 7 }, (_, index) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6 + index));
+  const redemptions = data?.redemptions || [];
+  const counts = new Map();
+  for (const item of redemptions) {
+    const date = new Date(item.createdAt || item.timestamp);
+    if (Number.isNaN(date.getTime())) continue;
+    const key = dayKey(date);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+
+  const trend = {
+    labels: week.map(date => date.toLocaleDateString(undefined, { weekday: 'short' })),
     datasets: [{
       label: 'Redemptions',
-      data: redemptionTrends,
-      borderColor: '#2e7d32',
-      backgroundColor: 'rgba(46, 125, 50, 0.1)',
-      tension: 0.4,
+      data: week.map(date => counts.get(dayKey(date)) || 0),
+      borderColor: darkMode ? '#a9d7ba' : '#236b4c',
+      backgroundColor: darkMode ? '#a9d7ba24' : '#236b4c1a',
       fill: true,
-      pointBackgroundColor: '#16a34a',
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-      pointRadius: 5,
-      pointHoverRadius: 7
-    }],
+      pointRadius: 3,
+      tension: 0.25
+    }]
   };
-
+  const tickColor = darkMode ? '#aebdb1' : '#526258';
   const chartOptions = {
-    responsive: true,
     maintainAspectRatio: false,
-    plugins: { 
-      legend: { 
-        position: 'top',
-        labels: { font: { size: 12 } }
-      },
-      tooltip: {
-        backgroundColor: 'rgba(0,0,0,0.8)',
-        titleColor: '#fff',
-        bodyColor: '#ddd',
-        padding: 10,
-        cornerRadius: 8
-      }
-    },
+    animation: false,
+    plugins: { legend: { display: false } },
     scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: 'rgba(0,0,0,0.05)' },
-        title: { display: true, text: 'Number of Redemptions', font: { size: 12 } }
-      },
-      x: {
-        grid: { display: false },
-        title: { display: true, text: 'Day of Week', font: { size: 12 } }
-      }
+      x: { grid: { display: false }, ticks: { color: tickColor } },
+      y: { beginAtZero: true, grid: { color: darkMode ? '#39463c' : '#e5ebe4' }, ticks: { color: tickColor, precision: 0 } }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
+  const rewards = data?.rewards || [];
+  const lowStock = rewards.filter(reward => reward.stock > 0 && reward.stock < 10).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Canteen Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage reward redemptions and track inventory</p>
-        </div>
-        <button
-          onClick={fetchDashboardData}
-          className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-sm"
-        >
-          <RefreshCw size={18} /> Refresh
-        </button>
-      </div>
+    <div className="rb-dashboard">
+      <DashboardHeader title="Canteen overview" description="Redeem student rewards and monitor stock.">
+        <Link className="rb-dash-button rb-dash-button-primary" to="/canteen/scan"><QrCode size={17} aria-hidden="true" /> Scan &amp; redeem</Link>
+        <Link className="rb-dash-button" to="/canteen/rewards"><Package size={17} aria-hidden="true" /> Manage rewards</Link>
+        <DashboardRefresh busy={loading} onClick={refresh} />
+      </DashboardHeader>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-blue-600">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Today's Redemptions</p>
-              <p className="text-3xl font-bold text-gray-800 dark:text-gray-100">{stats.todayRedemptions}</p>
+      {error && <p className="rb-dash-notice" role="alert">{error} Select Refresh to try again.</p>}
+      {loading && !data && <p className="rb-dash-notice" role="status">Loading canteen activity…</p>}
+      {data && (
+        <>
+          <DashboardMetrics items={[
+            { label: 'Redemptions today', value: counts.get(dayKey(today)) || 0, icon: ShoppingBag, primary: true },
+            { label: 'Items in stock', value: rewards.reduce((sum, reward) => sum + Number(reward.stock || 0), 0), icon: Package },
+            { label: 'Reward types', value: rewards.length, icon: Gift },
+            { label: 'Student points available', value: data.students.reduce((sum, student) => sum + Number(student.points || 0), 0), icon: Coins }
+          ]} />
+          {lowStock > 0 && (
+            <div className="rb-dash-notice">
+              <AlertTriangle size={17} aria-hidden="true" />
+              <span>{lowStock} {lowStock === 1 ? 'reward has' : 'rewards have'} fewer than 10 items in stock.</span>
+              <Link className="rb-dash-positive font-semibold underline" to="/canteen/rewards">View inventory</Link>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center">
-              <ShoppingBag className="text-white" size={24} />
-            </div>
-          </div>
-        </div>
+          )}
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-orange-600">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Total Points Available</p>
-              <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{stats.totalPoints.toLocaleString()}</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center">
-              <Star className="text-white" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-green-600">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Items in Stock</p>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{stats.totalStock}</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-green-600 flex items-center justify-center">
-              <Package className="text-white" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-purple-600">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">Total Rewards</p>
-              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{stats.totalRewards}</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-purple-600 flex items-center justify-center">
-              <Gift className="text-white" size={24} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Low Stock Alert */}
-      {stats.lowStockItems > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-              <AlertTriangle size={20} className="text-yellow-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-yellow-800 dark:text-yellow-300">Low Stock Alert</p>
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                {stats.lowStockItems} item(s) are running low on stock. Please restock soon.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <button
-          onClick={() => navigate('/canteen/rewards')}
-          className="flex items-center justify-center gap-3 p-4 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition shadow-md"
-        >
-          <Gift size={24} />
-          <div className="text-left">
-            <p className="font-semibold">Manage Rewards</p>
-            <p className="text-sm opacity-90">View and restock reward items</p>
-          </div>
-        </button>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-            <TrendingUp size={20} className="text-green-600" /> Redemption Trends (Last 7 Days)
-          </h3>
-          <div className="h-64">
-            <Line data={redemptionData} options={chartOptions} />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-            <Clock size={20} className="text-blue-600" /> Recent Redemptions
-          </h3>
-          <div className="space-y-3 max-h-64 overflow-y-auto">
-            {recentRedemptions.length > 0 ? (
-              recentRedemptions.map((r) => (
-                <div key={r.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 transition">
-                  <div>
-                    <p className="font-medium text-gray-800 dark:text-gray-200">{r.student}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs text-gray-500">{r.time}</p>
-                      <span className="text-xs text-gray-400">{r.item}</span>
-                    </div>
-                  </div>
-                  <span className="text-orange-600 dark:text-orange-400 font-semibold">-{r.points} pts</span>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                <ShoppingBag size={40} className="mx-auto mb-3 text-gray-300" />
-                <p>No recent redemptions</p>
-                <p className="text-xs mt-1">Redemptions will appear here</p>
+          <div className="rb-dash-split">
+            <DashboardPanel title="Reward redemptions" description={`Last 7 days · ${week[0].toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} to ${today.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}>
+              <div className="rb-dash-panel-body rb-dash-chart">
+                <Line data={trend} options={chartOptions} aria-label={trend.labels.map((day, index) => `${day}: ${trend.datasets[0].data[index]} redemptions`).join(', ')} role="img" />
               </div>
-            )}
+            </DashboardPanel>
+            <DashboardPanel title="Recent redemptions" action={<Link className="rb-dash-button" to="/canteen/history">History <ArrowUpRight size={15} aria-hidden="true" /></Link>}>
+              {redemptions.length ? (
+                <ul className="rb-dash-list">
+                  {redemptions.slice(0, 5).map(item => {
+                    const date = new Date(item.createdAt || item.timestamp);
+                    return (
+                      <li className="rb-dash-row" key={item._id}>
+                        <div>
+                          <strong>{item.studentName || item.student?.fullName || 'Unknown student'}</strong>
+                          <small>{item.reward?.name || item.rewardName || 'Reward'}</small>
+                        </div>
+                        <div>
+                          <strong className="rb-dash-negative">−{Number(item.pointsSpent || item.points || 0).toLocaleString()} pts</strong>
+                          <small>{Number.isNaN(date.getTime()) ? 'Time unavailable' : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</small>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <DashboardEmpty icon={ShoppingBag} title="No redeemed rewards yet">Completed redemptions will appear here.</DashboardEmpty>
+              )}
+            </DashboardPanel>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

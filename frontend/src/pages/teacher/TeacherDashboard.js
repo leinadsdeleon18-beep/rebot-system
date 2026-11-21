@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Users, UserPlus, Star, Calendar,
-  TrendingUp, Award, BarChart3, PieChart, Trophy, Target, 
-  Activity, Crown, Medal, AlertCircle, CheckCircle,
-  RefreshCw, Printer, Download, Eye, BadgeCheck, Sparkles, X, Settings, Save,
-  School, BookOpen
+  Activity, Award, BadgeCheck, BarChart3, Printer, School, Search, Star, Target, UserPlus, Users, X
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import toast from 'react-hot-toast';
 import LoadingScreen from '../../components/LoadingScreen';
+import { DashboardEmpty, DashboardHeader, DashboardMetrics, DashboardPanel, DashboardRefresh } from '../../components/Dashboard';
+import { useTheme } from '../../contexts/ThemeContext';
 import { API_BASE_URL } from '../../services/apiService';
 
 ChartJS.register(
@@ -20,29 +18,8 @@ ChartJS.register(
 // API Base URL
 const API_BASE = API_BASE_URL;
 
-// Custom Certificate Icon
-const CertificateIcon = ({ size = 18, className = "" }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2Z"/>
-    <path d="M8 7h8"/>
-    <path d="M8 11h6"/>
-    <path d="M8 15h4"/>
-    <path d="M12 2v20"/>
-  </svg>
-);
-
 export default function TeacherDashboard() {
+  const { darkMode } = useTheme();
   const [stats, setStats] = useState({ totalStudents: 0, totalPoints: 0, activeStudents: 0 });
   const [allStudents, setAllStudents] = useState([]); // Raw data from API
   const [filteredStudentsList, setFilteredStudentsList] = useState([]); // Filtered by teacher access
@@ -56,11 +33,11 @@ export default function TeacherDashboard() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
   const [formData, setFormData] = useState({ name: '', grade: '', section: '', email: '', phone: '' });
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [classGoal, setClassGoal] = useState(1000);
   const [goalInput, setGoalInput] = useState(1000);
+  const [activityDates, setActivityDates] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
   const [showBadgesModal, setShowBadgesModal] = useState(false);
   const [selectedBadgeStudent, setSelectedBadgeStudent] = useState(null);
@@ -94,17 +71,12 @@ export default function TeacherDashboard() {
   };
 
   // Load class goal from localStorage
-  const loadClassGoal = () => {
-    const savedGoal = localStorage.getItem(`class_goal_${teacherId}`);
-    if (savedGoal && !isNaN(parseInt(savedGoal))) {
-      setClassGoal(parseInt(savedGoal));
-      setGoalInput(parseInt(savedGoal));
-    } else {
-      const defaultGoal = Math.max(1000, Math.ceil(stats.totalPoints * 1.2));
-      setClassGoal(defaultGoal);
-      setGoalInput(defaultGoal);
-    }
-  };
+  const loadClassGoal = useCallback((totalPoints) => {
+    const savedGoal = Number(localStorage.getItem(`class_goal_${teacherId}`));
+    const goal = savedGoal > 0 ? savedGoal : Math.max(1000, Math.ceil(totalPoints * 1.2));
+    setClassGoal(goal);
+    setGoalInput(goal);
+  }, [teacherId]);
 
   // Save class goal to localStorage
   const saveClassGoal = (goal) => {
@@ -247,7 +219,8 @@ export default function TeacherDashboard() {
             grade: gradeLevel,
             section: sectionName,
             sectionId: sectionId,
-            points: s.points || 0,
+            points: Number(s.points || 0),
+            isActive: s.isActive !== false,
             studentId: s.studentId,
             email: s.email,
             lastActive: s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : 'N/A'
@@ -266,11 +239,11 @@ export default function TeacherDashboard() {
         setStats({
           totalStudents: accessibleStudents.length,
           totalPoints: totalPoints,
-          activeStudents: accessibleStudents.length // Assuming all are active for now
+          activeStudents: accessibleStudents.filter(student => student.isActive).length
         });
         
         if (teacherId) {
-          loadClassGoal();
+          loadClassGoal(totalPoints);
         }
         
         await fetchTeacherSections();
@@ -280,9 +253,12 @@ export default function TeacherDashboard() {
         });
         const transactionData = await transactionResponse.json();
         if (transactionData.success) {
-          const accessibleIds = new Set(accessibleStudents.map(student => student.id));
-          const recent = transactionData.transactions
-            .filter(transaction => accessibleIds.has(String(transaction.student?._id || transaction.student)))
+          const accessibleIds = new Set(accessibleStudents.map(student => String(student.id)));
+          const activity = transactionData.transactions.filter(transaction =>
+            accessibleIds.has(String(transaction.student?._id || transaction.student || transaction.studentId))
+          );
+          setActivityDates(activity.map(transaction => transaction.createdAt || transaction.timestamp).filter(Boolean));
+          const recent = activity
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
             .slice(0, 8)
             .map(transaction => {
@@ -291,16 +267,15 @@ export default function TeacherDashboard() {
               return {
                 id: transaction._id,
                 studentName: transaction.student?.fullName || transaction.studentName || 'Unknown student',
-                icon: isRedemption ? '🎁' : '♻️',
                 message: isRedemption
                   ? `claimed ${transaction.reward?.name || transaction.rewardName || 'a reward'} (${transaction.pointsSpent || transaction.points || 0} pts)`
                   : `stored ${transaction.pointsEarned || 0} points`,
-                color: isRedemption ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700',
-                time: Number.isNaN(timestamp.getTime()) ? 'Time unavailable' : `${timestamp.toLocaleDateString()} • ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                time: Number.isNaN(timestamp.getTime()) ? 'Time unavailable' : timestamp.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
               };
             });
           setRecentActivities(recent);
         } else {
+          setActivityDates([]);
           setRecentActivities([]);
         }
       }
@@ -310,7 +285,7 @@ export default function TeacherDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [isDataLoaded, teacherId, fetchTeacherSections, isStudentAccessible]);
+  }, [isDataLoaded, teacherId, fetchTeacherSections, isStudentAccessible, loadClassGoal]);
 
   // Load user data
   useEffect(() => {
@@ -489,11 +464,28 @@ export default function TeacherDashboard() {
     const gradeMap = {};
     filteredStudentsList.forEach(s => { gradeMap[s.grade] = (gradeMap[s.grade] || 0) + 1; });
     const sortedGrades = Object.keys(gradeMap).sort();
-    return { labels: sortedGrades, datasets: [{ label: 'Number of Students', data: sortedGrades.map(g => gradeMap[g]), backgroundColor: '#3b82f6', borderRadius: 8 }] };
+    return { labels: sortedGrades, datasets: [{ label: 'Number of Students', data: sortedGrades.map(g => gradeMap[g]), backgroundColor: darkMode ? '#83b99a' : '#2f7856', borderRadius: 4 }] };
   };
 
   const getWeeklyActivityData = () => {
-    return { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], datasets: [{ label: 'Activities', data: [45, 52, 38, 61, 48, 25, 12], borderColor: '#22c55e', backgroundColor: 'rgba(34, 197, 94, 0.1)', tension: 0.4, fill: true }] };
+    const now = new Date();
+    const week = Array.from({ length: 7 }, (_, index) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + index));
+    const counts = new Map(week.map(date => [date.toDateString(), 0]));
+    for (const value of activityDates) {
+      const day = new Date(value).toDateString();
+      if (counts.has(day)) counts.set(day, counts.get(day) + 1);
+    }
+    return {
+      labels: week.map(date => date.toLocaleDateString(undefined, { weekday: 'short' })),
+      datasets: [{
+        label: 'Activities',
+        data: [...counts.values()],
+        borderColor: darkMode ? '#a9d7ba' : '#236b4c',
+        backgroundColor: darkMode ? '#a9d7ba24' : '#236b4c1a',
+        fill: true,
+        tension: 0.25
+      }]
+    };
   };
 
   const getPointsByGradeData = () => {
@@ -504,11 +496,24 @@ export default function TeacherDashboard() {
       gradePoints[s.grade].count += 1;
     });
     const sortedGrades = Object.keys(gradePoints).sort();
-    return { labels: sortedGrades, datasets: [{ label: 'Average Points', data: sortedGrades.map(g => Math.round(gradePoints[g].total / gradePoints[g].count)), backgroundColor: '#f59e0b', borderRadius: 8 }] };
+    return { labels: sortedGrades, datasets: [{ label: 'Average Points', data: sortedGrades.map(g => Math.round(gradePoints[g].total / gradePoints[g].count)), backgroundColor: darkMode ? '#83b99a' : '#2f7856', borderRadius: 4 }] };
   };
 
-  const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } };
-  const barChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } };
+  const tickColor = darkMode ? '#aebdb1' : '#526258';
+  const chartOptions = {
+    responsive: true,
+    animation: false,
+    maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { color: tickColor } } }
+  };
+  const barChartOptions = {
+    ...chartOptions,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: tickColor } },
+      y: { beginAtZero: true, ticks: { color: tickColor, precision: 0 }, grid: { color: darkMode ? '#39463c' : '#e5ebe4' } }
+    }
+  };
 
   const filteredStudents = filteredStudentsList.filter(s => 
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -525,333 +530,173 @@ export default function TeacherDashboard() {
     return <LoadingScreen message="Loading your students..." />;
   }
 
-  // Show no grades assigned message
-  if (isDataLoaded && userRole === 'teacher' && teacherAssignedGrades.length === 0 && teacherAssignedSections.length === 0) {
+  if (isDataLoaded && userRole === 'teacher' && !teacherAssignedGrades.length && !teacherAssignedSections.length) {
     return (
-      <div className="bg-yellow-50 rounded-2xl p-8 text-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
-            <School size={32} className="text-yellow-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-yellow-800">No Grades or Sections Assigned</h2>
-          <p className="text-yellow-700 max-w-md">
-            You don't have any grades or sections assigned to your account yet.
-          </p>
-          <p className="text-sm text-yellow-600">
-            Please contact the administrator to assign grade levels or sections to your account.
-          </p>
-        </div>
+      <div className="rb-dashboard">
+        <DashboardHeader title="Class overview" description={teacherInfo.fullName} />
+        <DashboardPanel title="Your classes">
+          <DashboardEmpty icon={School} title="No classes assigned">
+            Ask your school administrator to assign a grade or section to your account.
+          </DashboardEmpty>
+        </DashboardPanel>
       </div>
     );
   }
 
-  const assignedText = userRole === 'teacher' 
-    ? (teacherAssignedSections.length > 0 
-        ? `${teacherAssignedSections.length} assigned section(s)` 
-        : teacherAssignedGrades.join(', '))
-    : 'All Sections (Admin)';
+  const access = teacherAssignedSections.length
+    ? teacherAssignedSections.length + (teacherAssignedSections.length === 1 ? ' assigned section' : ' assigned sections')
+    : teacherAssignedGrades.join(', ');
+  const topStudents = [...filteredStudentsList].sort((a, b) => b.points - a.points).slice(0, 5);
+  const charts = [
+    { title: 'Weekly activity', Chart: Line, data: getWeeklyActivityData(), options: barChartOptions },
+    { title: 'Points distribution', Chart: Doughnut, data: getPointsDistributionData(), options: chartOptions },
+    { title: 'Students by grade', Chart: Bar, data: getGradeDistributionData(), options: barChartOptions },
+    { title: 'Average points by grade', Chart: Bar, data: getPointsByGradeData(), options: barChartOptions }
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header with Refresh Button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Teacher Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Welcome back, {teacherInfo.fullName}! Access: <span className="font-semibold text-green-600">{assignedText}</span>
-          </p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="px-4 py-2 bg-blue-600 text-white rounded-xl flex items-center gap-2 hover:bg-blue-700 transition shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-          {isRefreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
+    <div className="rb-dashboard">
+      <DashboardHeader title="Class overview" description={[teacherInfo.fullName, access].filter(Boolean).join(' · ')}>
+        <button type="button" className="rb-dash-button-primary" onClick={() => setShowAddStudentModal(true)}><UserPlus size={17} aria-hidden="true" /> Add student</button>
+        <button type="button" className="rb-dash-button" onClick={generateProgressReport}><Printer size={17} aria-hidden="true" /> Print report</button>
+        <DashboardRefresh busy={isRefreshing} onClick={handleRefresh} />
+      </DashboardHeader>
 
-      {/* Stats Cards - Using filtered stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border">
-          <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Total Students</p><p className="text-3xl font-bold">{stats.totalStudents}</p></div><div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center"><Users className="text-white" size={24} /></div></div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border">
-          <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Total Points</p><p className="text-3xl font-bold text-orange-600">{stats.totalPoints}</p></div><div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center"><Star className="text-white" size={24} /></div></div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border">
-          <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Active Students</p><p className="text-3xl font-bold text-green-600">{stats.activeStudents}</p></div><div className="w-12 h-12 rounded-xl bg-green-600 flex items-center justify-center"><Award className="text-white" size={24} /></div></div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border">
-          <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Badges Awarded</p><p className="text-3xl font-bold text-purple-600">{filteredStudentsList.reduce((sum, s) => sum + getStudentBadges(s.points).length, 0)}</p></div><div className="w-12 h-12 rounded-xl bg-purple-600 flex items-center justify-center"><BadgeCheck className="text-white" size={24} /></div></div>
-        </div>
-      </div>
+      <DashboardMetrics items={[
+        { label: 'Class points', value: stats.totalPoints, icon: Star, primary: true },
+        { label: 'Students', value: stats.totalStudents, icon: Users },
+        { label: 'Active students', value: stats.activeStudents, icon: Activity },
+        { label: 'Badges earned', value: filteredStudentsList.reduce((sum, student) => sum + getStudentBadges(student.points).length, 0), icon: BadgeCheck }
+      ]} />
 
-      {/* Teacher's Assigned Sections */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold flex items-center gap-2">
-            <School size={20} className="text-green-600" />
-            Your Assigned Sections
-          </h3>
-          <span className="text-sm text-gray-500">{teacherSections.length} sections</span>
-        </div>
-        
-        {teacherSections.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <School size={48} className="mx-auto mb-3 text-gray-300" />
-            <p>No sections assigned yet.</p>
-            <p className="text-sm mt-1">Please contact the administrator.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {teacherSections.map(section => {
-              const sectionStudents = filteredStudentsList.filter(s => s.sectionId === section._id);
-              const totalPoints = sectionStudents.reduce((sum, s) => sum + (s.points || 0), 0);
-              const averagePoints = sectionStudents.length > 0 ? Math.round(totalPoints / sectionStudents.length) : 0;
-              
-              return (
-                <div key={section._id} className="border rounded-xl p-4 hover:shadow-lg transition-all duration-200 hover:border-green-300">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-2xl">{section.gradeLevel === 'Kindergarten' ? '🎓' : '📚'}</span>
-                        <h4 className="font-bold text-lg text-green-700">{section.sectionName}</h4>
-                      </div>
-                      <p className="text-sm text-gray-500">{section.gradeLevel}</p>
-                    </div>
-                    <div className="bg-green-100 rounded-full px-2.5 py-1">
-                      <span className="text-xs font-semibold text-green-700">
-                        <Users size={12} className="inline mr-1" />
-                        {sectionStudents.length} students
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3 pt-3 border-t">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-orange-600">{totalPoints}</p>
-                        <p className="text-xs text-gray-500">Total Points</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-green-600">{averagePoints}</p>
-                        <p className="text-xs text-gray-500">Average Points</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button onClick={() => setShowAddStudentModal(true)} className="flex items-center justify-center gap-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded-xl transition"><UserPlus size={18} /> Add Student</button>
-        <button onClick={generateProgressReport} className="flex items-center justify-center gap-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition"><Printer size={18} /> Print Report</button>
-        <button onClick={() => { if (filteredStudentsList.length > 0) generateCertificate(filteredStudentsList[0]); else toast.error('No students'); }} className="flex items-center justify-center gap-2 p-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl transition"><CertificateIcon size={18} /> Certificate</button>
-        <button onClick={() => setShowGoalModal(true)} className="flex items-center justify-center gap-2 p-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition"><Target size={18} /> Set Goal</button>
-      </div>
-
-      {/* Class Competition */}
-      {classCompetition.length > 0 && (
-        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-6 text-white">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-3"><Trophy size={28} /><div><h3 className="text-xl font-bold">Class Competition</h3><p className="text-sm">Compare sections by average points</p></div></div>
-            <RefreshCw size={20} className="opacity-70 cursor-pointer hover:opacity-100" onClick={fetchStudents} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {classCompetition.slice(0, 3).map((section, index) => (
-              <div key={section.name} className="bg-white/15 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-center justify-between mb-2"><span className="font-bold text-lg">{section.name}</span>{index === 0 && <Crown size={20} className="text-yellow-300" />}{index === 1 && <Medal size={20} className="text-gray-300" />}{index === 2 && <Medal size={20} className="text-amber-600" />}</div>
-                <p className="text-2xl font-bold">{section.averagePoints}</p><p className="text-xs">avg points per student</p>
-                <div className="mt-2 text-sm"><span>Top: {section.topStudent?.name?.split(' ')[0]}</span><span className="float-right">{section.topStudent?.points} pts</span></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Class Goal Tracker */}
-      <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl p-6 text-white">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-3"><Target size={28} /><div><h3 className="text-xl font-bold">Class Goal Tracker</h3><p className="text-sm opacity-90">Target: {classGoal.toLocaleString()} total points</p></div></div>
-          <button onClick={() => setShowGoalModal(true)} className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition flex items-center gap-2"><Settings size={16} /> Change Goal</button>
-        </div>
-        
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-2"><span>Progress: {goalProgress.percentage.toFixed(1)}%</span><span>{goalProgress.currentTotal.toLocaleString()} / {classGoal.toLocaleString()} points</span></div>
-          <div className="w-full bg-white/30 rounded-full h-4 overflow-hidden"><div className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-yellow-400 to-orange-500" style={{ width: `${goalProgress.percentage}%` }} /></div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <div className="bg-white/15 rounded-xl p-3 text-center"><p className="text-2xl font-bold">{goalProgress.remaining.toLocaleString()}</p><p className="text-xs opacity-80">points remaining</p></div>
-          <div className="bg-white/15 rounded-xl p-3 text-center"><p className="text-2xl font-bold">{Math.min(10, Math.ceil(goalProgress.percentage / 10))}/10</p><p className="text-xs opacity-80">milestones completed</p></div>
-        </div>
-        
-        {!goalProgress.isCompleted && goalProgress.percentage < 25 && (<div className="mt-3 text-sm text-center bg-white/10 rounded-lg p-2 animate-pulse">💪 Keep going! Every point brings us closer to our goal! {goalProgress.remaining.toLocaleString()} points to go!</div>)}
-        {!goalProgress.isCompleted && goalProgress.percentage >= 25 && goalProgress.percentage < 50 && (<div className="mt-3 text-sm text-center bg-white/10 rounded-lg p-2">🎯 Great start! You're {goalProgress.percentage.toFixed(0)}% there! Only {goalProgress.remaining.toLocaleString()} points left!</div>)}
-        {!goalProgress.isCompleted && goalProgress.percentage >= 50 && goalProgress.percentage < 75 && (<div className="mt-3 text-sm text-center bg-white/10 rounded-lg p-2">🚀 Over halfway there! You're doing amazing! {goalProgress.remaining.toLocaleString()} points to go!</div>)}
-        {!goalProgress.isCompleted && goalProgress.percentage >= 75 && goalProgress.percentage < 100 && (<div className="mt-3 text-sm text-center bg-white/10 rounded-lg p-2 animate-bounce">🏆 Almost there! Just {goalProgress.remaining.toLocaleString()} points left! You can do this!</div>)}
-        {goalProgress.isCompleted && (<div className="mt-3 text-sm text-center bg-yellow-400/30 rounded-lg p-2">🎉🎉🎉 CONGRATULATIONS! You've reached your class goal of {classGoal.toLocaleString()} points! 🎉🎉🎉</div>)}
-      </div>
-
-      {/* Activity Feed */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
-        <h3 className="font-semibold mb-4 flex items-center gap-2"><Activity size={20} className="text-green-600" /> Recent Activity</h3>
-        <div className="space-y-3 max-h-80 overflow-y-auto">
-          {recentActivities.map(activity => (
-            <div key={activity.id} className={`flex items-center gap-3 p-3 rounded-xl ${activity.color} transition`}>
-              <span className="text-xl">{activity.icon}</span><div className="flex-1"><p className="text-sm font-medium">{activity.studentName} {activity.message}</p><p className="text-xs opacity-70">{activity.time}</p></div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Charts - Using filtered students */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><TrendingUp size={20} className="text-green-600" /> Weekly Activity</h3>
-          <div className="h-64"><Line data={getWeeklyActivityData()} options={chartOptions} /></div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><PieChart size={20} className="text-orange-600" /> Points Distribution</h3>
-          <div className="h-64"><Doughnut data={getPointsDistributionData()} options={chartOptions} /></div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><BarChart3 size={20} className="text-blue-600" /> Students by Grade</h3>
-          <div className="h-64"><Bar data={getGradeDistributionData()} options={barChartOptions} /></div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-4 flex items-center gap-2"><Award size={20} className="text-yellow-600" /> Avg Points by Grade</h3>
-          <div className="h-64"><Bar data={getPointsByGradeData()} options={barChartOptions} /></div>
-        </div>
-      </div>
-
-      {/* Top Students - From filtered list */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b"><h3 className="font-semibold flex items-center gap-2"><Award size={20} className="text-yellow-500" /> Top Performing Students</h3></div>
-        <div className="divide-y">
-          {[...filteredStudentsList].sort((a, b) => b.points - a.points).slice(0, 5).map((student, index) => {
-            const earnedBadges = getStudentBadges(student.points);
-            return (
-              <div key={student.id} className="p-4 flex justify-between items-center hover:bg-gray-50">
-                <div className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-white" style={{ backgroundColor: index === 0 ? '#fbbf24' : index === 1 ? '#94a3b8' : index === 2 ? '#cd7f32' : '#22c55e' }}>{index + 1}</div>
-                  <div>
-                    <p className="font-medium">{student.name}</p>
-                    <p className="text-xs text-gray-500">
-                      {student.grade} - 
-                      <span className="font-semibold text-green-600 ml-1">{student.section}</span>
-                    </p>
-                    <div className="flex gap-1 mt-1">{earnedBadges.slice(0, 3).map(b => <span key={b.id} className="text-xs" title={b.name}>{b.icon}</span>)}{earnedBadges.length > 3 && <span className="text-xs text-gray-400">+{earnedBadges.length - 3}</span>}</div>
-                  </div>
-                </div>
-                <div className="text-right"><p className="text-xl font-bold text-green-600">{student.points}</p><div className="flex gap-2 mt-1"><button onClick={() => generateCertificate(student)} className="text-xs text-blue-600 hover:underline">Certificate</button><button onClick={() => handleViewBadges(student)} className="text-xs text-purple-600 hover:underline">Badges ({earnedBadges.length})</button></div></div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Students Table with Section Display - Using filtered students */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b">
-          <div className="flex justify-between items-center">
-            <h3 className="font-semibold flex items-center gap-2">
-              <Users size={20} className="text-blue-600" />
-              Your Students ({filteredStudentsList.length})
-            </h3>
-            <input 
-              type="text" 
-              placeholder="Search students..." 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-              className="pl-4 pr-4 py-2 border rounded-xl text-sm w-64 focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700/50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Section</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Points</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Badges</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {filteredStudents.map(student => {
-                const earnedBadges = getStudentBadges(student.points);
-                const nextBadge = getNextBadge(student.points);
-                const pointsToNext = nextBadge ? nextBadge.points - student.points : 0;
+      <div className="rb-dash-split">
+        <DashboardPanel title="Your sections" description={teacherSections.length + (teacherSections.length === 1 ? ' section' : ' sections')}>
+          {teacherSections.length ? (
+            <ul className="rb-dash-list">
+              {teacherSections.map(section => {
+                const students = filteredStudentsList.filter(student => student.sectionId === section._id);
+                const total = students.reduce((sum, student) => sum + student.points, 0);
                 return (
-                  <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-800 dark:text-gray-200">{student.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{student.grade}</td>
-                    <td className="px-6 py-4 text-sm">
-                      {student.section !== 'N/A' ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
-                          <BookOpen size={12} />
-                          {student.section}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
-                          <AlertCircle size={12} />
-                          N/A
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-green-600 dark:text-green-400">{student.points} pts</td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {earnedBadges.slice(0, 3).map(b => (
-                          <span key={b.id} className="text-lg cursor-pointer" title={b.name}>{b.icon}</span>
-                        ))}
-                        {earnedBadges.length > 3 && (
-                          <span className="text-xs text-gray-500">+{earnedBadges.length - 3}</span>
-                        )}
-                        {pointsToNext > 0 && pointsToNext < 100 && (
-                          <p className="text-xs text-gray-400 w-full mt-1">{pointsToNext} pts to {nextBadge?.name}</p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <button 
-                          onClick={() => generateCertificate(student)} 
-                          className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-800/50 transition"
-                        >
-                          Cert
-                        </button>
-                        <button 
-                          onClick={() => handleViewBadges(student)} 
-                          className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium hover:bg-purple-200 dark:hover:bg-purple-800/50 transition"
-                        >
-                          Badges
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  <li className="rb-dash-row" key={section._id}>
+                    <div><strong>{section.sectionName}</strong><small>{section.gradeLevel} · {students.length} students</small></div>
+                    <div><strong className="rb-dash-positive">{total.toLocaleString()} pts</strong><small>{students.length ? Math.round(total / students.length) : 0} per student</small></div>
+                  </li>
                 );
               })}
-              {filteredStudents.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                    No students found matching your search.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+          ) : (
+            <DashboardEmpty icon={School} title="No sections are listed">Your assigned students may still appear below.</DashboardEmpty>
+          )}
+        </DashboardPanel>
+        <DashboardPanel title="Recycling goal" action={<button type="button" className="rb-dash-button" onClick={() => setShowGoalModal(true)}><Target size={16} aria-hidden="true" /> Edit goal</button>}>
+          <div className="rb-dash-panel-body">
+            <p className="rb-dash-goal-value"><strong>{goalProgress.currentTotal.toLocaleString()}</strong><span> / {classGoal.toLocaleString()} pts</span></p>
+            <div className="rb-dash-track" role="progressbar" aria-label="Class goal progress" aria-valuenow={Math.round(goalProgress.percentage)} aria-valuemin={0} aria-valuemax={100}>
+              <div style={{ width: goalProgress.percentage + '%' }} />
+            </div>
+            <p className="rb-dash-goal-note">{goalProgress.isCompleted ? 'Goal reached' : goalProgress.remaining.toLocaleString() + ' points to go'}</p>
+          </div>
+        </DashboardPanel>
       </div>
 
+      <DashboardPanel title="Your students" description={filteredStudentsList.length.toLocaleString() + ' students'} action={
+        <label className="rb-dash-search">
+          <Search size={16} aria-hidden="true" />
+          <input type="search" value={searchTerm} onChange={event => setSearchTerm(event.target.value)} aria-label="Search students by name or ID" placeholder="Name or student ID" />
+        </label>
+      }>
+        {filteredStudents.length ? (
+          <div className="rb-dash-scroll" tabIndex={0} role="region" aria-label="Student results table">
+            <table className="rb-dash-table">
+              <thead><tr>{['Student', 'Grade', 'Section', 'Points', 'Badges', 'Actions'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead>
+              <tbody>
+                {filteredStudents.map(student => {
+                  const earnedBadges = getStudentBadges(student.points);
+                  const nextBadge = getNextBadge(student.points);
+                  const pointsToNext = nextBadge ? nextBadge.points - student.points : 0;
+                  return (
+                    <tr key={student.id}>
+                      <td><strong>{student.name}</strong><small>{student.studentId}</small></td>
+                      <td>{student.grade}</td>
+                      <td>{student.section}</td>
+                      <td className="rb-dash-positive font-semibold">{student.points.toLocaleString()}</td>
+                      <td>{earnedBadges.length}{pointsToNext > 0 && pointsToNext < 100 && <small>{pointsToNext} pts to {nextBadge.name}</small>}</td>
+                      <td>
+                        <div className="rb-dash-actions">
+                          <button type="button" className="rb-dash-button" onClick={() => generateCertificate(student)}>Certificate</button>
+                          <button type="button" className="rb-dash-button" onClick={() => handleViewBadges(student)}>Badges</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <DashboardEmpty icon={Users} title={searchTerm ? 'No matching students' : 'No students yet'} />
+        )}
+      </DashboardPanel>
+
+      <div className="rb-dash-split rb-dash-even">
+        <DashboardPanel title="Recent activity">
+          {recentActivities.length ? (
+            <ul className="rb-dash-list">
+              {recentActivities.map(activity => (
+                <li key={activity.id} className="rb-dash-row">
+                  <div><strong>{activity.studentName}</strong><small>{activity.message}</small></div>
+                  <div><small>{activity.time}</small></div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <DashboardEmpty icon={Activity} title="No activity to show" />
+          )}
+        </DashboardPanel>
+        <DashboardPanel title="Class rankings" description="Top sections by average points">
+          {classCompetition.length ? (
+            <ol className="rb-dash-list">
+              {classCompetition.slice(0, 3).map(section => (
+                <li key={section.name} className="rb-dash-row">
+                  <div><strong>{section.name}</strong><small>Top student: {section.topStudent?.name}</small></div>
+                  <div><strong className="rb-dash-positive">{section.averagePoints.toLocaleString()} pts</strong><small>average</small></div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <DashboardEmpty icon={Award} title="No rankings yet" />
+          )}
+        </DashboardPanel>
+      </div>
+
+      <div className="rb-dash-split rb-dash-even">
+        {charts.map(({ title, Chart, data, options }) => (
+          <DashboardPanel key={title} title={title} description={title === 'Weekly activity' ? 'Last 7 days' : undefined}>
+            <div className="rb-dash-panel-body rb-dash-chart">
+              <Chart data={data} options={options} role="img" aria-label={title + ". " + data.labels.map((label, index) => label + ": " + data.datasets[0].data[index]).join(", ")} />
+            </div>
+          </DashboardPanel>
+        ))}
+      </div>
+
+      <DashboardPanel title="Top students" description="Ranked by current points">
+        {topStudents.length ? (
+          <ol className="rb-dash-list">
+            {topStudents.map(student => (
+              <li key={student.id} className="rb-dash-row">
+                <div><strong>{student.name}</strong><small>{student.grade} · {student.section}</small></div>
+                <div className="rb-dash-actions">
+                  <strong className="rb-dash-positive">{student.points.toLocaleString()} pts</strong>
+                  <button type="button" className="rb-dash-button" onClick={() => generateCertificate(student)}>Certificate</button>
+                  <button type="button" className="rb-dash-button" onClick={() => handleViewBadges(student)}>Badges</button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <DashboardEmpty icon={Award} title="No student standings yet" />
+        )}
+      </DashboardPanel>
       {/* Certificate Modal */}
       {showCertificateModal && certificateData && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
