@@ -40,7 +40,6 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
-    setLoading(true);
     try {
       const response = await authAPI.login({ username, password });
       const { token, user: userData } = response.data;
@@ -55,16 +54,12 @@ export const AuthProvider = ({ children }) => {
       toast.success(`Welcome back, ${userData.fullName}!`);
       return { success: true, user: userData };
     } catch (error) {
-      console.error('AuthContext - Login error:', error);
       const message = error.response?.data?.message || (
         error.response
           ? 'Login failed'
           : 'Unable to reach the server. Please check your connection and try again.'
       );
-      toast.error(message);
       return { success: false, error: message };
-    } finally {
-      setLoading(false);
     }
   };
 

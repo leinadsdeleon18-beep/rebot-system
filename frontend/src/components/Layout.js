@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+﻿import React, { useState, useEffect, useRef } from 'react';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
   Menu,
   X,
   LogOut,
-  User,
   Settings as SettingsIcon,
   LayoutDashboard,
   Users,
@@ -18,19 +17,17 @@ import {
   QrCode,
   ShoppingBag,
   GraduationCap,
-  Coffee,
-  Shield,
   ChevronLeft,
   ChevronRight,
   Award,
   Calendar,
   BookOpen,
-  AlertTriangle,
   Loader,
   Recycle,
   Clock3
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import './Layout.css';
 
 const LogoutConfirmationModal = ({ isOpen, onClose, onConfirm, loading }) => {
   if (!isOpen) return null;
@@ -90,6 +87,8 @@ export default function Layout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const drawerToggle = useRef(null);
+  const drawerClose = useRef(null);
 
   useEffect(() => {
     setCurrentUser(user);
@@ -143,10 +142,19 @@ export default function Layout() {
     }
   };
 
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-  };
-
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    drawerClose.current?.focus();
+    const toggle = drawerToggle.current;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setMobileNavOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      toggle?.focus();
+    };
+  }, [mobileNavOpen]);
   const getNavItems = () => {
     const role = currentUser?.role;
 
@@ -205,125 +213,12 @@ export default function Layout() {
       !activeItem || item.path.length > activeItem.path.length ? item : activeItem
     ), null);
 
-  const getPageTitle = () => {
-    return activeNavItem?.name || 'Dashboard';
-  };
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full">
-      <div className={`p-5 border-b border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? 'px-3' : ''}`}>
-        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
-          <div className="w-10 h-10 bg-primary-50 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
-            <Recycle size={21} className="text-primary-700 dark:text-primary-300" />
-          </div>
-          {!sidebarCollapsed && (
-            <div className="flex-1">
-              <h1 className="text-lg font-bold tracking-wide">ReBot</h1>
-              <p className="text-xs text-white/60">Patubig Elementary</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? 'px-2' : ''}`}>
-        <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`}>
-          <div className="relative">
-            <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center text-lg font-bold overflow-hidden">
-              {userAvatar ? (
-                <img
-                  src={userAvatar}
-                  alt={currentUser?.fullName || 'User'}
-                  className="w-full h-full object-cover user-avatar-image"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <span className="text-gray-700 dark:text-gray-200 text-lg font-bold">
-                  {currentUser?.fullName?.charAt(0) || 'U'}
-                </span>
-              )}
-            </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full ring-2 ring-white dark:ring-gray-800"></div>
-          </div>
-          {!sidebarCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate text-gray-800 dark:text-gray-100">{currentUser?.fullName || 'User'}</p>
-              <div className="flex items-center gap-1 mt-0.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${currentUser?.isActive !== false ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{getRoleDisplayName()}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto py-4 px-3">
-        <div className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = activeNavItem?.path === item.path;
-            return (
-              <button
-                key={item.name}
-                onClick={() => { navigate(item.path); setMobileNavOpen(false); }}
-                className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150
-                  ${sidebarCollapsed ? 'justify-center' : ''}
-                  ${isActive
-                    ? 'bg-primary-50 text-primary-800 dark:bg-primary-900/30 dark:text-primary-200'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100'
-                  }
-                `}
-                title={sidebarCollapsed ? item.name : ''}
-              >
-                <item.icon size={19} className={isActive ? 'text-primary-700 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400'} />
-                {!sidebarCollapsed && (
-                  <>
-                    <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
-                    {isActive && (
-                      <div className="w-1.5 h-1.5 bg-primary-600 rounded-full" />
-                    )}
-                  </>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </nav>
-
-      <div className={`p-4 border-t border-gray-200 dark:border-gray-700 ${sidebarCollapsed ? 'px-2' : ''}`}>
-        <div className="space-y-2">
-          <button
-            onClick={toggleDarkMode}
-            className={`
-              w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-150 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100
-              ${sidebarCollapsed ? 'justify-center' : ''}
-            `}
-            title={sidebarCollapsed ? (darkMode ? 'Light Mode' : 'Dark Mode') : ''}
-          >
-            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-            {!sidebarCollapsed && (
-              <span className="font-medium text-sm">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
-            )}
-          </button>
-          <button
-            onClick={handleLogoutClick}
-            className={`
-              w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-700 transition-colors duration-150 dark:text-gray-400 dark:hover:bg-red-900/20 dark:hover:text-red-300
-              ${sidebarCollapsed ? 'justify-center' : ''}
-            `}
-            title={sidebarCollapsed ? 'Logout' : ''}
-          >
-            <LogOut size={20} />
-            {!sidebarCollapsed && (
-              <span className="font-medium text-sm">Logout</span>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  const pageTitle = activeNavItem?.name || 'Dashboard';
+  const displayName = currentUser?.fullName || 'User';
+  const themeAction = darkMode ? 'Light mode' : 'Dark mode';
 
   return (
-    <div className="app-shell min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="app-shell rebot-workspace" data-collapsed={sidebarCollapsed}>
       <LogoutConfirmationModal
         isOpen={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
@@ -331,89 +226,82 @@ export default function Layout() {
         loading={loggingOut}
       />
 
-      <aside
-        className={`
-          fixed top-0 left-0 z-40 h-screen bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-100
-          border-r border-gray-200 dark:border-gray-700 transition-all duration-200 ease-in-out
-          md:translate-x-0 ${sidebarCollapsed ? 'md:w-20' : 'md:w-72'} w-72
-          ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
-      >
-        <SidebarContent />
+      <aside id="rebot-workspace-sidebar" className={mobileNavOpen ? 'rebot-sidebar is-open' : 'rebot-sidebar'}>
+        <div className="rebot-workspace-brand">
+          <span className="rebot-workspace-mark"><Recycle size={22} aria-hidden="true" /></span>
+          <div className="rebot-sidebar-label">
+            <strong>ReBot</strong>
+            <small>Patubig Elementary School</small>
+          </div>
+          <button ref={drawerClose} type="button" className="rebot-workspace-control rebot-drawer-close" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)}>
+            <X size={19} aria-hidden="true" />
+          </button>
+        </div>
+
+        <nav className="rebot-workspace-nav" aria-label="Dashboard navigation">
+          {navItems.map(({ name, path, icon: Icon }) => (
+            <Link
+              key={path}
+              to={path}
+              onClick={() => setMobileNavOpen(false)}
+              className="rebot-workspace-link"
+              aria-label={name}
+              aria-current={activeNavItem?.path === path ? 'page' : undefined}
+              title={sidebarCollapsed ? name : undefined}
+            >
+              <Icon size={19} aria-hidden="true" />
+              <span className="rebot-sidebar-label">{name}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="rebot-workspace-account">
+          <button type="button" className="rebot-workspace-link" aria-label={themeAction} title={sidebarCollapsed ? themeAction : undefined} onClick={toggleDarkMode}>
+            {darkMode ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
+            <span className="rebot-sidebar-label">{themeAction}</span>
+          </button>
+          <button type="button" className="rebot-workspace-link rebot-logout" aria-label="Sign out" title={sidebarCollapsed ? 'Sign out' : undefined} onClick={handleLogoutClick}>
+            <LogOut size={19} aria-hidden="true" />
+            <span className="rebot-sidebar-label">Sign out</span>
+          </button>
+          <div className="rebot-workspace-profile" title={sidebarCollapsed ? displayName : undefined}>
+            {userAvatar ? (
+              <img src={userAvatar} alt="" className="user-avatar-image" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="rebot-workspace-initial" aria-hidden="true">{displayName.charAt(0).toUpperCase()}</span>
+            )}
+            <div className="rebot-sidebar-label">
+              <strong>{displayName}</strong>
+              <small>{getRoleDisplayName()}</small>
+            </div>
+          </div>
+        </div>
       </aside>
 
-      {mobileNavOpen && (
-        <button
-          type="button"
-          aria-label="Close navigation"
-          onClick={() => setMobileNavOpen(false)}
-          className="fixed inset-0 z-30 bg-gray-950/30 md:hidden"
-        />
-      )}
+      {mobileNavOpen && <div className="rebot-drawer-overlay" aria-hidden="true" onClick={() => setMobileNavOpen(false)} />}
 
-      <button
-        onClick={toggleSidebar}
-        className="fixed top-20 z-50 hidden p-1.5 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 md:block"
-        style={{ left: sidebarCollapsed ? '70px' : '288px' }}
-      >
-        {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-      </button>
-
-      <main
-        className={`w-full min-w-0 transition-all duration-200 ${sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'}`}
-        style={{ width: sidebarCollapsed ? 'calc(100% - 5rem)' : 'calc(100% - 18rem)' }}
-      >
-        <header className="sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <div className="px-4 py-3 lg:px-6 lg:py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMobileNavOpen(true)}
-                  aria-label="Open navigation"
-                  className="grid h-9 w-9 place-items-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 md:hidden"
-                >
-                  <Menu size={18} />
-                </button>
-                <div>
-                <h1 className="text-lg lg:text-xl font-semibold text-gray-800 dark:text-gray-100">
-                  {getPageTitle()}
-                </h1>
-                <div className="hidden lg:flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  <Calendar size={12} />
-                  <span>
-                    {new Date().toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </span>
-                </div>
-                </div>
-              </div>
-            </div>
+      <div className="rebot-workspace-body">
+        <header className="rebot-workspace-header">
+          <div>
+            <button ref={drawerToggle} type="button" className="rebot-workspace-control rebot-drawer-toggle" aria-label="Open navigation" aria-expanded={mobileNavOpen} aria-controls="rebot-workspace-sidebar" onClick={() => setMobileNavOpen(true)}>
+              <Menu size={20} aria-hidden="true" />
+            </button>
+            <button type="button" className="rebot-workspace-control rebot-sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="rebot-workspace-sidebar" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+              {sidebarCollapsed ? <ChevronRight size={19} aria-hidden="true" /> : <ChevronLeft size={19} aria-hidden="true" />}
+            </button>
+            <h1 key={pageTitle}>{pageTitle}</h1>
           </div>
-
-          <div className="lg:hidden px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <Calendar size={12} />
-              <span>
-                {new Date().toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </span>
-            </div>
-          </div>
+          <span className="rebot-workspace-date">
+            <Calendar size={16} aria-hidden="true" />
+            {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+          </span>
         </header>
-
-        <div className="p-4 lg:p-7">
-          <Outlet />
-        </div>
-      </main>
+        <main id="rebot-workspace-content">
+          <div className="rebot-workspace-content">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

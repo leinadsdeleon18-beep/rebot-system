@@ -232,32 +232,6 @@
   animation: float 3s ease-in-out infinite;
 }
 
-/* LANDING PAGE ONLY - safe scoped styles */
-.landing-page {
-  color-scheme: light;
-  background-color: #ffffff;
-}
-
-.landing-page .bg-white {
-  background-color: #ffffff !important;
-}
-
-.landing-page .bg-gray-50 {
-  background-color: #f9fafb !important;
-}
-
-.landing-page .bg-gray-100 {
-  background-color: #f3f4f6 !important;
-}
-
-.landing-page .text-gray-900 {
-  color: #111827 !important;
-}
-
-.landing-page .text-gray-800 {
-  color: #1f2937 !important;
-}
-
 /* Shared ReBot interface foundations */
 html {
   scroll-behavior: smooth;
@@ -344,157 +318,6 @@ body {
   color: #e7ebe7;
 }
 
-/* Public landing and account dialogs */
-.landing-page {
-  background: #f7f8f5;
-  color: #242b26;
-  font-family: 'Aptos', 'Segoe UI', sans-serif;
-}
-
-.landing-page [class*="bg-gradient"] {
-  background-image: none !important;
-}
-
-.landing-page [class*="blur-3xl"] {
-  display: none;
-}
-
-.landing-page [class*="rounded-"]:not([class~="rounded-full"]) {
-  border-radius: 8px !important;
-}
-
-.landing-page [class*="shadow-"] {
-  box-shadow: 0 1px 3px rgba(20, 30, 22, 0.08) !important;
-}
-
-.landing-page .bg-clip-text {
-  background: none;
-  color: #174a36;
-  -webkit-text-fill-color: #174a36;
-}
-
-.landing-page section[class*="from-green-950"] {
-  background: #edf1ec;
-  color: #243129;
-}
-
-.landing-page section[class*="from-green-950"] [class*="text-white"] {
-  color: #243129;
-}
-
-.landing-page section[class*="from-green-950"] [class*="bg-white/10"] {
-  background-color: #ffffff;
-}
-
-.landing-page .bg-gradient-to-br.from-slate-950,
-.landing-page .bg-gradient-to-r.from-green-700 {
-  background: #edf1ec;
-  color: #243129;
-}
-
-.landing-page .bg-gradient-to-br.from-slate-950 [class*="text-white"],
-.landing-page .bg-gradient-to-r.from-green-700 [class*="text-white"] {
-  color: #243129;
-}
-
-.landing-page .btn-primary {
-  border-radius: 6px;
-  background: #236b4c;
-  box-shadow: none;
-  font-weight: 600;
-}
-
-.landing-page .btn-primary:hover {
-  background: #19583d;
-  box-shadow: none;
-  transform: none;
-}
-
-.landing-page .btn-secondary {
-  border: 1px solid #cfd8d0;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #315841;
-  font-weight: 600;
-}
-
-.landing-page .btn-secondary:hover {
-  border-color: #95b09d;
-  background: #f4f7f3;
-  transform: none;
-}
-
-.landing-page .input {
-  border: 1px solid #cfd8d0;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: none;
-  font-weight: 400;
-}
-
-.landing-page .input:focus {
-  border-color: #438563;
-  box-shadow: 0 0 0 2px rgba(35, 107, 76, 0.12);
-}
-
-.landing-page .text-gray-700 {
-  color: #374151 !important;
-}
-
-.landing-page .text-gray-600 {
-  color: #4b5563 !important;
-}
-
-.landing-page .text-gray-500 {
-  color: #6b7280 !important;
-}
-
-.landing-page .text-gray-400 {
-  color: #9ca3af !important;
-}
-
-.landing-page .border-gray-100 {
-  border-color: #f3f4f6 !important;
-}
-
-.landing-page .border-gray-200 {
-  border-color: #e5e7eb !important;
-}
-
-.landing-page .border-gray-300 {
-  border-color: #d1d5db !important;
-}
-
-.landing-page input,
-.landing-page select,
-.landing-page textarea {
-  background-color: #ffffff !important;
-  color: #111827 !important;
-  border-color: #d1d5db !important;
-}
-
-.landing-page input::placeholder,
-.landing-page textarea::placeholder {
-  color: #9ca3af !important;
-}
-
-.landing-page .hover\:bg-gray-50:hover {
-  background-color: #f9fafb !important;
-}
-
-/* Keep gradients visible on landing page */
-.landing-page .bg-gradient-to-br,
-.landing-page .bg-gradient-to-r {
-  background-image: inherit !important;
-}
-
-/* Ensure cards and sections stay fully visible */
-.landing-page .rounded-xl,
-.landing-page .rounded-2xl,
-.landing-page .rounded-3xl {
-  opacity: 1 !important;
-  filter: none !important;
-}
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -541,8 +364,7 @@ body {
 }
 
 .app-shell,
-.app-shell main,
-.landing-page {
+.app-shell main {
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -554,24 +376,20 @@ body {
 }
 
 .app-shell [class*="overflow-x-auto"],
-.app-shell table,
-.landing-page [class*="overflow-x-auto"] {
+.app-shell table {
   max-width: 100%;
 }
 
 .app-shell img,
 .app-shell video,
-.app-shell canvas,
-.landing-page img,
-.landing-page video,
-.landing-page canvas {
+.app-shell canvas {
   max-width: 100%;
 }
 
 @media (max-width: 767px) {
   html { font-size: 15px; }
   .app-shell main { width: 100% !important; margin-left: 0 !important; }
-  body, #root, .app-shell, .app-shell main { width: 100%; max-width: 100vw; overflow-x: hidden; }
+  body, #root, .app-shell, .app-shell main { width: 100%; max-width: 100vw; overflow-x: clip; }
   .app-shell main > div, .app-shell main section, .app-shell main article { width: 100%; max-width: 100%; }
   .app-shell main .flex-wrap { flex-wrap: wrap; }
   .app-shell main [class*="flex-nowrap"] { flex-wrap: wrap; }
@@ -588,16 +406,6 @@ body {
   .app-shell main { width: 100%; overflow-x: hidden; }
   .app-shell main > div { width: 100%; max-width: 100%; }
   .app-shell main header { width: 100%; }
-  .landing-page .modal-backdrop { align-items: flex-end; padding: 0 !important; }
-  .landing-page .modal-backdrop > div {
-    width: 100%;
-    max-height: 94dvh;
-    border-radius: 1.25rem 1.25rem 0 0 !important;
-  }
-  .landing-page input,
-  .landing-page select,
-  .landing-page textarea,
-  .landing-page button { font-size: 16px; }
 }
 
 @media (min-width: 768px) and (max-width: 1199px) {
@@ -613,7 +421,4 @@ body {
 
 @media (max-width: 420px) {
   .app-shell main { padding-bottom: env(safe-area-inset-bottom); }
-  .landing-page h1 { font-size: 2rem; }
-  .landing-page h2 { font-size: 1.75rem; }
-  .landing-page h3 { font-size: 1.35rem; }
 }

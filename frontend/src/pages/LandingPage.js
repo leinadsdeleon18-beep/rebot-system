@@ -1,895 +1,453 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+﻿import React, { useEffect, useRef, useState } from 'react';
+import {
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChartColumn, Check, CircleAlert,
+  Copy, Eye, EyeOff, Gift, GraduationCap, LoaderCircle, QrCode, Recycle, School, Utensils, X
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/apiService';
 import toast from 'react-hot-toast';
-import LoadingScreen from '../components/LoadingScreen';
+import './LandingPage.css';
+
+const dashboardPaths = {
+  administrator: '/admin',
+  teacher: '/teacher',
+  canteen_staff: '/canteen',
+  student: '/student'
+};
+
+const recyclingSteps = [
+  { icon: QrCode, title: 'Scan your QR code', description: 'Use your student QR code to link the deposit to your account.' },
+  { icon: Recycle, title: 'Deposit a bottle', description: 'The ReBot machine checks whether the bottle can be accepted.' },
+  { icon: ChartColumn, title: 'Earn points', description: 'Accepted bottles add to your points balance.' },
+  { icon: Gift, title: 'Redeem a reward', description: 'Use your points at the canteen or save them for later.' }
+];
+
+const schoolRoles = [
+  { icon: GraduationCap, title: 'Students', description: 'Check points, recycling activity, and available rewards.' },
+  { icon: School, title: 'Teachers', description: 'Manage student records and track class activity.' },
+  { icon: Utensils, title: 'Canteen staff', description: 'Redeem rewards and manage stock.' },
+  { icon: ChartColumn, title: 'Administrators', description: 'Manage accounts, inventory, and reports.' }
+];
+
+function Brand() {
+  return (
+    <a className="rebot-brand" href="#home">
+      <span className="rebot-mark"><Recycle size={22} aria-hidden="true" /></span>
+      <span><strong>ReBot</strong><small>Patubig Elementary School</small></span>
+    </a>
+  );
+}
+
+function AccountDialog({ title, description, busy, onClose, children }) {
+  const dialog = useRef(null);
+
+  useEffect(() => {
+    const element = dialog.current;
+    element.showModal();
+    element.querySelector('[data-initial-focus]')?.focus();
+    return () => element.close();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialog}
+      className="rebot-dialog"
+      aria-labelledby="rebot-dialog-title"
+      aria-describedby="rebot-dialog-description"
+      onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}
+    >
+      <div className="rebot-dialog-inner">
+        <header className="rebot-dialog-header">
+          <div>
+            <h2 id="rebot-dialog-title">{title}</h2>
+            <p id="rebot-dialog-description">{description}</p>
+          </div>
+          <button type="button" className="rebot-icon-button" aria-label="Close dialog" onClick={onClose} disabled={busy}>
+            <X size={20} aria-hidden="true" />
+          </button>
+        </header>
+        {children}
+      </div>
+    </dialog>
+  );
+}
+
+function FormError({ message }) {
+  if (!message) return null;
+  return <p className="rebot-form-error" role="alert"><CircleAlert size={17} aria-hidden="true" />{message}</p>;
+}
+
+function SubmitButton({ busy, children }) {
+  return (
+    <button className="rebot-button rebot-button-primary rebot-submit" type="submit" disabled={busy}>
+      {busy && <LoaderCircle className="rebot-spinner" size={17} aria-hidden="true" />}
+      {children}
+    </button>
+  );
+}
+
+function PasswordField({ id, label, autoComplete = 'new-password', ...input }) {
+  const [visible, setVisible] = useState(false);
+  const Icon = visible ? EyeOff : Eye;
+
+  return (
+    <div className="rebot-field">
+      <label htmlFor={id}>{label}</label>
+      <div className="rebot-password">
+        <input id={id} type={visible ? 'text' : 'password'} autoComplete={autoComplete} required {...input} />
+        <button type="button" className="rebot-icon-button" aria-label={visible ? 'Hide ' + label.toLowerCase() : 'Show ' + label.toLowerCase()} onClick={() => setVisible(!visible)}>
+          <Icon size={18} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SignIn({ onClose, onReset }) {
+  const { login } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      const result = await login(username, password);
+      if (result.success) {
+        onClose();
+        window.location.href = dashboardPaths[result.user.role] || '/';
+      } else {
+        setError(result.error || 'Could not sign in. Please try again.');
+      }
+    } catch {
+      setError('Could not sign in. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AccountDialog title="Sign in" description="Use the account provided by your school." busy={busy} onClose={onClose}>
+      <form className="rebot-form" onSubmit={handleSubmit}>
+        <div className="rebot-field">
+          <label htmlFor="rebot-username">Username or student ID</label>
+          <input id="rebot-username" name="username" autoComplete="username" autoCapitalize="none" value={username} onChange={(event) => setUsername(event.target.value)} required data-initial-focus />
+        </div>
+        <PasswordField id="rebot-password" label="Password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <FormError message={error} />
+        <SubmitButton busy={busy}>{busy ? 'Signing in…' : 'Sign in'}</SubmitButton>
+        <button className="rebot-text-button rebot-form-link" type="button" onClick={onReset} disabled={busy}>Forgot password?</button>
+      </form>
+    </AccountDialog>
+  );
+}
+
+const resetErrorMessage = (error) => error.response?.data?.message || 'Could not reach the reset service. Please try again.';
+const cleanCode = (value) => value.replace(/\D/g, '').slice(0, 6);
+
+function ResetPassword({ onClose, onSignIn }) {
+  const [email, setEmail] = useState('');
+  const [step, setStep] = useState(1);
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [timer, setTimer] = useState(0);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+  const initialField = useRef(null);
+  const passwordScore = [
+    password.length >= 6,
+    /[a-z]/.test(password),
+    /[A-Z]/.test(password),
+    /[0-9]/.test(password),
+    /[^a-zA-Z0-9]/.test(password)
+  ].filter(Boolean).length;
+  const passwordStrength = passwordScore <= 2 ? 'Weak' : passwordScore <= 4 ? 'Moderate' : 'Strong';
+
+  useEffect(() => {
+    initialField.current?.focus();
+  }, [step]);
+
+  useEffect(() => {
+    if (timer === 0) return;
+    const timeout = window.setTimeout(() => setTimer(timer - 1), 1000);
+    return () => window.clearTimeout(timeout);
+  }, [timer]);
+
+  const requestCode = async (resend = false) => {
+    setBusy(resend ? 'resend' : 'send');
+    setError('');
+    setStatus('');
+    try {
+      const { data } = await (resend ? authAPI.resendOtp({ email }) : authAPI.forgotPassword({ email }));
+      if (!data.success) {
+        setError(data.message || 'Could not send your verification code.');
+        return;
+      }
+
+      setCode('');
+      setResetToken('');
+      setStep(2);
+      setTimer(60);
+      setStatus(data.message);
+    } catch (requestError) {
+      setError(resetErrorMessage(requestError));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const handleReset = async (event) => {
+    event.preventDefault();
+    setError('');
+
+    if (password !== confirmation) {
+      setError('The passwords do not match.');
+      return;
+    }
+    if (new TextEncoder().encode(password).length > 72) {
+      setError('Choose a shorter password. The limit is 72 bytes.');
+      return;
+    }
+
+    setBusy('reset');
+    try {
+      let token = resetToken;
+      if (!token) {
+        const { data } = await authAPI.verifyOtp({ email, otp: code });
+        if (!data.success || !data.resetToken) {
+          setError(data.message || 'Invalid verification code.');
+          return;
+        }
+        token = data.resetToken;
+        setResetToken(token);
+      }
+
+      const { data } = await authAPI.resetPassword({ token, newPassword: password });
+      if (!data.success) {
+        setError(data.message || 'Could not reset your password.');
+        return;
+      }
+
+      toast.success('Password changed. Sign in with your new password.');
+      onSignIn();
+    } catch (requestError) {
+      setError(resetErrorMessage(requestError));
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const changeEmail = () => {
+    setCode('');
+    setResetToken('');
+    setPassword('');
+    setConfirmation('');
+    setError('');
+    setStatus('');
+    setStep(1);
+  };
+
+  return (
+    <AccountDialog
+      title="Reset password"
+      description={step === 1 ? 'Enter the email address registered with your ReBot account.' : 'Enter your six-digit code and choose a new password.'}
+      busy={Boolean(busy)}
+      onClose={onClose}
+    >
+      {step === 1 ? (
+        <form className="rebot-form rebot-step" onSubmit={(event) => { event.preventDefault(); requestCode(); }}>
+          <div className="rebot-field">
+            <label htmlFor="rebot-email">Registered email</label>
+            <input ref={initialField} id="rebot-email" name="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={Boolean(busy)} required />
+          </div>
+          <FormError message={error} />
+          <SubmitButton busy={Boolean(busy)}>{busy ? 'Sending code…' : 'Send verification code'}</SubmitButton>
+          <button type="button" className="rebot-text-button rebot-form-link" onClick={onSignIn} disabled={Boolean(busy)}>
+            <ArrowLeft size={16} aria-hidden="true" /> Back to sign in
+          </button>
+        </form>
+      ) : (
+        <form className="rebot-form rebot-step" onSubmit={handleReset}>
+          <div className="rebot-reset-address">
+            <span>{email}</span>
+            <button type="button" className="rebot-text-button" onClick={changeEmail} disabled={Boolean(busy)}>Change email</button>
+          </div>
+          {status && <p className="rebot-form-note" role="status">{status}</p>}
+          <div className="rebot-field">
+            <label htmlFor="rebot-code">Verification code</label>
+            <input
+              ref={initialField}
+              className="rebot-code"
+              id="rebot-code"
+              name="verification-code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              value={code}
+              onChange={(event) => setCode(cleanCode(event.target.value))}
+              disabled={Boolean(resetToken)}
+              required
+            />
+            <div className="rebot-code-help">
+              <span>Codes expire after 10 minutes.</span>
+              {timer ? <span>Resend in {timer}s</span> : (
+                <button type="button" className="rebot-text-button" onClick={() => requestCode(true)} disabled={Boolean(busy)}>
+                  {busy === 'resend' ? 'Sending…' : 'Resend code'}
+                </button>
+              )}
+            </div>
+          </div>
+          <PasswordField id="rebot-new-password" label="New password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} aria-describedby="rebot-password-hint" />
+          <div id="rebot-password-hint" className="rebot-password-hint">
+            <span>Use at least 6 characters.</span>
+            {password && <span>Strength: {passwordStrength}</span>}
+          </div>
+          <PasswordField id="rebot-confirm-password" label="Confirm new password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={6} />
+          <FormError message={error} />
+          <SubmitButton busy={Boolean(busy)}>{busy === 'reset' ? 'Resetting password…' : 'Reset password'}</SubmitButton>
+        </form>
+      )}
+    </AccountDialog>
+  );
+}
 
 export default function LandingPage() {
-  const auth = useAuth();
-  const { user, login } = auth || {};
-  const navigate = useNavigate();
-
-  // ========== ALL HOOKS FIRST ==========
-  const [scrolled, setScrolled] = useState(false);
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [forgotModalOpen, setForgotModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState('teacher');
-  const [loginUsername, setLoginUsername] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
-
-  const [resetStep, setResetStep] = useState(1);
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetRole, setResetRole] = useState('teacher');
-  const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [timer, setTimer] = useState(60);
-  const [canResend, setCanResend] = useState(false);
-  const [resetError, setResetError] = useState('');
-  const [resetSuccess, setResetSuccess] = useState('');
-  const [isSendingCode, setIsSendingCode] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetToken, setResetToken] = useState(null);
-
-  const [passwordStrength, setPasswordStrength] = useState({
-    strength: 0,
-    text: '',
-    color: '',
-    guidelines: {}
-  });
-
-  const roles = [
-    { value: 'teacher', label: 'Teacher', icon: 'fas fa-chalkboard-user', desc: 'Class points and student records' },
-    { value: 'canteen', label: 'Canteen', icon: 'fas fa-utensils', desc: 'Reward claiming and inventory' },
-    { value: 'admin', label: 'Admin', icon: 'fas fa-user-shield', desc: 'Full system management' }
-  ];
-
-  // ========== useEffect HOOKS ==========
-  useEffect(() => {
-    document.documentElement.classList.remove('dark');
-    document.body.setAttribute('data-landing', 'true');
-
-    setTimeout(() => {
-      setPageLoading(false);
-    }, 500);
-
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('rebot_user');
-    if (token && storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        const roleMap = {
-          'administrator': '/admin',
-          'teacher': '/teacher',
-          'canteen_staff': '/canteen',
-          'student': '/student'
-        };
-        const redirectPath = roleMap[userData.role];
-
-        // IMPORTANT: only redirect when we have a *known* role.
-        // The old code fell back to '/' here, which is the landing page
-        // itself — that caused window.location.href = '/' to hard-reload
-        // this same page forever whenever the stored role didn't match
-        // roleMap (missing/invalid/renamed role), producing an infinite
-        // refresh loop.
-        if (redirectPath) {
-          window.location.href = redirectPath;
-          return; // stop here, we're navigating away
-        } else {
-          console.warn('Unrecognized role in stored user, clearing stale auth data:', userData.role);
-          localStorage.removeItem('token');
-          localStorage.removeItem('rebot_user');
-        }
-      } catch (e) {
-        console.error('Error parsing user:', e);
-        // Corrupted JSON in storage — clear it so we don't keep hitting this branch
-        localStorage.removeItem('token');
-        localStorage.removeItem('rebot_user');
-      }
-    }
-
-    return () => document.body.removeAttribute('data-landing');
-  }, []);
+  const [dialog, setDialog] = useState(null);
+  const signInTrigger = useRef(null);
+  const { user } = useAuth();
+  const dashboardPath = dashboardPaths[user?.role];
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 30);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    let interval;
-    if (resetStep === 2 && timer > 0 && !canResend) {
-      interval = setInterval(() => {
-        setTimer((prev) => {
-          if (prev <= 1) {
-            setCanResend(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (dashboardPath && (localStorage.getItem('token') || localStorage.getItem('rebot_token'))) {
+      window.location.replace(dashboardPath);
     }
-    return () => clearInterval(interval);
-  }, [resetStep, timer, canResend]);
+  }, [dashboardPath]);
 
-  // ========== FUNCTIONS ==========
-  const checkPasswordStrength = (password) => {
-    const hasLower = /[a-z]/.test(password);
-    const hasUpper = /[A-Z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[^a-zA-Z0-9]/.test(password);
-    const hasLength = password.length >= 6;
-
-    let strength = 0;
-    if (hasLength) strength++;
-    if (hasLower) strength++;
-    if (hasUpper) strength++;
-    if (hasNumber) strength++;
-    if (hasSpecial) strength++;
-
-    let text = '';
-    let color = '';
-    if (password.length === 0) {
-      text = '';
-      color = '';
-    } else if (strength <= 2) {
-      text = 'Weak password';
-      color = '#dc2626';
-    } else if (strength <= 4) {
-      text = 'Medium password';
-      color = '#f59e0b';
-    } else {
-      text = 'Strong password';
-      color = '#16a34a';
-    }
-
-    setPasswordStrength({
-      strength,
-      text,
-      color,
-      guidelines: { length: hasLength, lowercase: hasLower, uppercase: hasUpper, number: hasNumber, special: hasSpecial }
-    });
-
-    return strength;
+  const openSignIn = (event) => {
+    signInTrigger.current = event.currentTarget;
+    setDialog('sign-in');
   };
 
-  const handleNewPasswordChange = (e) => {
-    setNewPassword(e.target.value);
-    checkPasswordStrength(e.target.value);
+  const closeDialog = () => {
+    setDialog(null);
+    window.requestAnimationFrame(() => signInTrigger.current?.focus());
   };
 
-  const copyToClipboard = (text, message) => {
-    navigator.clipboard.writeText(text);
-    toast.success(message);
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setLoginError('');
-
+  const copyContact = async (value) => {
     try {
-      const result = await login(loginUsername, loginPassword);
-
-      if (result.success) {
-        const userData = result.user;
-
-        setLoginModalOpen(false);
-        setLoginUsername('');
-        setLoginPassword('');
-        setLoginError('');
-
-        const roleMap = {
-          'administrator': '/admin',
-          'teacher': '/teacher',
-          'canteen_staff': '/canteen',
-          'student': '/student'
-        };
-
-        const redirectPath = roleMap[userData.role] || '/';
-        window.location.href = redirectPath;
-
-      } else {
-        setLoginError(result.error || 'Login failed');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      setLoginError('Network error. Please check your API connection and try again.');
-      toast.error('Network error');
-    } finally {
-      setIsLoggingIn(false);
+      await navigator.clipboard.writeText(value);
+      toast.success('Copied to clipboard.');
+    } catch {
+      toast.error('Could not copy. You can select and copy the contact details.');
     }
   };
 
-  const handleRoleSelect = (role) => {
-    setSelectedRole(role);
-    setLoginError('');
-  };
-
-  const resetForgotPasswordState = () => {
-    setResetStep(1);
-    setResetEmail('');
-    setResetRole('teacher');
-    setVerificationCode(['', '', '', '', '', '']);
-    setNewPassword('');
-    setConfirmPassword('');
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
-    setTimer(60);
-    setCanResend(false);
-    setResetError('');
-    setResetSuccess('');
-    setResetToken(null);
-    setPasswordStrength({ strength: 0, text: '', color: '', guidelines: {} });
-  };
-
-  // ========== FORGOT PASSWORD FUNCTIONS ==========
-  const handleSendVerification = async (e) => {
-    e.preventDefault();
-    setIsSendingCode(true);
-    setResetError('');
-    setResetSuccess('');
-
-    if (!resetEmail) {
-      setResetError('Please enter your email');
-      setIsSendingCode(false);
-      return;
-    }
-
-    try {
-      const { data } = await authAPI.forgotPassword({ email: resetEmail });
-
-      if (data.success) {
-        setResetSuccess('Verification code sent to your email!');
-        setResetStep(2);
-        setTimer(60);
-        setCanResend(false);
-      } else {
-        setResetError(data.message || 'Failed to send verification code');
-      }
-    } catch (error) {
-      console.error('Send verification error:', error);
-      setResetError('Network error. Please try again.');
-    } finally {
-      setIsSendingCode(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    setResetError('');
-    setResetSuccess('');
-
-    try {
-      const { data } = await authAPI.resendOtp({ email: resetEmail });
-
-      if (data.success) {
-        setResetSuccess('New verification code sent!');
-        setTimer(60);
-        setCanResend(false);
-      } else {
-        setResetError(data.message || 'Failed to resend code');
-      }
-    } catch (error) {
-      console.error('Resend code error:', error);
-      setResetError('Network error. Please try again.');
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    const code = verificationCode.join('');
-
-    if (code.length !== 6) {
-      setResetError('Please enter the complete 6-digit verification code.');
-      return false;
-    }
-
-    try {
-      const { data } = await authAPI.verifyOtp({ email: resetEmail, otp: code });
-
-      if (data.success) {
-        setResetToken(data.resetToken);
-        setResetSuccess('OTP verified! You can now reset your password.');
-        return data.resetToken;
-      } else {
-        setResetError(data.message || 'Invalid verification code');
-        return false;
-      }
-    } catch (error) {
-      console.error('Verify OTP error:', error);
-      setResetError('Network error. Please try again.');
-      return false;
-    }
-  };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setResetError('');
-
-    if (newPassword.length < 6) {
-      setResetError('Password must be at least 6 characters.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setResetError('Passwords do not match.');
-      return;
-    }
-
-    let activeResetToken = resetToken;
-    if (!activeResetToken) {
-      activeResetToken = await handleVerifyOTP();
-      if (!activeResetToken) return;
-    }
-
-    setIsResetting(true);
-
-    try {
-      const { data } = await authAPI.resetPassword({
-        token: activeResetToken,
-        newPassword
-      });
-
-      if (data.success) {
-        toast.success('Password reset successfully! Please login with your new password.');
-        setForgotModalOpen(false);
-        resetForgotPasswordState();
-        setLoginModalOpen(true);
-      } else {
-        setResetError(data.message || 'Failed to reset password');
-      }
-    } catch (error) {
-      console.error('Reset password error:', error);
-      setResetError('Network error. Please try again.');
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
-  const handleOTPChange = (index, value) => {
-    if (value.length > 1) return;
-    const newCode = [...verificationCode];
-    newCode[index] = value.replace(/\D/g, '');
-    setVerificationCode(newCode);
-    if (resetError) setResetError('');
-    if (value && index < 5) document.getElementById(`otp-${index + 1}`)?.focus();
-  };
-
-  const handleOTPKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !verificationCode[index] && index > 0) {
-      document.getElementById(`otp-${index - 1}`)?.focus();
-    }
-  };
-
-  const handleOTPPaste = (e) => {
-    e.preventDefault();
-    const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    const newCode = ['', '', '', '', '', ''];
-    for (let i = 0; i < digits.length; i++) newCode[i] = digits[i];
-    setVerificationCode(newCode);
-    document.getElementById(`otp-${Math.min(digits.length, 5)}`)?.focus();
-  };
-
-  const handleModalClose = (setter) => (e) => {
-    if (e.target !== e.currentTarget) return;
-    setter(false);
-    if (setter === setLoginModalOpen) {
-      setLoginError('');
-      setLoginUsername('');
-      setLoginPassword('');
-    }
-    if (setter === setForgotModalOpen) resetForgotPasswordState();
-  };
-
-  const selectedRoleInfo = roles.find((role) => role.value === selectedRole);
-
-  // ========== CONDITIONAL RETURN ==========
-  if (pageLoading) {
-    return <LoadingScreen message="Welcome to ReBot..." />;
-  }
-
-  // ========== JSX RETURN ==========
   return (
-    <div className="landing-page min-h-screen overflow-x-hidden bg-[#f7fbf7] font-sans text-slate-800">
-      {/* Navigation */}
-      <nav className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 shadow-lg shadow-green-900/5 backdrop-blur-xl' : 'bg-white/70 backdrop-blur-md'}`}>
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-green-700 text-xl text-white shadow-lg shadow-green-600/20">♻️</div>
-            <div className="text-left">
-              <div className="text-2xl font-black tracking-tight text-green-900">ReBot</div>
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-green-600">Patubig ES</div>
-            </div>
+    <div className="rebot-public" id="home">
+      <a className="rebot-skip" href="#rebot-content">Skip to content</a>
+      <header className="rebot-header">
+        <div className="rebot-wrap rebot-header-inner">
+          <Brand />
+          <nav aria-label="Main navigation">
+            <a href="#how-it-works">How it works</a>
+            <a href="#about">About</a>
+          </nav>
+          <button className="rebot-button rebot-button-outline" type="button" onClick={openSignIn}>
+            Sign in <ArrowUpRight size={16} aria-hidden="true" />
           </button>
-
-          <div className="hidden items-center gap-8 md:flex">
-            <a href="#home" className="nav-link">Home</a>
-            <a href="#how-it-works" className="nav-link">How it Works</a>
-            <a href="#about" className="nav-link">About</a>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={() => setLoginModalOpen(true)} className="btn-secondary">
-              <i className="fas fa-right-to-bracket"></i>
-              <span className="hidden sm:inline">Login</span>
-            </button>
-            <button onClick={() => toast.success('Please contact your school administrator to create an account.')} className="btn-primary hidden sm:inline-flex">
-              Get Started
-            </button>
-          </div>
         </div>
-      </nav>
+      </header>
 
-      {/* Hero Section */}
-      <section id="home" className="relative overflow-hidden pt-32 pb-20 sm:pt-36 lg:pb-28">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(34,197,94,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(245,158,11,0.16),_transparent_30%)]"></div>
-        <div className="absolute left-[-10rem] top-20 h-80 w-80 rounded-full bg-green-200/50 blur-3xl"></div>
-        <div className="absolute bottom-0 right-[-10rem] h-96 w-96 rounded-full bg-amber-200/40 blur-3xl"></div>
-
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
-          <div className="z-10">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-white/80 px-4 py-2 text-sm font-black text-green-700 shadow-sm backdrop-blur">
-              <span className="h-2 w-2 rounded-full bg-green-500"></span>
-              Smart Recycling Monitoring System
-            </div>
-
-            <h1 className="max-w-3xl text-5xl font-black leading-tight tracking-tight text-green-950 sm:text-6xl lg:text-7xl">
-              ReBot makes recycling
-              <span className="block bg-gradient-to-r from-green-600 via-emerald-500 to-lime-500 bg-clip-text text-transparent">rewarding for students.</span>
-            </h1>
-
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-              A modern school-based recycling system for QR student identification, bottle validation, points monitoring, reward redemption, and staff dashboards.
-            </p>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button onClick={() => setLoginModalOpen(true)} className="btn-primary h-14 px-7 text-base">
-                <i className="fas fa-gauge-high"></i>
-                Open Dashboard
+      <main id="rebot-content" tabIndex={-1}>
+        <section className="rebot-wrap rebot-hero" aria-labelledby="rebot-hero-title">
+          <div className="rebot-hero-copy">
+            <p className="rebot-kicker"><span aria-hidden="true" /> School recycling program</p>
+            <h1 id="rebot-hero-title">Recycle bottles.<br /><em>Earn rewards.</em></h1>
+            <p className="rebot-hero-intro">Students at Patubig Elementary can turn empty bottles into points and use them to claim rewards at the school canteen.</p>
+            <div className="rebot-hero-actions">
+              <button className="rebot-button rebot-button-primary" type="button" onClick={openSignIn}>
+                Open dashboard <ArrowRight size={17} aria-hidden="true" />
               </button>
-              <a href="#how-it-works" className="btn-secondary h-14 px-7 text-base">
-                <i className="fas fa-circle-play"></i>
-                View Process
-              </a>
-            </div>
-
-            <div className="mt-10 grid max-w-2xl gap-4 sm:grid-cols-2">
-              <div className="glass-card p-5">
-                <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-green-100 text-green-700">
-                  <i className="fas fa-qrcode"></i>
-                </div>
-                <h3 className="font-black text-green-950">QR-Based Identification</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">Students can be identified through QR scanning before earning or redeeming points.</p>
-              </div>
-
-              <div className="glass-card p-5">
-                <div className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-green-100 text-green-700">
-                  <i className="fas fa-chart-line"></i>
-                </div>
-                <h3 className="font-black text-green-950">Role-Based Monitoring</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">Teachers, canteen staff, and admins have their own dashboard views.</p>
-              </div>
+              <a className="rebot-text-button" href="#how-it-works">How it works <ArrowDown size={16} aria-hidden="true" /></a>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="bg-white py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto mb-14 max-w-2xl text-center">
-            <div className="mb-4 inline-flex rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-700">Simple Process</div>
-            <h2 className="text-4xl font-black text-green-950">How ReBot Works</h2>
-            <p className="mt-3 text-slate-500">A simple QR-based recycling flow for students, teachers, and school staff.</p>
+          <figure className="rebot-example">
+            <figcaption><span><Recycle size={19} aria-hidden="true" /> Recycling station</span><small>Example</small></figcaption>
+            <div className="rebot-example-body">
+              <div className="rebot-scan" aria-hidden="true"><QrCode size={46} strokeWidth={1.6} /></div>
+              <ul className="rebot-receipt">
+                <li><Check size={17} aria-hidden="true" /> Student QR scanned</li>
+                <li><Check size={17} aria-hidden="true" /> Bottle accepted</li>
+                <li className="rebot-receipt-total"><Gift size={18} aria-hidden="true" /> Points added</li>
+              </ul>
+            </div>
+            <p>Each accepted bottle is recorded in the student’s account.</p>
+          </figure>
+        </section>
+
+        <section id="how-it-works" className="rebot-process">
+          <div className="rebot-wrap">
+            <h2>How it works</h2>
+            <ol className="rebot-process-list">
+              {recyclingSteps.map(({ icon: Icon, title, description }, index) => (
+                <li key={title}>
+                  <div><span aria-hidden="true">0{index + 1}</span><Icon size={21} aria-hidden="true" /></div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </li>
+              ))}
+            </ol>
           </div>
+        </section>
 
-          <div className="grid gap-6 md:grid-cols-4">
-            {[
-              ['Scan QR', 'Students scan their QR code to identify their account.', 'fas fa-qrcode'],
-              ['Insert Bottle', 'The machine detects and validates recyclable bottles.', 'fas fa-recycle'],
-              ['Earn Points', 'Accepted bottles are converted into student points.', 'fas fa-star'],
-              ['Redeem Rewards', 'Students can claim biscuits, school supplies, or save points.', 'fas fa-gift']
-            ].map(([title, desc, icon], index) => (
-              <div key={title} className="relative rounded-[2rem] border border-slate-100 bg-slate-50 p-6 shadow-sm transition hover:-translate-y-1 hover:bg-white hover:shadow-xl hover:shadow-green-900/5">
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="grid h-16 w-16 place-items-center rounded-3xl bg-green-600 text-2xl text-white shadow-lg shadow-green-600/20">
-                    <i className={icon}></i>
-                  </div>
-                  <div className="text-5xl font-black text-green-100">0{index + 1}</div>
-                </div>
-                <h3 className="text-xl font-black text-green-950">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">{desc}</p>
-              </div>
+        <section className="rebot-wrap rebot-access" aria-labelledby="rebot-access-title">
+          <div>
+            <h2 id="rebot-access-title">ReBot at school</h2>
+            <p>Sign in with your school account to see the tools available to your role.</p>
+            <button type="button" className="rebot-text-button" onClick={openSignIn}>Sign in to ReBot <ArrowRight size={17} aria-hidden="true" /></button>
+          </div>
+          <ul>
+            {schoolRoles.map(({ icon: Icon, title, description }) => (
+              <li key={title}>
+                <Icon size={21} aria-hidden="true" />
+                <div><h3>{title}</h3><p>{description}</p></div>
+              </li>
             ))}
-          </div>
-        </div>
-      </section>
+          </ul>
+        </section>
+      </main>
 
-      {/* Role Section */}
-      <section className="bg-gradient-to-br from-green-950 via-emerald-900 to-slate-950 py-20 text-white">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
-          <div>
-            <div className="mb-4 inline-flex rounded-full bg-white/10 px-4 py-2 text-sm font-black text-green-100 ring-1 ring-white/15">
-              Role-Based Monitoring
+      <footer id="about" className="rebot-footer">
+        <div className="rebot-wrap">
+          <div className="rebot-footer-main">
+            <div>
+              <Brand />
+              <p>Need a ReBot account? Contact your school administrator.</p>
             </div>
-            <h2 className="text-4xl font-black leading-tight sm:text-5xl">One system for every school operation.</h2>
-            <p className="mt-5 max-w-xl leading-8 text-white/70">
-              Teachers, canteen staff, and admins can access dashboards designed for their responsibilities.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {roles.map((role) => (
-              <div key={role.value} className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/15 backdrop-blur-sm transition hover:bg-white/15">
-                <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-lime-300 text-green-950">
-                  <i className={role.icon}></i>
-                </div>
-                <h3 className="font-black">{role.label}</h3>
-                <p className="mt-1 text-sm leading-6 text-white/65">{role.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer id="about" className="bg-slate-950 py-12 text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 md:grid-cols-4 lg:px-8">
-          <div className="md:col-span-2">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-green-600 text-xl">♻️</div>
-              <div>
-                <div className="text-2xl font-black">ReBot</div>
-                <div className="text-xs font-bold uppercase tracking-[0.18em] text-green-400">Patubig Elementary School</div>
-              </div>
+            <div className="rebot-contact">
+              <h2>Contact</h2>
+              <button type="button" onClick={() => copyContact('patubig.es@rebot.ph')} aria-label="Copy email address patubig.es@rebot.ph">
+                patubig.es@rebot.ph <Copy size={14} aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => copyContact('(044) 123 4567')} aria-label="Copy phone number (044) 123 4567">
+                (044) 123 4567 <Copy size={14} aria-hidden="true" />
+              </button>
             </div>
-            <p className="max-w-md text-sm leading-7 text-slate-400">Smart recycling for smarter schools. ReBot encourages students to recycle while helping the school monitor rewards, points, and donations.</p>
           </div>
-
-          <div>
-            <h4 className="mb-4 font-black text-amber-300">Quick Links</h4>
-            <a href="#home" className="footer-link">Home</a>
-            <a href="#how-it-works" className="footer-link">How it Works</a>
-          </div>
-
-          <div>
-            <h4 className="mb-4 font-black text-amber-300">Contact</h4>
-            <button onClick={() => copyToClipboard('patubig.es@rebot.ph', 'Email copied!')} className="footer-link text-left"><i className="fas fa-envelope mr-2"></i>patubig.es@rebot.ph</button>
-            <button onClick={() => copyToClipboard('(044) 123 4567', 'Phone copied!')} className="footer-link text-left"><i className="fas fa-phone mr-2"></i>(044) 123 4567</button>
-          </div>
-        </div>
-        <div className="mx-auto mt-10 max-w-7xl border-t border-white/10 px-4 pt-6 text-center text-sm text-slate-500 sm:px-6 lg:px-8">
-          © 2026 ReBot - Patubig Elementary School Recycling Reward System.
+          <p className="rebot-copyright">© {new Date().getFullYear()} ReBot · Patubig Elementary School</p>
         </div>
       </footer>
 
-      {/* ========== LOGIN MODAL - WITH FULL FORM ========== */}
-      {loginModalOpen && (
-        <div className="modal-backdrop" onClick={handleModalClose(setLoginModalOpen)}>
-          <div className="grid max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-[2rem] bg-white shadow-2xl animate-modalUp lg:grid-cols-[0.9fr_1.1fr]">
-            {/* Left Panel */}
-            <div className="relative hidden overflow-hidden bg-gradient-to-br from-slate-950 via-green-950 to-emerald-900 p-10 text-white lg:flex lg:flex-col lg:justify-between">
-              <div className="absolute -left-24 -top-24 h-80 w-80 rounded-full bg-green-400/20 blur-3xl"></div>
-              <div className="absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-lime-300/10 blur-3xl"></div>
-
-              <div className="relative z-10">
-                <div className="mb-10 inline-flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 ring-1 ring-white/15 backdrop-blur">
-                  <span className="grid h-10 w-10 place-items-center rounded-full bg-lime-300 text-green-950">♻️</span>
-                  <span className="text-sm font-black">ReBot Access Portal</span>
-                </div>
-                <h2 className="max-w-sm text-5xl font-black leading-tight tracking-tight">
-                  Manage recycling with a smarter dashboard.
-                </h2>
-                <p className="mt-5 max-w-md text-sm leading-7 text-white/70">
-                  Access the tools you need based on your role: student records, reward claiming, and system management.
-                </p>
-              </div>
-
-              <div className="relative z-10 grid gap-4">
-                <div className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/15 backdrop-blur">
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="grid h-11 w-11 place-items-center rounded-2xl bg-lime-300 text-green-950">
-                      <i className="fas fa-user-shield"></i>
-                    </div>
-                    <div>
-                      <p className="font-black">Secure Role Login</p>
-                      <p className="text-xs text-white/60">Only authorized users can access dashboard modules.</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-3xl bg-white/10 p-5 ring-1 ring-white/15 backdrop-blur">
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-lime-300">
-                      <i className="fas fa-layer-group"></i>
-                    </div>
-                    <div>
-                      <p className="font-black">Clean System Access</p>
-                      <p className="text-xs text-white/60">Designed for teachers, canteen, and admin users.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Panel - Login Form */}
-            <div className="bg-white p-6 sm:p-8 lg:p-10">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-green-700">
-                    <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                    Secure Login
-                  </div>
-                  <h3 className="text-4xl font-black tracking-tight text-green-950">Welcome back</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">Sign in with your school-issued account credentials.</p>
-                </div>
-                <button onClick={() => setLoginModalOpen(false)} className="icon-close"><i className="fas fa-times"></i></button>
-              </div>
-
-              {/* Role Selection */}
-              <div className="mb-6 mt-6 rounded-3xl border border-green-100 bg-gradient-to-br from-green-50 to-white p-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-green-600 text-white">
-                    <i className={selectedRoleInfo?.icon}></i>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black text-green-950">Current Role: {selectedRoleInfo?.label}</p>
-                    <p className="text-xs font-semibold leading-5 text-slate-500">{selectedRoleInfo?.desc}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Role Buttons */}
-              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {roles.map((role) => (
-                  <button
-                    key={role.value}
-                    type="button"
-                    onClick={() => handleRoleSelect(role.value)}
-                    className={`rounded-3xl border-2 p-4 text-center transition ${selectedRole === role.value ? 'border-green-600 bg-green-50 shadow-lg shadow-green-900/5' : 'border-slate-200 bg-white hover:border-green-300 hover:bg-green-50/50'}`}
-                  >
-                    <div className={`mx-auto mb-3 grid h-11 w-11 place-items-center rounded-2xl ${selectedRole === role.value ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                      <i className={role.icon}></i>
-                    </div>
-                    <p className="font-black text-slate-800">{role.label}</p>
-                  </button>
-                ))}
-              </div>
-
-              {/* Login Form */}
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div>
-                  <label className="form-label">Username / ID</label>
-                  <div className="field-wrap">
-                    <i className="fas fa-user field-icon"></i>
-                    <input
-                      value={loginUsername}
-                      onChange={(e) => setLoginUsername(e.target.value)}
-                      className="input pl-12"
-                      placeholder="Enter your username"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="form-label">Password</label>
-                  <div className="field-wrap">
-                    <i className="fas fa-lock field-icon"></i>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      className="input pl-12 pr-14"
-                      placeholder="Enter your password"
-                      required
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="password-toggle">
-                      <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="rounded-full bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600">
-                    Role: <span className="text-green-700">{selectedRoleInfo?.label}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setLoginModalOpen(false); setForgotModalOpen(true); setResetError(''); setResetSuccess(''); }}
-                    className="text-sm font-bold text-green-700 hover:underline"
-                  >
-                    <i className="fas fa-key mr-2"></i>Forgot password?
-                  </button>
-                </div>
-
-                <button type="submit" disabled={isLoggingIn} className="btn-primary h-14 w-full text-base disabled:opacity-70">
-                  {isLoggingIn ? (
-                    <><i className="fas fa-spinner fa-spin"></i>Logging in...</>
-                  ) : (
-                    <><i className="fas fa-arrow-right-to-bracket"></i>Login to Dashboard</>
-                  )}
-                </button>
-
-                {loginError && <Alert type="error" message={loginError} />}
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Forgot Password Modal */}
-      {forgotModalOpen && (
-        <div className="modal-backdrop" onClick={handleModalClose(setForgotModalOpen)}>
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white shadow-2xl animate-modalUp">
-            <div className="relative overflow-hidden bg-gradient-to-r from-green-700 to-emerald-800 p-6 text-white sm:p-8">
-              <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-white/10 blur-2xl"></div>
-              <div className="relative flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/65">Account Recovery</p>
-                  <h3 className="mt-2 text-3xl font-black">Reset Password</h3>
-                  <p className="mt-2 text-sm leading-6 text-white/75">Use your registered email and a 6-digit verification code.</p>
-                </div>
-                <button onClick={() => { setForgotModalOpen(false); resetForgotPasswordState(); }} className="grid h-11 w-11 place-items-center rounded-2xl border border-white/20 text-white/80 hover:bg-white/10">
-                  <i className="fas fa-times"></i>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 sm:p-8">
-              <div className="mb-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                <StepBadge active icon="fas fa-envelope" title="Step 1" text="Email" />
-                <div className="h-1 w-14 rounded-full bg-slate-200 sm:w-24"><div className={`h-full rounded-full bg-green-600 transition-all ${resetStep === 2 ? 'w-full' : 'w-1/2'}`}></div></div>
-                <StepBadge active={resetStep === 2} icon="fas fa-key" title="Step 2" text="Code" right />
-              </div>
-
-              {resetStep === 1 && (
-                <form onSubmit={handleSendVerification} className="space-y-5">
-                  <Alert type="info" message="Enter your registered email to receive a 6-digit verification code." />
-
-                  <div>
-                    <label className="form-label">Registered Email</label>
-                    <div className="field-wrap"><i className="fas fa-envelope field-icon"></i><input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className="input pl-12" placeholder="Enter your registered email" required /></div>
-                  </div>
-
-                  <button type="submit" disabled={isSendingCode} className="btn-primary h-14 w-full text-base disabled:opacity-70">
-                    {isSendingCode ? <><i className="fas fa-spinner fa-spin"></i>Sending...</> : <><i className="fas fa-paper-plane"></i>Send Verification Code</>}
-                  </button>
-                  {resetError && <Alert type="error" message={resetError} />}
-                  {resetSuccess && <Alert type="success" message={resetSuccess} />}
-                  <button type="button" onClick={() => { setForgotModalOpen(false); setLoginModalOpen(true); resetForgotPasswordState(); }} className="mx-auto flex items-center gap-2 text-sm font-bold text-green-700 hover:underline">
-                    <i className="fas fa-arrow-left"></i>Back to Login
-                  </button>
-                </form>
-              )}
-
-              {resetStep === 2 && (
-                <form onSubmit={handleResetPassword} className="space-y-5">
-                  <Alert type="info" message={`Please enter the 6-digit code sent to ${resetEmail}.`} />
-
-                  <div>
-                    <label className="form-label">Verification Code</label>
-                    <div className="flex justify-between gap-2 sm:gap-3" onPaste={handleOTPPaste}>
-                      {verificationCode.map((digit, idx) => (
-                        <input key={idx} id={`otp-${idx}`} type="text" inputMode="numeric" maxLength="1" value={digit} onChange={(e) => handleOTPChange(idx, e.target.value)} onKeyDown={(e) => handleOTPKeyDown(idx, e)} className="h-14 w-11 rounded-2xl border-2 border-slate-200 bg-slate-50 text-center text-xl font-black text-slate-800 outline-none transition focus:border-green-600 focus:bg-white sm:h-16 sm:w-14 sm:text-2xl" />
-                      ))}
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500 sm:text-sm">
-                      <span><i className="fas fa-clock mr-2"></i>{canResend ? 'You can resend now.' : `Resend available in ${timer}s`}</span>
-                      {canResend && <button type="button" onClick={handleResendCode} className="font-bold text-green-700 hover:underline">Resend code</button>}
-                    </div>
-                  </div>
-
-                  <PasswordInput label="New Password" value={newPassword} onChange={handleNewPasswordChange} show={showNewPassword} setShow={setShowNewPassword} placeholder="Enter a new password" />
-
-                  <div>
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full transition-all" style={{ width: `${(passwordStrength.strength / 5) * 100}%`, backgroundColor: passwordStrength.color || '#e5e7eb' }}></div></div>
-                    <p className="mt-2 text-xs font-bold" style={{ color: passwordStrength.color }}>{passwordStrength.text}</p>
-                    <div className="mt-3 grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
-                      {[
-                        ['length', 'At least 6 characters'],
-                        ['lowercase', 'Lowercase letter'],
-                        ['uppercase', 'Uppercase letter'],
-                        ['number', 'Number'],
-                        ['special', 'Special character']
-                      ].map(([key, text]) => (
-                        <span key={key} className={`text-xs font-semibold ${passwordStrength.guidelines[key] ? 'text-green-700' : 'text-slate-500'}`}>
-                          <i className={`fas mr-2 ${passwordStrength.guidelines[key] ? 'fa-circle-check' : 'fa-circle'}`}></i>{text}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <PasswordInput label="Confirm New Password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} show={showConfirmPassword} setShow={setShowConfirmPassword} placeholder="Re-enter your password" icon="fas fa-check-circle" />
-
-                  <button type="submit" disabled={isResetting} className="btn-primary h-14 w-full text-base disabled:opacity-70">
-                    {isResetting ? <><i className="fas fa-spinner fa-spin"></i>Resetting Password...</> : <><i className="fas fa-shield-heart"></i>Reset Password</>}
-                  </button>
-                  {resetError && <Alert type="error" message={resetError} />}
-                  <button type="button" onClick={() => { setResetStep(1); setVerificationCode(['', '', '', '', '', '']); setNewPassword(''); setConfirmPassword(''); setResetError(''); setResetSuccess(''); setResetToken(null); }} className="mx-auto flex items-center gap-2 text-sm font-bold text-green-700 hover:underline">
-                    <i className="fas fa-arrow-left"></i>Back to verification
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        .nav-link { font-size: 0.9rem; font-weight: 800; color: #475569; transition: color .2s ease; }
-        .nav-link:hover { color: #15803d; }
-        .btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; border-radius: 9999px; background: linear-gradient(135deg, #16a34a, #047857); color: white; font-weight: 900; box-shadow: 0 18px 35px rgba(22, 163, 74, .22); transition: transform .2s ease, box-shadow .2s ease, filter .2s ease; }
-        .btn-primary:hover { transform: translateY(-1px); filter: brightness(.98); box-shadow: 0 22px 42px rgba(22, 163, 74, .28); }
-        .btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; border-radius: 9999px; border: 2px solid #bbf7d0; background: rgba(255,255,255,.85); color: #166534; font-weight: 900; transition: all .2s ease; }
-        .btn-secondary:hover { border-color: #22c55e; background: #f0fdf4; transform: translateY(-1px); }
-        .input { height: 3.5rem; width: 100%; border-radius: 1rem; border: 2px solid #e2e8f0; background: rgba(248,250,252,.8); padding-left: 1rem; padding-right: 1rem; font-weight: 700; color: #334155; outline: none; transition: all .2s ease; }
-        .input:focus { border-color: #16a34a; background: white; box-shadow: 0 0 0 4px rgba(34,197,94,.1); }
-        .form-label { margin-bottom: .5rem; display: block; font-size: .875rem; font-weight: 900; color: #334155; }
-        .field-wrap { position: relative; }
-        .field-wrap > .input { padding-left: 3rem; }
-        .field-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #94a3b8; z-index: 2; pointer-events: none; }
-        .password-toggle { position: absolute; right: .55rem; top: 50%; transform: translateY(-50%); display: grid; height: 2.35rem; width: 2.35rem; place-items: center; border-radius: .85rem; color: #64748b; transition: all .2s ease; }
-        .icon-close { display: grid; height: 2.75rem; width: 2.75rem; place-items: center; border-radius: 1rem; border: 1px solid #e2e8f0; color: #64748b; transition: all .2s ease; }
-        .footer-link { margin-bottom: .65rem; display: block; font-size: .875rem; font-weight: 700; color: #94a3b8; transition: color .2s ease; }
-        .footer-link:hover { color: #fbbf24; }
-        .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,.68); padding: 1rem; backdrop-filter: blur(10px); }
-        @keyframes modalUp { from { opacity: 0; transform: translateY(20px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .animate-modalUp { animation: modalUp .26s ease-out; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .fa-spin { animation: spin 1s linear infinite; }
-      `}</style>
-    </div>
-  );
-}
-
-// Helper Components
-function Alert({ type = 'info', message }) {
-  const styles = {
-    error: 'border-red-200 bg-red-50 text-red-700 fas fa-circle-exclamation',
-    success: 'border-green-200 bg-green-50 text-green-700 fas fa-circle-check',
-    info: 'border-emerald-200 bg-emerald-50 text-emerald-700 fas fa-circle-info'
-  };
-  const [box, icon] = styles[type].split(' fas ');
-
-  return (
-    <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold ${box}`}>
-      <i className={`fas ${icon} mt-0.5`}></i>
-      <span>{message}</span>
-    </div>
-  );
-}
-
-function StepBadge({ active, icon, title, text, right }) {
-  return (
-    <div className={`flex items-center gap-3 ${right ? 'justify-end text-right' : ''}`}>
-      {!right && <div className={`grid h-12 w-12 place-items-center rounded-2xl ${active ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500'}`}><i className={icon}></i></div>}
-      <div>
-        <p className="text-sm font-black text-slate-800">{title}</p>
-        <p className="text-xs font-semibold text-slate-500">{text}</p>
-      </div>
-      {right && <div className={`grid h-12 w-12 place-items-center rounded-2xl ${active ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500'}`}><i className={icon}></i></div>}
-    </div>
-  );
-}
-
-function PasswordInput({ label, value, onChange, show, setShow, placeholder, icon = 'fas fa-lock' }) {
-  return (
-    <div>
-      <label className="form-label">{label}</label>
-      <div className="field-wrap">
-        <i className={`${icon} field-icon`}></i>
-        <input type={show ? 'text' : 'password'} value={value} onChange={onChange} className="input pl-12 pr-14" placeholder={placeholder} required />
-        <button type="button" onClick={() => setShow(!show)} className="password-toggle">
-          <i className={`fas ${show ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-        </button>
-      </div>
+      {dialog === 'sign-in' && <SignIn onClose={closeDialog} onReset={() => setDialog('reset')} />}
+      {dialog === 'reset' && <ResetPassword onClose={closeDialog} onSignIn={() => setDialog('sign-in')} />}
     </div>
   );
 }
