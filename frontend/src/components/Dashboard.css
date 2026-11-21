@@ -240,3 +240,145 @@
 .rb-dash-reward-name { display: flex; align-items: center; justify-content: space-between; gap: 0.55rem; margin-bottom: 0.55rem; font-size: 0.86rem; }
 .rb-dash-reward-name > span:first-child { display: flex; align-items: center; gap: 0.48rem; min-width: 0; overflow-wrap: anywhere; }
 .rb-dash-reward-name > span:last-child { flex: none; color: var(--workspace-muted); }
+
+/* Management, activity, and settings pages use the same surfaces as the dashboards. */
+.rb-feature-page {
+  --dash-radius: 0.7rem;
+  width: 100%;
+  max-width: 99rem;
+  margin-inline: auto;
+  min-width: 0;
+}
+
+.rb-feature-page .rb-dash-header { margin-bottom: 0.35rem; }
+.rb-feature-page .rb-dash-actions { max-width: 100%; }
+
+@media screen {
+  .rb-feature-page .rb-feature-panel {
+    border: 1px solid var(--workspace-border);
+    border-radius: var(--dash-radius);
+    background: var(--workspace-surface);
+    color: var(--workspace-text);
+    box-shadow: none;
+  }
+
+  /* Override the legacy dark utilities on opt-in workspace surfaces. */
+  .dark .rb-feature-page .rb-feature-panel {
+    background-color: var(--workspace-surface) !important;
+    border-color: var(--workspace-border) !important;
+  }
+
+  .rb-feature-page .rb-feature-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.8rem;
+    border: 1px solid var(--workspace-border);
+    border-radius: var(--dash-radius);
+    background: var(--workspace-surface);
+  }
+
+  .rb-feature-toolbar > * { min-width: 0; max-width: 100%; }
+  .rb-feature-toolbar .rb-dash-search { flex: 1 1 13rem; }
+  .rb-feature-toolbar .rb-dash-search input { width: 100%; }
+  .rb-feature-page :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), textarea, select):not([class~='hidden']) {
+    max-width: 100%;
+    border-color: var(--workspace-border);
+    background-color: var(--workspace-surface);
+    color: var(--workspace-text);
+  }
+
+  .dark .rb-feature-page :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), textarea, select, select option) {
+    border-color: var(--workspace-border) !important;
+    background-color: var(--workspace-surface) !important;
+    color: var(--workspace-text) !important;
+  }
+
+  .dark .rb-feature-page :is(input, textarea, select):focus-visible {
+    border-color: var(--workspace-green) !important;
+  }
+
+  .rb-feature-scroll { overflow-x: auto; }
+  .rb-feature-page .rb-feature-table { width: 100%; }
+  .rb-feature-page .rb-feature-table thead { background: var(--workspace-hover); }
+  .rb-feature-page .rb-feature-table th { color: var(--workspace-muted); letter-spacing: 0; text-transform: none; }
+  .rb-feature-page .rb-feature-table :is(th, td) { padding-block: 0.65rem; }
+  .rb-feature-page .rb-feature-table tbody tr:hover { background: var(--workspace-hover); }
+  .dark .rb-feature-page .rb-feature-table :is(thead, tbody tr:hover) { background-color: var(--workspace-hover) !important; }
+  .rb-feature-page .rb-feature-table td { border-top: 1px solid var(--workspace-border); }
+
+  .rb-feature-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    padding-bottom: 0.15rem;
+    border-bottom: 1px solid var(--workspace-border);
+  }
+
+  .rb-feature-tabs button {
+    display: inline-flex;
+    min-height: 2.7rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.42rem;
+    padding: 0.45rem 0.7rem;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--workspace-muted);
+    font-size: 0.86rem;
+    font-weight: 650;
+  }
+
+  .rb-feature-tabs button:hover { background: var(--workspace-hover); color: var(--workspace-text); }
+  .rb-feature-tabs button[aria-pressed='true'] { border-bottom-color: var(--workspace-green); color: var(--workspace-green); background: var(--workspace-active); }
+
+  .rb-feature-search { min-width: 0; width: min(100%, 24rem); }
+}
+
+@media (max-width: 650px) {
+  .rb-feature-page .rb-feature-toolbar > * { flex: 1 1 auto; }
+  .rb-feature-page .rb-feature-toolbar .rb-dash-search { flex: 1 1 100%; }
+  .rb-feature-page .rb-dash-header { align-items: flex-start; }
+}
+
+.rb-dash-metric dd > small {
+  display: block;
+  margin-top: 0.36rem;
+  color: var(--workspace-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.rb-dash-metric.is-primary dd > small { color: #d2e8d9; }
+
+.rb-feature-timeline-row > div:first-child { display: flex; align-items: center; gap: 0.65rem; }
+.rb-feature-timeline-icon {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.4rem;
+  background: var(--workspace-active);
+  color: var(--workspace-green);
+}
+
+.rb-feature-upload:focus-within {
+  outline: 2px solid var(--workspace-green);
+  outline-offset: 3px;
+}
+
+@media print {
+  .rebot-workspace:has(#report-content) :is(.rebot-sidebar, .rebot-workspace-header, .rb-dash-actions) { display: none; }
+  .rebot-workspace:has(#report-content) .rebot-workspace-body { margin-left: 0; }
+  #report-content .rb-dash-metric.is-primary { background: white; color: #172d23; }
+  #report-content .rb-dash-metric.is-primary :is(dt, dt svg, dd > small) { color: #305646; }
+}
+
+.rb-feature-scan-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0.45rem;
+}

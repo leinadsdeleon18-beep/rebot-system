@@ -1,5 +1,7 @@
+import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
-import { Package, Star, ShoppingBag, Search, RefreshCw } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
+import { Package, ShoppingBag, Search } from 'lucide-react';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -23,6 +25,9 @@ ChartJS.register(
 );
 
 export default function InventoryManagement() {
+  const { darkMode } = useTheme();
+  const chartText = darkMode ? '#b9c8bd' : '#526258';
+  const chartGrid = darkMode ? '#39463c' : '#e4ebe4';
   const [stats, setStats] = useState({
     totalBottles: 0,
     totalPoints: 0,
@@ -130,7 +135,7 @@ export default function InventoryManagement() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top', labels: { font: { size: 12 } } },
+      legend: { position: 'top', labels: { color: chartText, font: { size: 12 } } },
       tooltip: { 
         backgroundColor: 'rgba(0,0,0,0.8)',
         callbacks: {
@@ -146,40 +151,27 @@ export default function InventoryManagement() {
     scales: {
       y: {
         beginAtZero: true,
+        ticks: { color: chartText },
+        grid: { color: chartGrid },
         title: {
           display: true,
+          color: chartText,
           text: 'Quantity / Points',
           font: { size: 12 }
         }
       },
       x: {
+        ticks: { color: chartText },
+        grid: { display: false },
         title: {
           display: true,
+          color: chartText,
           text: 'Items',
           font: { size: 12 }
         }
       }
     }
   };
-
-  const StatCard = ({ title, value, icon: Icon, color, trend, trendValue }) => (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700">
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-800 dark:text-gray-100">{(value || 0).toLocaleString()}</p>
-          {trend && (
-            <p className={`text-xs mt-2 ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-              {trend === 'up' ? '↑' : '↓'} {trendValue} from last month
-            </p>
-          )}
-        </div>
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon className="text-white" size={24} />
-        </div>
-      </div>
-    </div>
-  );
 
   const getStatusBadge = (status, statusColor) => {
     const colors = {
@@ -201,72 +193,19 @@ export default function InventoryManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Inventory Management</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage reward items, track stock levels, and monitor inventory
-          </p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-sm"
-        >
-          <RefreshCw size={18} /> Refresh Inventory
-        </button>
-      </div>
+      <DashboardHeader title="Reward inventory" description="Check stock levels and see which rewards need restocking.">
+        <DashboardRefresh busy={loading} onClick={handleRefresh} />
+      </DashboardHeader>
 
-      {/* Stats Cards - Only inventory related stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Total Items" 
-          value={inventoryItems.length} 
-          icon={Package} 
-          color="bg-blue-600" 
-        />
-        <StatCard 
-          title="Total Stock" 
-          value={inventoryItems.reduce((sum, item) => sum + (item.stock || 0), 0)} 
-          icon={Package} 
-          color="bg-green-600" 
-        />
-        <StatCard 
-          title="Low Stock Items" 
-          value={inventoryItems.filter(item => item.stock > 0 && item.stock < 10).length} 
-          icon={ShoppingBag} 
-          color="bg-orange-500" 
-          trend="down"
-          trendValue="2"
-        />
-        <StatCard 
-          title="Out of Stock" 
-          value={inventoryItems.filter(item => item.stock === 0).length} 
-          icon={ShoppingBag} 
-          color="bg-red-600" 
-          trend="up"
-          trendValue="1"
-        />
-      </div>
-
-      {/* Inventory Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
-        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Inventory Stock Levels</h3>
-        <div className="h-96">
-          {inventoryItems.length > 0 ? (
-            <Bar data={stockData} options={chartOptions} />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
-              No inventory items available
-            </div>
-          )}
-        </div>
-        <p className="text-xs text-gray-400 text-center mt-4">
-          Green: Healthy stock (&gt;10) | Yellow: Low stock (1-10) | Red: Out of stock (0)
-        </p>
-      </div>
+      <DashboardMetrics items={[
+        { label: "Reward types", value: inventoryItems.length, icon: Package, primary: true },
+        { label: "Units in stock", value: inventoryItems.reduce((sum, item) => sum + (item.stock || 0), 0), icon: Package },
+        { label: "Low stock", value: inventoryItems.filter(item => item.stock > 0 && item.stock < 10).length, icon: ShoppingBag },
+        { label: "Out of stock", value: inventoryItems.filter(item => item.stock === 0).length, icon: ShoppingBag }
+      ]} />
 
       {/* Inventory Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+      <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-100 dark:border-gray-700">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200">Inventory Items</h3>
@@ -275,13 +214,14 @@ export default function InventoryManagement() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   type="text"
-                  placeholder="Search items..."
+                  aria-label="Search inventory" placeholder="Search inventory"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm w-64 focus:outline-none focus:border-green-500 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
                 />
               </div>
               <select
+                aria-label="Inventory category"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
@@ -301,7 +241,7 @@ export default function InventoryManagement() {
               No inventory items found
             </div>
           ) : (
-            <table className="w-full">
+            <table className="rb-feature-table w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Item Name</th>
@@ -372,6 +312,24 @@ export default function InventoryManagement() {
           </div>
         </div>
       )}
+
+      {/* Inventory Chart */}
+      <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Inventory Stock Levels</h3>
+        <div className="h-96">
+          {inventoryItems.length > 0 ? (
+            <Bar data={stockData} options={chartOptions} />
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              No inventory items available
+            </div>
+          )}
+        </div>
+        <p className="text-xs text-gray-400 text-center mt-4">
+          Green: Healthy stock (&gt;10) | Yellow: Low stock (1-10) | Red: Out of stock (0)
+        </p>
+      </div>
+
     </div>
   );
 }

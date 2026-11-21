@@ -1,3 +1,4 @@
+import { DashboardEmpty, DashboardHeader, DashboardMetrics, DashboardPanel, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Trash2, Search, Upload, Download, QrCode, Star, FileUp, FileDown, 
@@ -168,6 +169,7 @@ export default function StudentManagement() {
       
       if (data.success) {
         const formattedStudents = data.students.map(s => {
+          const joined = new Date(s.createdAt ?? NaN);
           let sectionName = 'N/A';
           let gradeLevel = s.grade || 'N/A';
           let sectionId = null;
@@ -195,7 +197,7 @@ export default function StudentManagement() {
             points: s.points || 0,
             email: s.email || '',
             status: s.isActive !== false ? 'active' : 'inactive',
-            joinDate: new Date(s.createdAt).toISOString().split('T')[0]
+            joinDate: Number.isNaN(joined.getTime()) ? 'N/A' : joined.toISOString().split('T')[0]
           };
         });
         setStudents(formattedStudents);
@@ -693,7 +695,7 @@ export default function StudentManagement() {
   const filteredStudents = students.filter(student => {
     const matchesSearch = searchTerm === '' || 
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
+      String(student.studentId ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGrade = selectedGrade === 'all' || student.grade === selectedGrade;
     
     // Teacher filtering based on assigned sections or grades
@@ -723,86 +725,39 @@ export default function StudentManagement() {
 
   if (userRole === 'teacher' && teacherAssignedGrades.length === 0 && teacherAssignedSections.length === 0 && userLoaded) {
     return (
-      <div className="bg-yellow-50 rounded-2xl p-8 text-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
-            <School size={32} className="text-yellow-600" />
-          </div>
-          <h2 className="text-xl font-semibold text-yellow-800">No Grades or Sections Assigned</h2>
-          <p className="text-yellow-700 max-w-md">
-            You don't have any grades or sections assigned to your account yet.
-          </p>
-          <p className="text-sm text-yellow-600">
-            Please contact the administrator to assign grade levels or sections to your account.
-          </p>
-        </div>
+      <div className="space-y-5">
+        <DashboardHeader title="Student roster" description="Manage student records, enrollments, and QR codes." />
+        <DashboardPanel title="Your students">
+          <DashboardEmpty icon={School} title="No classes assigned">
+            Ask your school administrator to assign a grade or section to your account.
+          </DashboardEmpty>
+        </DashboardPanel>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Student Management</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage your students - 
-            {userRole === 'teacher' ? (
-              teacherAssignedSections.length > 0 
-                ? ` You have access to ${teacherAssignedSections.length} assigned section(s)`
-                : teacherAssignedGrades.length > 0
-                ? ` You have access to grades: ${teacherAssignedGrades.join(', ')}`
-                : ' Loading...'
-            ) : (
-              ` Administrator - All sections available`
-            )}
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button 
-            onClick={handleRefresh} 
-            disabled={isRefreshing}
-            className="px-4 py-2 border border-blue-600 text-blue-600 rounded-full font-semibold flex items-center gap-2 hover:bg-blue-50 transition"
-          >
-            <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <button onClick={() => setShowBulkImportModal(true)} className="px-4 py-2 border border-green-600 text-green-600 rounded-full font-semibold flex items-center gap-2 hover:bg-green-50">
-            <Upload size={18} /> Bulk Import
-          </button>
-          <button onClick={() => setShowAddModal(true)} className="px-5 py-2 bg-green-600 text-white rounded-full font-semibold flex items-center gap-2 hover:bg-green-700 shadow-sm">
-            <Plus size={18} /> Add Student
-          </button>
-        </div>
-      </div>
+      <DashboardHeader title="Student roster" description="Manage student records, enrollments, and QR codes.">
+        <button type="button" className="rb-dash-button-primary" onClick={() => setShowAddModal(true)}><Plus size={17} aria-hidden="true" /> Add student</button>
+        <button type="button" className="rb-dash-button" onClick={() => setShowBulkImportModal(true)}><Upload size={17} aria-hidden="true" /> Bulk import</button>
+        <DashboardRefresh busy={isRefreshing} onClick={handleRefresh} />
+      </DashboardHeader>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-600">
-          <p className="text-gray-500 text-sm">Total Students</p>
-          <p className="text-2xl font-bold text-gray-800">{filteredStudents.length}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-600">
-          <p className="text-gray-500 text-sm">Active Students</p>
-          <p className="text-2xl font-bold text-green-600">{activeStudents}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-orange-600">
-          <p className="text-gray-500 text-sm">Total Points</p>
-          <p className="text-2xl font-bold text-orange-600">{totalPoints}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-600">
-          <p className="text-gray-500 text-sm">Average Points</p>
-          <p className="text-2xl font-bold text-purple-600">{Math.round(totalPoints / (filteredStudents.length || 1))}</p>
-        </div>
-      </div>
+      <DashboardMetrics items={[
+        { label: "Students shown", value: filteredStudents.length, icon: Users, primary: true },
+        { label: "Active students", value: activeStudents, icon: CheckCircle },
+        { label: "Points", value: totalPoints, icon: Star },
+        { label: "Average points", value: Math.round(totalPoints / (filteredStudents.length || 1)), icon: Star }
+      ]} />
 
       {/* Search and Grade Filter */}
-      <div className="flex flex-wrap gap-4 items-center justify-between">
+      <div className="rb-feature-toolbar">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Search by name or student ID..."
+            aria-label="Search student roster" placeholder="Search name or student ID"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500"
@@ -810,6 +765,7 @@ export default function StudentManagement() {
         </div>
         <div className="flex gap-2">
           <select
+            aria-label="Filter by grade"
             value={selectedGrade}
             onChange={(e) => setSelectedGrade(e.target.value)}
             className="px-4 py-2 border border-gray-300 rounded-xl bg-white"
@@ -837,8 +793,8 @@ export default function StudentManagement() {
       </div>
 
       {/* Section Info Bar */}
-      <div className="flex items-center justify-between bg-blue-50 p-3 rounded-xl">
-        <div className="flex items-center gap-2 text-sm text-blue-700">
+      <div className="rb-dash-notice justify-between">
+        <div className="flex items-center gap-2 text-sm">
           <School size={16} />
           <span>
             {loadingSections ? 'Loading sections...' : 
@@ -853,7 +809,7 @@ export default function StudentManagement() {
             await fetchSections();
             toast.success(`Found ${allSections.length} total sections`);
           }}
-          className="text-xs text-blue-600 hover:text-blue-800 underline"
+          className="rb-dash-positive text-sm underline"
         >
           Refresh ({allSections.length})
         </button>
@@ -869,9 +825,9 @@ export default function StudentManagement() {
             </div>
           </div>
         )}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="rb-feature-panel bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="rb-feature-table w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student ID</th>
@@ -1179,7 +1135,7 @@ export default function StudentManagement() {
                     </div>
                   </div>
                   <div className="overflow-x-auto max-h-96 border rounded-lg">
-                    <table className="w-full text-sm">
+                    <table className="rb-feature-table w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
                           <th className="p-2 text-left w-10">Status</th>

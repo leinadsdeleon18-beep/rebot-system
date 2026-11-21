@@ -1,3 +1,4 @@
+import { DashboardHeader } from './Dashboard';
 import React, { useState, useEffect } from 'react';
 import { apiUrl } from '../services/apiService';
 import { 
@@ -44,11 +45,8 @@ const TabButton = ({ tab, activeTab, setActiveTab }) => {
   return (
     <button
       onClick={() => setActiveTab(tab.id)}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-        isActive
-          ? 'bg-green-600 text-white shadow-md'
-          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-      }`}
+      type="button"
+      aria-pressed={isActive}
     >
       <Icon size={18} />
       <span className="text-sm font-medium">{tab.label}</span>
@@ -57,7 +55,7 @@ const TabButton = ({ tab, activeTab, setActiveTab }) => {
 };
 
 const SettingSection = ({ title, icon: Icon, children }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-6">
+  <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 mb-6">
     <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
       <Icon size={20} className="text-green-600 dark:text-green-500" />
       {title}
@@ -869,12 +867,9 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
         message="Are you sure you want to remove your profile picture? This action cannot be undone."
       />
 
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Settings</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your account preferences and configuration</p>
-      </div>
+      <DashboardHeader title="Account settings" description="Manage your profile, password, and preferences." />
       
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+      <div className="rb-feature-tabs" aria-label="Settings sections" role="group">
         {tabs.map(tab => (
           <TabButton
             key={tab.id}
@@ -888,7 +883,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 text-center">
+          <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 text-center">
             <div className="relative inline-block">
               <div className="w-32 h-32 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto overflow-hidden">
                 {uploadingAvatar ? (
@@ -903,9 +898,9 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
                   </span>
                 )}
               </div>
-              <label className="absolute bottom-0 right-0 bg-green-600 rounded-full p-2 cursor-pointer hover:bg-green-700 transition shadow-lg">
+              <label className="rb-feature-upload absolute bottom-0 right-0 bg-green-600 rounded-full p-2 cursor-pointer hover:bg-green-700 transition shadow-lg">
                 <Camera size={16} className="text-white" />
-                <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={uploadingAvatar} />
+                <input type="file" accept="image/*" aria-label="Upload profile photo" onChange={handleAvatarUpload} className="sr-only" disabled={uploadingAvatar} />
               </label>
               {avatarUrl && (
                 <button
@@ -919,10 +914,9 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
             </div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4">{profile.fullName}</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{userRole}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Avatar stored in Cloudinary CDN</p>
           </div>
           
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
+          <div className="rb-feature-panel lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4">Personal Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1156,7 +1150,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
       
       {/* Activity Log Tab */}
       {activeTab === 'activity' && (
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="rb-feature-panel bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="p-6 border-b">
             <h3 className="font-semibold">Recent Activity</h3>
             <p className="text-sm text-gray-500 mt-1">Your recent account activities</p>

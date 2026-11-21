@@ -1,7 +1,8 @@
+import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   QrCode, Scan, Camera, StopCircle, Search, Star, Gift, 
-  CheckCircle, AlertCircle, X, AlertTriangle, RefreshCw, 
+  CheckCircle, AlertCircle, X, AlertTriangle,
   ShoppingBag, UserCheck, Award, Sparkles, TrendingUp,
   ChevronRight, Clock, Zap
 } from 'lucide-react';
@@ -338,66 +339,28 @@ export default function RedemptionScanner() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="space-y-6 p-6">
+    <div className="min-w-0">
+      <div className="space-y-5">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">
-              Redemption Scanner
-            </h1>
-            <p className="text-gray-500 mt-1">
-              Scan student QR code and redeem rewards
-            </p>
-          </div>
-          <button
-            onClick={fetchRewards}
-            className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-md"
-          >
-            <RefreshCw size={18} /> Refresh
-          </button>
-        </div>
+        <DashboardHeader title="Scan & redeem" description="Scan a student QR code or search for a student to redeem a reward.">
+        <DashboardRefresh onClick={fetchRewards} />
+      </DashboardHeader>
 
-        {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Total Rewards</p>
-                <p className="text-2xl font-bold text-gray-800">{rewards.length}</p>
-              </div>
-              <Gift size={28} className="text-green-500" />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">In Stock Items</p>
-                <p className="text-2xl font-bold text-gray-800">{rewards.filter(r => r.stock > 0).length}</p>
-              </div>
-              <ShoppingBag size={28} className="text-blue-500" />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Today's Redemptions</p>
-                <p className="text-2xl font-bold text-gray-800">{recentRedemptions.length}</p>
-              </div>
-              <TrendingUp size={28} className="text-orange-500" />
-            </div>
-          </div>
-        </div>
+        <DashboardMetrics items={[
+        { label: "Reward types", value: rewards.length, icon: Gift, primary: true },
+        { label: "Reward types in stock", value: rewards.filter(reward => reward.stock > 0).length, icon: ShoppingBag },
+        { label: "Recent redemptions shown", value: recentRedemptions.length, icon: TrendingUp }
+      ]} />
 
-        {/* Two Column Layout */}
+      {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* LEFT COLUMN - Scanner & Student Info */}
           <div className="space-y-6">
             {/* Scanner Card */}
-            <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+            <div className="rb-feature-panel bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <QrCode size={20} className="text-green-600" /> Scan QR Code
+                <QrCode size={20} className="rb-dash-positive" /> Student lookup
               </h3>
 
               {cameraError && (
@@ -417,7 +380,7 @@ export default function RedemptionScanner() {
               {!scanning ? (
                 <button
                   onClick={startScanner}
-                  className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition shadow-md"
+                  className="rb-dash-button-primary w-full"
                 >
                   <Camera size={20} /> Start Camera
                 </button>
@@ -437,29 +400,23 @@ export default function RedemptionScanner() {
                 <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
                   <Search size={18} className="text-gray-400" /> Search Manually
                 </h4>
-                <div className="flex gap-2">
+                <form className="rb-feature-scan-search" onSubmit={event => { event.preventDefault(); handleSearch(); }}>
                   <input
-                    type="text"
-                    placeholder="Enter student name or ID..."
+                    type="search"
+                    placeholder="Student name or ID"
+                    aria-label="Student name or ID"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    onChange={event => setSearchQuery(event.target.value)}
+                    className="min-w-0 w-full px-3 py-2 border rounded-lg"
                   />
-                  <button
-                    onClick={handleSearch}
-                    disabled={loading}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition shadow-md disabled:opacity-50"
-                  >
-                    Search
-                  </button>
-                </div>
+                  <button type="submit" disabled={loading} className="rb-dash-button">Search</button>
+                </form>
               </div>
             </div>
 
             {/* Student Info Card */}
             {student && (
-              <div className="bg-white rounded-2xl shadow-sm p-6 border-2 border-green-200">
+              <div className="rb-feature-panel bg-white rounded-2xl shadow-sm p-6 border-2 border-green-200">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-2xl font-bold text-gray-800">{student.name}</h3>
@@ -500,7 +457,7 @@ export default function RedemptionScanner() {
 
             {/* Loading State */}
             {loading && !student && (
-              <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+              <div className="rb-feature-panel bg-white rounded-2xl shadow-sm p-12 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
                 <p className="text-gray-500">Loading student information...</p>
               </div>
@@ -508,7 +465,7 @@ export default function RedemptionScanner() {
 
             {/* No Student Selected */}
             {!student && !loading && (
-              <div className="bg-white rounded-2xl shadow-sm p-12 text-center border-2 border-dashed border-gray-300">
+              <div className="rb-feature-panel bg-white rounded-2xl shadow-sm p-12 text-center border-2 border-dashed border-gray-300">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <UserCheck size={32} className="text-gray-400" />
                 </div>
@@ -519,7 +476,7 @@ export default function RedemptionScanner() {
           </div>
 
           {/* RIGHT COLUMN - Available Rewards */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="rb-feature-panel bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                 <Gift size={20} className="text-purple-600" /> Available Rewards
@@ -654,7 +611,7 @@ export default function RedemptionScanner() {
 
         {/* Recent Redemptions Section */}
         {recentRedemptions.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm p-6">
+          <div className="rb-feature-panel bg-white rounded-2xl shadow-sm p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Clock size={20} className="text-blue-600" /> Recent Redemptions
             </h3>

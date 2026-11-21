@@ -1,3 +1,4 @@
+import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, Edit, Trash2, Search, X, BookOpen, User, RefreshCw, Users, GraduationCap, School, AlertCircle
@@ -355,67 +356,28 @@ export default function SectionManagement() {
 
   return (
     <div className="w-full max-w-full space-y-6 p-2 sm:p-0">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Section Management</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage sections from Kindergarten to Grade 6 with custom section names</p>
-        </div>
-        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:flex-nowrap">
-          <button onClick={fetchSections} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-blue-600 px-4 py-2 font-semibold text-blue-600 transition hover:bg-blue-50 sm:flex-none dark:text-blue-400 dark:hover:bg-blue-900/20">
-            <RefreshCw size={18} /> Refresh
-          </button>
-          <button onClick={() => setShowAddModal(true)} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-green-600 px-5 py-2 font-semibold text-white shadow-sm transition hover:bg-green-700 sm:flex-none">
-            <Plus size={18} /> Add Section
-          </button>
-        </div>
-      </div>
+      <DashboardHeader title="Class sections" description="Organize grade levels, assign teachers, and review section sizes.">
+        <button type="button" className="rb-dash-button-primary" onClick={() => setShowAddModal(true)}><Plus size={17} aria-hidden="true" /> Add section</button>
+        <DashboardRefresh busy={loading} onClick={fetchSections} />
+      </DashboardHeader>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
-          <p className="text-sm text-blue-600 dark:text-blue-400">Total Sections</p>
-          <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{sections.length}</p>
-        </div>
-        <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 border border-green-100 dark:border-green-800">
-          <p className="text-sm text-green-600 dark:text-green-400">Total Students</p>
-          <p className="text-2xl font-bold text-green-700 dark:text-green-300">{totalStudentsAll}</p>
-        </div>
-        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800">
-          <p className="text-sm text-purple-600 dark:text-purple-400">Grade Levels</p>
-          <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{sortedGrades.length}</p>
-        </div>
-        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4 border border-orange-100 dark:border-orange-800">
-          <p className="text-sm text-orange-600 dark:text-orange-400">Avg Students/Section</p>
-          <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-            {sections.length > 0 ? Math.round(totalStudentsAll / sections.length) : 0}
-          </p>
-        </div>
-      </div>
+      <DashboardMetrics items={[
+        { label: "Sections", value: sections.length, icon: BookOpen, primary: true },
+        { label: "Students", value: totalStudentsAll, icon: Users },
+        { label: "Grade levels", value: sortedGrades.length, icon: School },
+        { label: "Students per section", value: sections.length ? Math.round(totalStudentsAll / sections.length) : 0, icon: GraduationCap }
+      ]} />
 
-      {/* Info Alert about custom section names */}
-      <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4 dark:border-blue-500 dark:bg-blue-900/20">
-        <div className="flex items-start gap-3">
-          <AlertCircle size={20} className="mt-0.5 flex-none text-blue-500 dark:text-blue-400" />
-          <div className="min-w-0">
-            <h4 className="font-semibold text-blue-800 dark:text-blue-300">Custom Section Names</h4>
-            <p className="mt-1 text-sm leading-relaxed text-blue-700 dark:text-blue-200">
-              You can use any custom name for sections (e.g., Sampaguita, Rose, Section A, Mangga, etc.). 
-              When you update a section name, it will automatically update across all teacher dashboards and student records.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative w-full max-w-md">
+      <div className="rb-feature-toolbar"><div className="relative rb-feature-search">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
         <input
           type="text"
-          placeholder="Search by grade, section name, or teacher..."
+          aria-label="Search sections" placeholder="Grade, section, or teacher"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:border-green-500"
         />
-      </div>
+      </div></div>
 
       <div className="grid grid-cols-1 gap-6">
         {sortedGrades.length === 0 ? (
@@ -430,7 +392,7 @@ export default function SectionManagement() {
             const gradeTotalStudents = gradeSections.reduce((sum, s) => sum + (s.studentCount || 0), 0);
             
             return (
-              <div key={grade} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+              <div key={grade} className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-2xl">{getGradeIcon(grade)}</span>
@@ -444,7 +406,7 @@ export default function SectionManagement() {
                   </div>
                 </div>
                 <div className="w-full overflow-x-auto">
-                  <table className="min-w-[720px] w-full">
+                  <table className="rb-feature-table min-w-[720px] w-full">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Section Name</th>

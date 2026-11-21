@@ -33,7 +33,7 @@ import AvailableRewards from './pages/canteen/AvailableRewards';
 import CanteenSettings from './pages/canteen/Settings';
 
 // Student Pages
-const StudentDashboard = () => {
+const StudentDashboard = ({ view = 'overview' }) => {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [rewards, setRewards] = useState([]);
@@ -87,11 +87,12 @@ const StudentDashboard = () => {
     .slice(0, 6);
   const numberFormat = new Intl.NumberFormat();
 
-  const className = [student?.grade, student?.section].filter(Boolean).join(' · ');
+  const schoolClass = [student?.grade, student?.section].filter(Boolean).join(' · ');
+  const title = { points: 'My points', history: 'Recycling history' }[view] || 'Welcome, ' + (student?.fullName || user?.fullName || 'student');
 
   return (
     <div className="rb-dashboard">
-      <DashboardHeader title={'Welcome, ' + (student?.fullName || user?.fullName || 'student')} description={className || 'Your recycling points, activity, and rewards.'}>
+      <DashboardHeader title={title} description={schoolClass || 'Your recycling points, activity, and rewards.'}>
         <DashboardRefresh busy={loading} onClick={() => setRefreshKey(current => current + 1)} />
       </DashboardHeader>
 
@@ -99,13 +100,13 @@ const StudentDashboard = () => {
       {loading && !student && <p className="rb-dash-notice" role="status">Loading your recycling activity…</p>}
       {student && (
         <>
-          <DashboardMetrics label="Your recycling totals" items={[
+          {view !== 'history' && <DashboardMetrics label="Your recycling totals" items={[
             { label: 'Points balance', value: student.points, icon: Award, primary: true },
             { label: 'Bottles recycled', value: student.totalBottlesRecycled, icon: Recycle },
             { label: 'Lifetime points earned', value: student.totalPointsEarned, icon: TrendingUp }
-          ]} />
-          <div className="rb-dash-split rb-dash-even">
-            <DashboardPanel title="Reward progress" description="Rewards you can claim at the canteen">
+          ]} />}
+          <div className={view === 'overview' ? 'rb-dash-split rb-dash-even' : undefined}>
+            {view !== 'history' && <DashboardPanel title="Reward progress" description="Rewards you can claim at the canteen">
               {availableRewards.length ? (
                 <ul className="rb-dash-list">
                   {availableRewards.map(reward => {
@@ -133,9 +134,9 @@ const StudentDashboard = () => {
               ) : (
                 <DashboardEmpty icon={Gift} title={rewardsError ? 'Rewards unavailable' : 'No rewards available'}>{rewardsError}</DashboardEmpty>
               )}
-            </DashboardPanel>
+            </DashboardPanel>}
 
-            <DashboardPanel title="Recent activity" description="Recycling deposits and reward claims">
+            {view !== 'points' && <DashboardPanel title="Recent activity" description="Recycling deposits and reward claims">
               {transactions.length ? (
                 <ul className="rb-dash-list">
                   {transactions.map(transaction => {
@@ -158,7 +159,7 @@ const StudentDashboard = () => {
               ) : (
                 <DashboardEmpty icon={Recycle} title="No activity yet">Your recycling deposits and reward claims will appear here.</DashboardEmpty>
               )}
-            </DashboardPanel>
+            </DashboardPanel>}
           </div>
         </>
       )}
@@ -314,6 +315,8 @@ function AppContent() {
           </ProtectedRoute>
         }>
           <Route index element={<StudentDashboard />} />
+          <Route path="points" element={<StudentDashboard view="points" />} />
+          <Route path="history" element={<StudentDashboard view="history" />} />
           <Route path="settings" element={<StudentSettings />} />
         </Route>
         

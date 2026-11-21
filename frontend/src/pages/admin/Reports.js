@@ -1,4 +1,6 @@
+import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
 import { 
   Download, Calendar, TrendingUp, FileText, PieChart, BarChart3, 
   Printer, Filter, X, ChevronLeft, ChevronRight, Award, Users, 
@@ -36,6 +38,9 @@ ChartJS.register(
 );
 
 export default function Reports() {
+  const { darkMode } = useTheme();
+  const chartText = darkMode ? '#b9c8bd' : '#526258';
+  const chartGrid = darkMode ? '#39463c' : '#e4ebe4';
   const [reportType, setReportType] = useState('recycling');
   const [selectedYear, setSelectedYear] = useState(2026);
   const [selectedMonth, setSelectedMonth] = useState('all');
@@ -353,10 +358,14 @@ export default function Reports() {
   };
 
   const chartOptions = { 
+    scales: {
+      x: { ticks: { color: chartText }, grid: { display: false } },
+      y: { beginAtZero: true, ticks: { color: chartText }, grid: { color: chartGrid } }
+    },
     responsive: true, 
     maintainAspectRatio: false, 
     plugins: { 
-      legend: { position: 'top', labels: { font: { size: 12 } } },
+      legend: { position: 'top', labels: { color: chartText, font: { size: 12 } } },
       tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 10 }
     } 
   };
@@ -365,12 +374,12 @@ export default function Reports() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top', labels: { font: { size: 12 } } },
+      legend: { position: 'top', labels: { color: chartText, font: { size: 12 } } },
       tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', padding: 10 }
     },
     scales: {
-      y: { beginAtZero: true, title: { display: true, text: 'Points Earned' } },
-      x: { title: { display: true, text: 'Year / Month' } }
+      x: { ticks: { color: chartText }, grid: { display: false } },
+      y: { beginAtZero: true, ticks: { color: chartText }, grid: { color: chartGrid } }
     }
   };
 
@@ -542,13 +551,13 @@ export default function Reports() {
   };
 
   const reportOptions = [
-    { value: 'recycling', label: '♻️ Recycling Performance', icon: Package },
-    { value: 'rewards', label: '🎁 Rewards Redemption', icon: Gift },
-    { value: 'students', label: '👨‍🎓 Student Analytics', icon: Users },
-    { value: 'grade-performance', label: '📊 Grade Level Performance', icon: School },
-    { value: 'section-performance', label: '🏫 Section Performance', icon: Building2 },
-    { value: 'yearly-trend', label: '📈 Yearly Points Trend', icon: LineChart },
-    { value: 'monthly-trend', label: '📅 Monthly Points Trend', icon: BarChart }
+    { value: 'recycling', label: 'Recycling', icon: Package },
+    { value: 'rewards', label: 'Reward redemptions', icon: Gift },
+    { value: 'students', label: 'Students', icon: Users },
+    { value: 'grade-performance', label: 'By grade', icon: School },
+    { value: 'section-performance', label: 'By section', icon: Building2 },
+    { value: 'yearly-trend', label: 'Yearly points', icon: LineChart },
+    { value: 'monthly-trend', label: 'Monthly points', icon: BarChart }
   ];
 
   if (loading && reportData.students.length === 0) {
@@ -562,42 +571,16 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Reports & Analytics</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Real-time data from your recycling program</p>
-        </div>
-        <div className="flex gap-3">
-          <button 
-            onClick={() => setShowFilters(!showFilters)} 
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-          >
-            <Filter size={18} /> Filters
-          </button>
-          <button 
-            onClick={handleExport} 
-            className="px-4 py-2 bg-green-600 text-white rounded-xl flex items-center gap-2 hover:bg-green-700 transition shadow-sm"
-          >
-            <Download size={18} /> Export CSV
-          </button>
-          <button 
-            onClick={handlePrint} 
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl flex items-center gap-2 hover:bg-blue-700 transition shadow-sm"
-          >
-            <Printer size={18} /> Print
-          </button>
-          <button 
-            onClick={handleGenerate} 
-            className="px-4 py-2 bg-purple-600 text-white rounded-xl flex items-center gap-2 hover:bg-purple-700 transition shadow-sm"
-          >
-            <RefreshCw size={18} /> Refresh
-          </button>
-        </div>
-      </div>
+      <DashboardHeader title="Recycling reports" description="Compare activity across grades, sections, and reporting periods.">
+        <button type="button" className="rb-dash-button-primary" onClick={handleExport}><Download size={17} aria-hidden="true" /> Export CSV</button>
+        <button type="button" className="rb-dash-button" onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters}><Filter size={17} aria-hidden="true" /> Filters</button>
+        <button type="button" className="rb-dash-button" onClick={handlePrint}><Printer size={17} aria-hidden="true" /> Print</button>
+        <DashboardRefresh busy={loading} onClick={handleGenerate} />
+      </DashboardHeader>
 
       {/* Report Filters */}
       {showFilters && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 animate-fadeIn">
+        <div className="no-print rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 animate-fadeIn">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <Calendar size={20} /> Advanced Filters
@@ -705,67 +688,16 @@ export default function Reports() {
 
       {/* Report Results */}
       <div id="report-content" className="space-y-6 animate-fadeIn">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-green-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Students</p>
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{reportData.summaryStats.totalStudents}</p>
-              </div>
-              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                <Users size={20} className="text-green-600" />
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-green-600">
-              {selectedGrade !== 'all' && `Grade: ${selectedGrade} | `}
-              {selectedSection !== 'all' && `Section: ${selectedSection}`}
-              {selectedGrade === 'all' && selectedSection === 'all' && 'All Students'}
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-orange-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Points</p>
-                <p className="text-2xl font-bold text-orange-600">{reportData.summaryStats.totalPoints.toLocaleString()}</p>
-              </div>
-              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
-                <Star size={20} className="text-orange-600" />
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-orange-600">Avg: {reportData.summaryStats.averagePoints} per student</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-purple-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Total Redemptions</p>
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{reportData.summaryStats.totalRedemptions}</p>
-              </div>
-              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                <Gift size={20} className="text-purple-600" />
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-purple-600">Rewards redeemed</div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border-l-4 border-blue-600">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">Date Range</p>
-                <p className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                  {selectedYear}
-                  {selectedMonth !== 'all' && ` / ${months.find(m => m.value === selectedMonth)?.label}`}
-                </p>
-              </div>
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                <Calendar size={20} className="text-blue-600" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardMetrics items={[
+        { label: "Students", value: reportData.summaryStats.totalStudents, icon: Users, primary: true, detail: [selectedGrade !== "all" && selectedGrade, selectedSection !== "all" && selectedSection].filter(Boolean).join(" · ") || "All students" },
+        { label: "Points", value: reportData.summaryStats.totalPoints, icon: Star, detail: reportData.summaryStats.averagePoints + " avg. per student" },
+        { label: "Rewards redeemed", value: reportData.summaryStats.totalRedemptions, icon: Gift },
+        { label: "Reporting period", value: selectedMonth === "all" ? String(selectedYear) : selectedYear + " / " + (months.find(month => month.value === selectedMonth)?.label || selectedMonth), icon: Calendar }
+      ]} />
 
-        {/* Charts Row */}
+      {/* Charts Row */}
         <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+          <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
               {reportType === 'yearly-trend' ? <LineChart size={20} className="text-green-600" /> :
                reportType === 'monthly-trend' ? <BarChart size={20} className="text-blue-600" /> :
@@ -797,7 +729,7 @@ export default function Reports() {
 
         {/* Top Performing Students Section */}
         {reportType !== 'yearly-trend' && reportType !== 'monthly-trend' && reportData.topStudents.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
+          <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
               <Award size={20} className="text-yellow-500" /> Top Performing Students
             </h3>
@@ -823,14 +755,14 @@ export default function Reports() {
         )}
 
         {/* Data Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+        <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-100 dark:border-gray-700">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <FileText size={20} className="text-gray-500" /> Detailed Data
             </h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="rb-feature-table w-full">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 {renderTableHeaders()}
               </thead>

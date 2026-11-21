@@ -1,3 +1,4 @@
+import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Plus, Edit, Search, X, RefreshCw, AlertCircle, Eye, EyeOff,
@@ -492,7 +493,7 @@ export default function UserManagement() {
   const confirmConfig = getConfirmationMessage();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-w-0">
       {/* Confirmation Modal for Status Toggle */}
       <ConfirmationModal
         isOpen={showConfirmModal}
@@ -507,81 +508,35 @@ export default function UserManagement() {
         user={pendingUser}
       />
 
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
+      <div className="space-y-5">
         
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Users size={20} className="text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-800">User Management</h1>
-            </div>
-            <p className="text-sm text-gray-500 ml-12">Manage system users, roles, and access permissions</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={fetchUsers}
-              disabled={loading}
-              title="Refresh users"
-              aria-label="Refresh users"
-              className="p-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            </button>
-            <button 
-              onClick={handleOpenAddModal} 
-              className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:from-green-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg"
-            >
-              <UserPlus size={18} /> Add User
-            </button>
-          </div>
-        </div>
+        <DashboardHeader title="User accounts" description="Create user accounts and manage role-based access.">
+        <button type="button" className="rb-dash-button-primary" onClick={handleOpenAddModal}><UserPlus size={17} aria-hidden="true" /> Add user</button>
+            <DashboardRefresh busy={loading} onClick={fetchUsers} />
+      </DashboardHeader>
 
-        {/* Stats Cards - Only 3 cards now */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div className="flex items-center justify-between mb-2">
-              <Users size={22} className="text-blue-500" />
-              <span className="text-xs text-gray-400">Total</span>
-            </div>
-            <p className="text-2xl font-bold text-gray-800">{users.length}</p>
-            <p className="text-xs text-gray-500 mt-1">System Users</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div className="flex items-center justify-between mb-2">
-              <UserCheck size={22} className="text-green-500" />
-              <span className="text-xs text-gray-400">Active</span>
-            </div>
-            <p className="text-2xl font-bold text-green-600">{activeCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Active Accounts</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition">
-            <div className="flex items-center justify-between mb-2">
-              <UserX size={22} className="text-red-500" />
-              <span className="text-xs text-gray-400">Disabled</span>
-            </div>
-            <p className="text-2xl font-bold text-red-600">{disabledCount}</p>
-            <p className="text-xs text-gray-500 mt-1">Disabled Accounts</p>
-          </div>
-        </div>
+        <DashboardMetrics items={[
+        { label: "Accounts", value: users.length, icon: Users, primary: true },
+        { label: "Active", value: activeCount, icon: UserCheck },
+        { label: "Disabled", value: disabledCount, icon: UserX }
+      ]} />
 
-        {/* Search & Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="relative flex-1 min-w-[250px]">
+      {/* Search & Filters */}
+        <div className="mb-5">
+          <div className="rb-feature-toolbar">
+            <div className="relative flex-1 min-w-[12rem]">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name, email, or username..."
+                aria-label="Search user accounts" placeholder="Search name, email, or username"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
               />
             </div>
             <select
+              aria-label="Account status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -591,6 +546,7 @@ export default function UserManagement() {
               <option value="disabled">Disabled Only</option>
             </select>
             <select
+              aria-label="Account role"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -611,9 +567,9 @@ export default function UserManagement() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="rb-feature-panel bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="rb-feature-table w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-5 py-3 text-left font-semibold text-gray-600">User</th>
@@ -900,7 +856,7 @@ export default function UserManagement() {
                         </label>
                         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                           {filteredSections.length === 0 ? (
-                            <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
+                            <div className="rb-feature-panel text-center py-8 bg-white rounded-lg border border-gray-200">
                               <Building2 size={32} className="text-gray-300 mx-auto mb-2" />
                               <p className="text-xs text-gray-400">No sections available for selected grades</p>
                               {formData.assignedGrades.length === 0 && (
@@ -1096,7 +1052,7 @@ export default function UserManagement() {
                         </label>
                         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                           {filteredSections.length === 0 ? (
-                            <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
+                            <div className="rb-feature-panel text-center py-8 bg-white rounded-lg border border-gray-200">
                               <Building2 size={32} className="text-gray-300 mx-auto mb-2" />
                               <p className="text-xs text-gray-400">No sections available for selected grades</p>
                               {formData.assignedGrades.length === 0 && (

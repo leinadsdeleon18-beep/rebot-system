@@ -155,43 +155,51 @@ export default function Layout() {
       toggle?.focus();
     };
   }, [mobileNavOpen]);
-  const getNavItems = () => {
-    const role = currentUser?.role;
-
-    const navItems = {
-      administrator: [
-        { name: 'Dashboard', path: '/admin', icon: LayoutDashboard, color: 'text-blue-400' },
-        { name: 'Timestamps', path: '/admin/timestamps', icon: Clock3, color: 'text-cyan-400' },
-        { name: 'User Management', path: '/admin/users', icon: Users, color: 'text-green-400' },
-        { name: 'Section Management', path: '/admin/sections', icon: BookOpen, color: 'text-indigo-400' },
-        { name: 'Rewards', path: '/admin/rewards', icon: Gift, color: 'text-yellow-400' },
-        { name: 'Reports', path: '/admin/reports', icon: BarChart3, color: 'text-purple-400' },
-        { name: 'Inventory', path: '/admin/inventory', icon: Package, color: 'text-orange-400' },
-        { name: 'Settings', path: '/admin/settings', icon: SettingsIcon, color: 'text-gray-400' },
-      ],
-      teacher: [
-        { name: 'Dashboard', path: '/teacher', icon: LayoutDashboard, color: 'text-blue-400' },
-        { name: 'Timestamps', path: '/teacher/timestamps', icon: Clock3, color: 'text-cyan-400' },
-        { name: 'Students', path: '/teacher/students', icon: GraduationCap, color: 'text-green-400' },
-        { name: 'Settings', path: '/teacher/settings', icon: SettingsIcon, color: 'text-gray-400' },
-      ],
-      canteen_staff: [
-        { name: 'Dashboard', path: '/canteen', icon: LayoutDashboard, color: 'text-blue-400' },
-        { name: 'Timestamps', path: '/canteen/timestamps', icon: Clock3, color: 'text-cyan-400' },
-        { name: 'Scan & Redeem', path: '/canteen/scan', icon: QrCode, color: 'text-green-400' },
-        { name: 'History', path: '/canteen/history', icon: ShoppingBag, color: 'text-purple-400' },
-        { name: 'Rewards', path: '/canteen/rewards', icon: Gift, color: 'text-yellow-400' },
-        { name: 'Settings', path: '/canteen/settings', icon: SettingsIcon, color: 'text-gray-400' },
-      ],
-      student: [
-        { name: 'Dashboard', path: '/student', icon: LayoutDashboard, color: 'text-blue-400' },
-        { name: 'My Points', path: '/student/points', icon: Award, color: 'text-yellow-400' },
-        { name: 'History', path: '/student/history', icon: ShoppingBag, color: 'text-purple-400' },
-        { name: 'Settings', path: '/student/settings', icon: SettingsIcon, color: 'text-gray-400' },
-      ],
-    };
-
-    return navItems[role] || navItems.student;
+  const navByRole = {
+    administrator: [
+      { label: 'Overview', items: [
+        { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+        { name: 'Timestamps', path: '/admin/timestamps', icon: Clock3 },
+        { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
+      ] },
+      { label: 'School management', items: [
+        { name: 'User Management', path: '/admin/users', icon: Users },
+        { name: 'Section Management', path: '/admin/sections', icon: BookOpen },
+      ] },
+      { label: 'Rewards', items: [
+        { name: 'Rewards', path: '/admin/rewards', icon: Gift },
+        { name: 'Inventory', path: '/admin/inventory', icon: Package },
+      ] },
+      { label: 'Account', items: [{ name: 'Settings', path: '/admin/settings', icon: SettingsIcon }] },
+    ],
+    teacher: [
+      { label: 'Overview', items: [
+        { name: 'Dashboard', path: '/teacher', icon: LayoutDashboard },
+        { name: 'Timestamps', path: '/teacher/timestamps', icon: Clock3 },
+      ] },
+      { label: 'Classroom', items: [{ name: 'Students', path: '/teacher/students', icon: GraduationCap }] },
+      { label: 'Account', items: [{ name: 'Settings', path: '/teacher/settings', icon: SettingsIcon }] },
+    ],
+    canteen_staff: [
+      { label: 'Overview', items: [
+        { name: 'Dashboard', path: '/canteen', icon: LayoutDashboard },
+        { name: 'Timestamps', path: '/canteen/timestamps', icon: Clock3 },
+      ] },
+      { label: 'Canteen operations', items: [
+        { name: 'Scan & Redeem', path: '/canteen/scan', icon: QrCode },
+        { name: 'History', path: '/canteen/history', icon: ShoppingBag },
+        { name: 'Rewards', path: '/canteen/rewards', icon: Gift },
+      ] },
+      { label: 'Account', items: [{ name: 'Settings', path: '/canteen/settings', icon: SettingsIcon }] },
+    ],
+    student: [
+      { label: 'My recycling', items: [
+        { name: 'Dashboard', path: '/student', icon: LayoutDashboard },
+        { name: 'My Points', path: '/student/points', icon: Award },
+        { name: 'History', path: '/student/history', icon: ShoppingBag },
+      ] },
+      { label: 'Account', items: [{ name: 'Settings', path: '/student/settings', icon: SettingsIcon }] },
+    ]
   };
 
   const getRoleDisplayName = () => {
@@ -205,7 +213,9 @@ export default function Layout() {
     return names[role] || 'User';
   };
 
-  const navItems = getNavItems();
+  const navGroups = navByRole[currentUser?.role] || navByRole.student;
+  const navItems = navGroups.flatMap(group => group.items);
+  const dashboardPath = navItems[0].path;
   const currentPath = location.pathname;
   const activeNavItem = navItems
     .filter((item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`))
@@ -213,6 +223,7 @@ export default function Layout() {
       !activeItem || item.path.length > activeItem.path.length ? item : activeItem
     ), null);
 
+  const overview = currentPath === dashboardPath || currentPath === dashboardPath + "/";
   const pageTitle = activeNavItem?.name || 'Dashboard';
   const displayName = currentUser?.fullName || 'User';
   const themeAction = darkMode ? 'Light mode' : 'Dark mode';
@@ -238,20 +249,25 @@ export default function Layout() {
           </button>
         </div>
 
-        <nav className="rebot-workspace-nav" aria-label="Dashboard navigation">
-          {navItems.map(({ name, path, icon: Icon }) => (
-            <Link
-              key={path}
-              to={path}
-              onClick={() => setMobileNavOpen(false)}
-              className="rebot-workspace-link"
-              aria-label={name}
-              aria-current={activeNavItem?.path === path ? 'page' : undefined}
-              title={sidebarCollapsed ? name : undefined}
-            >
-              <Icon size={19} aria-hidden="true" />
-              <span className="rebot-sidebar-label">{name}</span>
-            </Link>
+        <nav className="rebot-workspace-nav" aria-label="Workspace navigation">
+          {navGroups.map(({ label, items }) => (
+            <div className="rebot-nav-group" key={label} role="group" aria-label={label}>
+              <p className="rebot-nav-label" aria-hidden="true">{label}</p>
+              {items.map(({ name, path, icon: Icon }) => (
+                <Link
+                  key={path}
+                  to={path}
+                  onClick={() => setMobileNavOpen(false)}
+                  className="rebot-workspace-link"
+                  aria-label={name}
+                  aria-current={activeNavItem?.path === path ? 'page' : undefined}
+                  title={sidebarCollapsed ? name : undefined}
+                >
+                  <Icon size={18} aria-hidden="true" />
+                  <span className="rebot-sidebar-label">{name}</span>
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
 
@@ -289,7 +305,11 @@ export default function Layout() {
             <button type="button" className="rebot-workspace-control rebot-sidebar-toggle" aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!sidebarCollapsed} aria-controls="rebot-workspace-sidebar" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
               {sidebarCollapsed ? <ChevronRight size={19} aria-hidden="true" /> : <ChevronLeft size={19} aria-hidden="true" />}
             </button>
-            <h1 key={pageTitle}>{pageTitle}</h1>
+            <div className="rebot-workspace-crumb">
+              <Link to={dashboardPath} className="rebot-workspace-role">{getRoleDisplayName()}</Link>
+              <ChevronRight size={14} aria-hidden="true" />
+              <h1 key={pageTitle}>{pageTitle}</h1>
+            </div>
           </div>
           <span className="rebot-workspace-date">
             <Calendar size={16} aria-hidden="true" />
@@ -297,7 +317,7 @@ export default function Layout() {
           </span>
         </header>
         <main id="rebot-workspace-content">
-          <div className="rebot-workspace-content">
+          <div className={overview ? "rebot-workspace-content" : "rebot-workspace-content rb-feature-page"}>
             <Outlet />
           </div>
         </main>

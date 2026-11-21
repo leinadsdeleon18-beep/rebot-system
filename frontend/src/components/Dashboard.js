@@ -28,10 +28,10 @@ export function DashboardRefresh({ busy, onClick }) {
 export function DashboardMetrics({ items, label = 'Dashboard totals' }) {
   return (
     <dl className="rb-dash-metrics" aria-label={label}>
-      {items.map(({ label, value, icon: Icon, primary }) => (
+      {items.map(({ label, value, icon: Icon, primary, detail }) => (
         <div key={label} className={primary ? 'rb-dash-metric is-primary' : 'rb-dash-metric'}>
           <dt><Icon size={19} aria-hidden="true" /> {label}</dt>
-          <dd>{typeof value === 'number' ? numbers.format(value) : value ?? '0'}</dd>
+          <dd>{typeof value === 'number' ? numbers.format(value) : value ?? '0'}{detail && <small>{detail}</small>}</dd>
         </div>
       ))}
     </dl>

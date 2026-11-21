@@ -1,5 +1,6 @@
+import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
-import { Gift, Package, AlertTriangle, ShoppingBag, Edit2, Plus, RefreshCw, X, Coffee, Utensils, Book, Gamepad, MoreHorizontal } from 'lucide-react';
+import { Gift, Package, AlertTriangle, ShoppingBag, Edit2, Plus, Coffee, Utensils, Book, Gamepad, MoreHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiUrl } from '../../services/apiService';
 
@@ -235,86 +236,29 @@ export default function AvailableRewards() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-w-0">
+      <div className="space-y-5">
         
         {/* Header Section */}
-        <div className="flex justify-between items-center flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Available Rewards</h1>
-            <p className="text-gray-500 mt-1">Manage and monitor your reward inventory</p>
-          </div>
-          <div className="flex gap-3">
-            <button 
-              onClick={fetchRewards}
-              className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition shadow-sm flex items-center gap-2"
-            >
-              <RefreshCw size={18} /> Refresh
-            </button>
-            <button 
-              onClick={openAddModal}
-              className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition shadow-md font-medium flex items-center gap-2"
-            >
-              <Plus size={18} /> Add New Reward
-            </button>
-          </div>
-        </div>
+        <DashboardHeader title="Canteen rewards" description="Manage the rewards students can claim and keep stock up to date.">
+        <button type="button" className="rb-dash-button-primary" onClick={openAddModal}><Plus size={17} aria-hidden="true" /> Add reward</button>
+          <DashboardRefresh busy={loading} onClick={fetchRewards} />
+      </DashboardHeader>
 
-        {/* Stats Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Total Items</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{rewards.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Gift size={24} className="text-blue-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Total Stock</p>
-                <p className="text-3xl font-bold text-green-600 mt-1">{totalStock}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <Package size={24} className="text-green-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Low Stock</p>
-                <p className="text-3xl font-bold text-yellow-600 mt-1">{lowStockItems}</p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                <AlertTriangle size={24} className="text-yellow-600" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition border border-gray-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Out of Stock</p>
-                <p className="text-3xl font-bold text-red-600 mt-1">{outOfStockItems}</p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <ShoppingBag size={24} className="text-red-600" />
-              </div>
-            </div>
-          </div>
-        </div>
+        <DashboardMetrics items={[
+        { label: "Reward types", value: rewards.length, icon: Gift, primary: true },
+        { label: "Units in stock", value: totalStock, icon: Package },
+        { label: "Low stock", value: lowStockItems, icon: AlertTriangle },
+        { label: "Out of stock", value: outOfStockItems, icon: ShoppingBag }
+      ]} />
 
-        {/* Search and Filters */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <div className="flex flex-wrap gap-4 items-center justify-between">
+      {/* Search and Filters */}
+        <div>
+          <div className="rb-feature-toolbar">
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="Search rewards by name..."
+                aria-label="Search canteen rewards" placeholder="Search reward names"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-5 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -350,7 +294,7 @@ export default function AvailableRewards() {
 
         {/* Rewards Grid - NO ICONS ON CARDS */}
         {filteredRewards.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
+          <div className="rb-feature-panel bg-white rounded-2xl p-12 text-center border border-gray-100">
             <p className="text-gray-500 text-lg">No rewards found</p>
             <p className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</p>
             <button
@@ -370,7 +314,7 @@ export default function AvailableRewards() {
               return (
                 <div 
                   key={reward._id} 
-                  className={`group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border ${
+                  className={`rb-feature-panel group bg-white rounded-2xl shadow-sm transition-all duration-300 overflow-hidden border ${
                     isOutOfStock ? 'border-red-200 opacity-60' : 'border-gray-100 hover:border-gray-200'
                   }`}
                 >

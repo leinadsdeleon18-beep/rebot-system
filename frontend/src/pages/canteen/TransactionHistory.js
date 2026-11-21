@@ -1,5 +1,6 @@
+import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
-import { History, Search, Download, Calendar, ChevronLeft, ChevronRight, RefreshCw, Filter, X } from 'lucide-react';
+import { History, Users, Search, Download, Calendar, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiUrl } from '../../services/apiService';
 
@@ -112,56 +113,22 @@ export default function TransactionHistory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">Transaction History</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">View and export all redemption and recycling transactions</p>
-        </div>
-        <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3">
-          <button 
-            onClick={() => setShowFilters(!showFilters)}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl font-semibold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-          >
-            <Filter size={18} /> Filters
-          </button>
-          <button 
-            onClick={fetchTransactions}
-            className="px-4 py-2 bg-purple-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-purple-700 transition shadow-sm"
-          >
-            <RefreshCw size={18} /> Refresh
-          </button>
-          <button 
-            onClick={handleExport} 
-            className="px-4 py-2 bg-green-600 text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-green-700 transition shadow-sm"
-          >
-            <Download size={18} /> Export CSV
-          </button>
-        </div>
-      </div>
+      <DashboardHeader title="Transaction history" description="Find and export reward claims and recycling deposits.">
+        <button type="button" className="rb-dash-button-primary" onClick={handleExport}><Download size={17} aria-hidden="true" /> Export CSV</button>
+        <button type="button" className="rb-dash-button" onClick={() => setShowFilters(!showFilters)} aria-expanded={showFilters}><Filter size={17} aria-hidden="true" /> Filters</button>
+        <DashboardRefresh busy={loading} onClick={fetchTransactions} />
+      </DashboardHeader>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border-l-4 border-blue-600">
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Total Transactions</p>
-          <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{filteredTransactions.length}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border-l-4 border-red-600">
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Redemptions</p>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{totalRedemptions}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border-l-4 border-green-600">
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Recycling Events</p>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalEarnings}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border-l-4 border-orange-600">
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Unique Students</p>
-          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{new Set(filteredTransactions.map(t => t.student)).size}</p>
-        </div>
-      </div>
+      <DashboardMetrics items={[
+        { label: "Transactions", value: filteredTransactions.length, icon: History, primary: true },
+        { label: "Redemptions", value: totalRedemptions, icon: History },
+        { label: "Recycling deposits", value: totalEarnings, icon: History },
+        { label: "Students", value: new Set(filteredTransactions.map(transaction => transaction.student)).size, icon: Users }
+      ]} />
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+        <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <Filter size={20} /> Filter Transactions
@@ -278,9 +245,9 @@ export default function TransactionHistory() {
       </div>
 
       {/* Transactions Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+      <div className="rb-feature-panel bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="rb-feature-table w-full">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
