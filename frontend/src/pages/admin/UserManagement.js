@@ -1,3 +1,4 @@
+import WorkspaceDialog from '../../components/WorkspaceDialog';
 import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
@@ -5,7 +6,7 @@ import {
   Users, Plus, Edit, Search, X, RefreshCw, AlertCircle, Eye, EyeOff,
   UserCheck, UserX, Shield, UserCog, BookOpen, Copy, Check, Key,
   Mail, Award, Save, UserPlus, Settings, GraduationCap, Sparkles,
-  Lock, Filter, ArrowUpDown, CheckCircle, XCircle, Briefcase, Globe,
+  Filter, ArrowUpDown, CheckCircle, XCircle, Briefcase, Globe,
   Crown, Calendar, Clock, MoreVertical, Trash2, School, Building2,
   UserCircle, AtSign, Mail as MailIcon, Phone, MapPin, BadgeCheck,
   Star, Trophy, Zap, Heart, Info
@@ -901,200 +902,62 @@ export default function UserManagement() {
           </div>
         )}
 
-        {/* Edit User Modal */}
         {showEditModal && selectedUser && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden animate-slideUp">
-              <div className="flex h-full">
-                <div className="flex-1 p-6 overflow-y-auto">
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Settings size={18} className="text-blue-600" />
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-800">Edit User</h3>
-                      </div>
-                      <p className="text-sm text-gray-500 ml-10">Update user information and permissions</p>
-                    </div>
-                    <button onClick={() => setShowEditModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition">
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl mb-6">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-md ${
-                      selectedUser.role?.name === 'administrator' ? 'bg-purple-500' :
-                      selectedUser.role?.name === 'teacher' ? 'bg-blue-500' : 'bg-gray-500'
-                    }`}>
-                      {getInitials(selectedUser.fullName)}
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-800 text-lg">{selectedUser.fullName}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeClass(selectedUser.role?.name)}`}>
-                          {getRoleIcon(selectedUser.role?.name)} {selectedUser.role?.name?.replace('_', ' ')}
-                        </span>
-                        <span className="text-xs text-gray-400">Joined {new Date(selectedUser.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Username</label>
-                      <div className="relative">
-                        <AtSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          value={formData.username}
-                          disabled
-                          className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
-                        />
-                      </div>
-                      <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                        <Lock size={12} /> Username cannot be changed
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name <span className="text-red-500">*</span></label>
-                      <div className="relative">
-                        <UserCircle size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="text"
-                          value={formData.fullName}
-                          onChange={(e) => setFormData({...formData, fullName: e.target.value})}
-                          className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
-                      <div className="relative">
-                        <MailIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          type="email"
-                          value={formData.email}
-                          disabled
-                          className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
-                        />
-                      </div>
-                      <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                        <Lock size={12} /> Email cannot be changed for security
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Role</label>
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${getRoleBadgeClass(formData.role)}`}>
-                        {getRoleIcon(formData.role)}
-                        <span className="font-medium">{formData.role?.replace('_', ' ') || 'Unknown'}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                        <Lock size={12} /> Role cannot be changed. Contact super admin for role changes.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex gap-3 pt-5 border-t border-gray-100">
-                    <button onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition">
-                      Cancel
-                    </button>
-                    <button onClick={handleUpdateUser} disabled={isSubmitting} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold hover:from-green-600 hover:to-green-700 transition disabled:opacity-50 shadow-md">
-                      {isSubmitting ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </div>
-
-                {formData.role === 'teacher' && (
-                  <div className="w-96 bg-gray-50 border-l border-gray-100 p-6 overflow-y-auto">
-                    <div className="mb-6">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Award size={18} className="text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-800">Teacher Access Settings</h4>
-                          <p className="text-xs text-gray-500">Configure grade and section permissions</p>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-6">
-                        <label className="block text-xs font-semibold text-gray-600 mb-3">Assigned Grade Levels</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {gradeLevels.map(grade => (
-                            <button
-                              key={grade.code}
-                              onClick={() => handleGradeChange(grade.code)}
-                              className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                                formData.assignedGrades.includes(grade.code)
-                                  ? 'bg-green-500 text-white shadow-md'
-                                  : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              <span>{grade.name}</span>
-                              {formData.assignedGrades.includes(grade.code) && <CheckCircle size={14} />}
-                            </button>
-                          ))}
-                        </div>
-                        <p className="text-xs text-gray-400 mt-3 flex items-center gap-1">
-                          <AlertCircle size={12} /> Leave all unchecked = Access to all grades
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-600 mb-3">
-                          Assigned Sections 
-                          {formData.assignedGrades.length > 0 && (
-                            <span className="text-xs text-blue-600 ml-2">(Filtered by selected grades)</span>
-                          )}
-                        </label>
-                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                          {filteredSections.length === 0 ? (
-                            <div className="rb-feature-panel text-center py-8 bg-white rounded-lg border border-gray-200">
-                              <Building2 size={32} className="text-gray-300 mx-auto mb-2" />
-                              <p className="text-xs text-gray-400">No sections available for selected grades</p>
-                              {formData.assignedGrades.length === 0 && (
-                                <p className="text-xs text-gray-400 mt-1">Select grades first to filter sections</p>
-                              )}
-                            </div>
-                          ) : (
-                            filteredSections.map(section => (
-                              <label
-                                key={section._id}
-                                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                                  formData.assignedSections.includes(section._id)
-                                    ? 'bg-green-50 border-green-200'
-                                    : 'bg-white border-gray-200 hover:bg-gray-50'
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={formData.assignedSections.includes(section._id)}
-                                  onChange={() => handleSectionChange(section._id)}
-                                  className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                                />
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-800">{section.sectionName}</p>
-                                  <p className="text-xs text-gray-400">{section.gradeLevel}</p>
-                                </div>
-                                <School size={14} className="text-gray-300" />
-                              </label>
-                            ))
-                          )}
-                        </div>
-                        <p className="text-xs text-blue-600 mt-3 flex items-center gap-1">
-                          <BadgeCheck size={12} /> Section access takes precedence over grade assignment
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+          <WorkspaceDialog
+            title="Edit user"
+            busy={isSubmitting}
+            onClose={() => setShowEditModal(false)}
+            onSubmit={handleUpdateUser}
+            actions={
+              <>
+                <button type="button" className="rb-dash-button" disabled={isSubmitting} onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="rb-dash-button-primary" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save changes'}</button>
+              </>
+            }
+          >
+            <dl className="rb-dialog-details">
+              <div><dt>Username</dt><dd>{formData.username || '—'}</dd></div>
+              <div><dt>Role</dt><dd>{formData.role?.replaceAll('_', ' ') || 'Unknown'}</dd></div>
+              <div><dt>Email address</dt><dd>{formData.email || '—'}</dd></div>
+              {selectedUser.createdAt && <div><dt>Joined</dt><dd>{new Date(selectedUser.createdAt).toLocaleDateString()}</dd></div>}
+            </dl>
+            <div className="rb-dialog-field">
+              <label htmlFor="edit-user-name">Full name</label>
+              <input id="edit-user-name" value={formData.fullName} required disabled={isSubmitting} data-dialog-focus
+                onChange={event => setFormData({ ...formData, fullName: event.target.value })} />
             </div>
-          </div>
+            {formData.role === 'teacher' && (
+              <section className="rb-dialog-access" aria-labelledby="edit-teacher-access">
+                <h3 id="edit-teacher-access">Teacher access</h3>
+                <fieldset disabled={isSubmitting}>
+                  <legend>Assigned grades</legend>
+                  <p className="rb-dialog-hint">Leave all grades unchecked to allow access to every grade.</p>
+                  <div className="rb-dialog-options">
+                    {gradeLevels.map(grade => (
+                      <label key={grade.code}>
+                        <input type="checkbox" checked={formData.assignedGrades.includes(grade.code)} onChange={() => handleGradeChange(grade.code)} />
+                        {grade.name}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <fieldset disabled={isSubmitting}>
+                  <legend>Assigned sections</legend>
+                  <p className="rb-dialog-hint">Section assignments take precedence over grade assignments.</p>
+                  {filteredSections.length ? (
+                    <div className="rb-dialog-options">
+                      {filteredSections.map(section => (
+                        <label key={section._id}>
+                          <input type="checkbox" checked={formData.assignedSections.includes(section._id)} onChange={() => handleSectionChange(section._id)} />
+                          <span>{section.sectionName}<small>{section.gradeLevel}</small></span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : <p className="rb-dialog-hint">No sections available.</p>}
+                </fieldset>
+              </section>
+            )}
+          </WorkspaceDialog>
         )}
       </div>
 

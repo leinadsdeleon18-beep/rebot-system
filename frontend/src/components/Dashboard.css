@@ -190,7 +190,7 @@
 .rb-dash-table td small { display: block; color: var(--workspace-muted); overflow-wrap: anywhere; }
 
 .rb-dash-search { display: flex; align-items: center; gap: 0.45rem; color: var(--workspace-muted); }
-.rb-dash-search input, .rb-dash-dialog input {
+.rb-dash-search input {
   min-width: 0;
   width: min(100%, 14rem);
   padding: 0.42rem 0.55rem;
@@ -201,21 +201,6 @@
   font-size: 0.88rem;
 }
 
-.rb-dash-dialog {
-  position: fixed;
-  inset: 0;
-  width: min(calc(100% - 2rem), 28rem);
-  max-height: calc(100% - 2rem);
-  margin: auto;
-  overflow: auto;
-  border: 1px solid var(--workspace-border);
-  border-radius: var(--dash-radius);
-  background: var(--workspace-surface);
-  color: var(--workspace-text);
-}
-
-.rb-dash-dialog::backdrop { background: #11271db0; }
-.rb-dash-dialog input { width: 100%; margin-block: 0.3rem 0.75rem; }
 .rb-dash-chart { position: relative; height: 15.5rem; min-width: 0; }
 .rb-dash-track { height: 0.52rem; overflow: hidden; border-radius: 999px; background: var(--workspace-hover); }
 .rb-dash-track > div { height: 100%; border-radius: inherit; background: var(--workspace-green); }

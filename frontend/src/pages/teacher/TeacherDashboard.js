@@ -1,3 +1,4 @@
+import WorkspaceDialog from '../../components/WorkspaceDialog';
 import { getAuthToken, getSessionUser } from '../../services/authSession';
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -697,90 +698,37 @@ export default function TeacherDashboard() {
           <DashboardEmpty icon={Award} title="No student standings yet" />
         )}
       </DashboardPanel>
-      {/* Certificate Modal */}
       {showCertificateModal && certificateData && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                <Award className="text-yellow-500" /> Certificate of Achievement
-              </h3>
-              <button onClick={() => setShowCertificateModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={24} />
+        <WorkspaceDialog
+          title="Certificate preview"
+          className="rb-certificate-dialog"
+          onClose={() => setShowCertificateModal(false)}
+          actions={
+            <>
+              <button type="button" className="rb-dash-button" onClick={() => setShowCertificateModal(false)}>Close</button>
+              <button type="button" className="rb-dash-button-primary" onClick={handlePrintCertificate}>
+                <Printer size={16} aria-hidden="true" /> Print certificate
               </button>
+            </>
+          }
+        >
+          <article id="certificate-content" className="rb-certificate" aria-labelledby="certificate-title">
+            <p className="rb-certificate-school">Patubig Elementary School</p>
+            <p className="rb-certificate-program">ReBot Recycling Program</p>
+            <h3 id="certificate-title">Certificate of Achievement</h3>
+            <p>Presented to</p>
+            <p className="rb-certificate-recipient">{certificateData.student.name}</p>
+            <p>For reaching the <strong>{certificateData.badge.name}</strong> milestone with <strong>{Number(certificateData.student.points).toLocaleString()} points</strong>.</p>
+            <div className="rb-certificate-signatures">
+              <span>Program Coordinator</span>
+              <span>School Principal</span>
             </div>
-            <div className="p-8" id="certificate-content">
-              <div className="certificate border-2 border-yellow-500 rounded-2xl p-8 relative" style={{ background: 'white' }}>
-                <div className="text-center">
-                  <div className="mb-6">
-                    <div className="text-2xl font-bold text-green-800">PATUBIG ELEMENTARY SCHOOL</div>
-                    <div className="text-sm text-gray-500">ReBot Recycling Program</div>
-                  </div>
-                  
-                  <div className="text-4xl font-bold text-green-700 mb-4">Certificate of Achievement</div>
-                  
-                  <Trophy className="mx-auto mb-4 text-green-800" size={44} strokeWidth={1.5} aria-hidden="true" />
-                  
-                  <div className="text-lg text-gray-600 mb-2">This certificate is proudly presented to</div>
-                  
-                  <div className="text-4xl font-bold text-green-800 mb-4 border-b-4 border-yellow-400 inline-block pb-2">
-                    {certificateData.student.name}
-                  </div>
-                  
-                  <div className="text-md text-gray-600 mt-4 mb-4">
-                    for outstanding achievement in recycling and environmental stewardship
-                  </div>
-                  
-                  <div className="inline-block bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-full px-8 py-4 mb-4">
-                    <certificateData.badge.icon className="mx-auto mb-2 text-yellow-800" size={32} strokeWidth={1.5} aria-hidden="true" />
-                    <div className="text-2xl font-bold text-yellow-800">{certificateData.badge.name}</div>
-                  </div>
-                  
-                  <div className="text-4xl font-bold text-yellow-600 mb-4">
-                    {certificateData.student.points} Points
-                  </div>
-                  
-                  <div className="text-sm text-gray-600 mb-4">
-                    for reaching the {certificateData.badge.name} milestone in the school's recycling rewards program!
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-8 mt-8 pt-4 border-t">
-                    <div className="text-center">
-                      <div className="border-t-2 border-gray-400 pt-2 mt-6">_________________________</div>
-                      <div className="text-sm text-gray-500">Program Coordinator</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="border-t-2 border-gray-400 pt-2 mt-6">_________________________</div>
-                      <div className="text-sm text-gray-500">School Principal</div>
-                    </div>
-                  </div>
-                  
-                  <div className="text-sm text-gray-500 mt-6">
-                    Date: {certificateData.today}
-                  </div>
-                  
-                  <div className="text-xs text-gray-400 mt-2">
-                    Certificate ID: {certificateData.certId}
-                  </div>
-                </div>
-              </div>
+            <div className="rb-certificate-meta">
+              <span>{certificateData.today}</span>
+              <span>Certificate ID {certificateData.certId}</span>
             </div>
-            <div className="sticky bottom-0 bg-gray-50 border-t p-4 flex justify-end gap-3">
-              <button
-                onClick={handlePrintCertificate}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition flex items-center gap-2"
-              >
-                <Printer size={18} /> Print Certificate
-              </button>
-              <button
-                onClick={() => setShowCertificateModal(false)}
-                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+          </article>
+        </WorkspaceDialog>
       )}
 
       {/* Report Modal */}
@@ -965,12 +913,6 @@ export default function TeacherDashboard() {
           }
           #certificate-content, #certificate-content * {
             visibility: visible;
-          }
-          #certificate-content {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
           }
           #report-content, #report-content * {
             visibility: visible;

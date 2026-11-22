@@ -1,6 +1,7 @@
+import WorkspaceDialog from '../../components/WorkspaceDialog';
 import { getAuthToken } from '../../services/authSession';
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowUpRight, Coins, Minus, Plus, Recycle, Search, Users, X } from 'lucide-react';
+﻿import React, { useCallback, useEffect, useState } from 'react';
+import { ArrowDown, ArrowUpRight, Coins, Minus, Plus, Recycle, Search, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { DashboardEmpty, DashboardHeader, DashboardMetrics, DashboardPanel, DashboardRefresh } from '../../components/Dashboard';
@@ -154,33 +155,36 @@ export default function AdminDashboard() {
 }
 
 function AdjustPoints({ student, saving, onClose, onAdjust }) {
-  const dialog = useRef(null);
-  const input = useRef(null);
   const [points, setPoints] = useState('');
   const amount = Number(points);
   const disabled = saving || !Number.isInteger(amount) || amount <= 0;
 
-  useEffect(() => {
-    const element = dialog.current;
-    element.showModal();
-    input.current?.focus();
-    return () => element.close();
-  }, []);
-
   return (
-    <dialog ref={dialog} className="rb-dash-dialog" aria-labelledby="adjust-points-title" onCancel={event => { event.preventDefault(); if (!saving) onClose(); }}>
-      <div className="rb-dash-panel-header">
-        <div><h3 id="adjust-points-title">Adjust student points</h3><p>{student.fullName} · {Number(student.points ?? 0).toLocaleString()} pts</p></div>
-        <button className="rb-dash-button" type="button" aria-label="Close" onClick={onClose} disabled={saving}><X size={18} aria-hidden="true" /></button>
+    <WorkspaceDialog
+      title="Adjust student points"
+      subtitle={student.fullName}
+      className="rb-points-dialog"
+      busy={saving}
+      onClose={onClose}
+      actions={
+        <>
+          <button type="button" className="rb-dash-button-danger" disabled={disabled} onClick={() => onAdjust(-amount)}>
+            <Minus size={16} aria-hidden="true" /> Remove points
+          </button>
+          <button type="button" className="rb-dash-button-primary" disabled={disabled} onClick={() => onAdjust(amount)}>
+            <Plus size={16} aria-hidden="true" /> Add points
+          </button>
+        </>
+      }
+    >
+      <dl className="rb-dialog-details">
+        <div><dt>Current balance</dt><dd>{Number(student.points ?? 0).toLocaleString()} points</dd></div>
+      </dl>
+      <div className="rb-dialog-field">
+        <label htmlFor="student-adjustment">Adjustment amount</label>
+        <input id="student-adjustment" type="number" inputMode="numeric" min="1" step="1" value={points}
+          onChange={event => setPoints(event.target.value)} disabled={saving} data-dialog-focus />
       </div>
-      <div className="rb-dash-panel-body">
-        <label className="block text-sm font-semibold" htmlFor="student-adjustment">Points to add or remove</label>
-        <input id="student-adjustment" ref={input} type="number" min="1" step="1" value={points} onChange={event => setPoints(event.target.value)} disabled={saving} />
-        <div className="rb-dash-actions">
-          <button type="button" className="rb-dash-button-primary" disabled={disabled} onClick={() => onAdjust(amount)}><Plus size={16} aria-hidden="true" /> Add points</button>
-          <button type="button" className="rb-dash-button-danger" disabled={disabled} onClick={() => onAdjust(-amount)}><Minus size={16} aria-hidden="true" /> Remove points</button>
-        </div>
-      </div>
-    </dialog>
+    </WorkspaceDialog>
   );
 }

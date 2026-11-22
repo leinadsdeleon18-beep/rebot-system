@@ -1,0 +1,132 @@
+.rb-workspace-dialog {
+  inset: 0;
+  width: min(calc(100% - 1.5rem), 32rem);
+  max-height: calc(100dvh - 1.5rem);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.65rem;
+  background: var(--workspace-surface);
+  color: var(--workspace-text);
+  box-shadow: 0 1rem 3.5rem #101a142e;
+}
+
+.rb-workspace-dialog::backdrop { background: rgb(14 21 17 / 0.65); }
+.dark .rb-workspace-dialog { color-scheme: dark; }
+.rb-dialog-header, .rb-dialog-actions {
+  position: sticky;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.8rem 1.25rem;
+  background: var(--workspace-surface);
+}
+
+.rb-dialog-header { top: 0; justify-content: space-between; border-bottom: 1px solid var(--workspace-border); }
+.rb-dialog-header h2 { margin: 0; font-size: 1.12rem; font-weight: 700; }
+.rb-dialog-header p, .rb-dialog-hint { margin-top: 0.2rem; color: var(--workspace-muted); font-size: 0.85rem; }
+.rb-dialog-close {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.35rem;
+  color: var(--workspace-muted);
+}
+.rb-dialog-close:hover { background: var(--workspace-hover); }
+.rb-dialog-body { display: grid; gap: 1rem; padding: 1.25rem; }
+.rb-dialog-actions { bottom: 0; flex-wrap: wrap; justify-content: flex-end; border-top: 1px solid var(--workspace-border); }
+.rb-dialog-actions button:disabled, .rb-dialog-close:disabled { opacity: 0.52; cursor: default; }
+.rb-dialog-field { display: grid; gap: 0.35rem; min-width: 0; }
+.rb-dialog-field label, .rb-dialog-access legend { font-size: 0.9rem; font-weight: 650; }
+.rb-dialog-field :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.65rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.35rem;
+  background: var(--workspace-surface);
+  color: var(--workspace-text);
+  font-size: 1rem;
+}
+.rb-dialog-field :is(input, select):focus-visible {
+  outline: 2px solid var(--workspace-green);
+  outline-offset: 1px;
+}
+.rb-dialog-select { position: relative; }
+.rb-dialog-select select { appearance: none; padding-inline-end: 2rem; }
+.rb-dialog-select svg { position: absolute; inset-inline-end: 0.65rem; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.rb-dialog-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1rem;
+  padding: 0.8rem;
+  border: 1px solid var(--workspace-border);
+  border-radius: 0.35rem;
+  background: var(--workspace-hover);
+}
+.rb-dialog-details dt { color: var(--workspace-muted); font-size: 0.82rem; }
+.rb-dialog-details dd { overflow-wrap: anywhere; font-size: 0.91rem; font-weight: 600; }
+.rb-dialog-access { display: grid; gap: 0.75rem; padding-top: 0.85rem; border-top: 1px solid var(--workspace-border); }
+.rb-dialog-access h3 { font-size: 1rem; font-weight: 700; }
+.rb-dialog-access fieldset { min-width: 0; }
+.rb-dialog-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 0.45rem;
+  max-height: 10rem;
+  margin-top: 0.4rem;
+  overflow-y: auto;
+}
+.rb-dialog-options label { display: flex; align-items: start; gap: 0.45rem; padding: 0.45rem; font-size: 0.86rem; }
+.rb-dialog-options label:has(:checked) { background: var(--workspace-active); }
+.rb-dialog-options input { margin-top: 0.2rem; accent-color: #236b4c; }
+.rb-dialog-options small { display: block; color: var(--workspace-muted); }
+.rb-points-dialog { width: min(calc(100% - 1.5rem), 26rem); }
+
+.rb-certificate-dialog { width: min(calc(100% - 1.5rem), 53rem); }
+.rb-certificate-dialog .rb-dialog-body { background: var(--workspace-canvas); }
+.rb-certificate {
+  padding: clamp(1rem, 5vw, 3rem);
+  border: 1px solid #82978b;
+  background: #fff;
+  color: #24382e;
+  text-align: center;
+}
+.rb-certificate-school { font-weight: 700; }
+.rb-certificate p { margin-block: 0.3rem; }
+.rb-certificate-program, .rb-certificate-meta { color: #526359; font-size: 0.87rem; }
+.rb-certificate h3, .rb-certificate-recipient {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.rb-certificate h3 { margin-block: clamp(1rem, 4vw, 2rem) 0.75rem; font-size: clamp(1.7rem, 5vw, 2.7rem); }
+.rb-certificate .rb-certificate-recipient { margin-block: 0.35rem 0.8rem; font-size: clamp(1.5rem, 4vw, 2.35rem); }
+.rb-certificate-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 2.25rem auto 1.1rem; max-width: 29rem; }
+.rb-certificate-signatures span { padding-top: 0.35rem; border-top: 1px solid #82978b; font-size: 0.86rem; }
+.rb-certificate-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.3rem 1rem; }
+
+@media print {
+  .rebot-workspace:has(.rb-certificate-dialog[open]) :is(.rebot-sidebar, .rebot-workspace-header),
+  .rb-dashboard:has(.rb-certificate-dialog[open]) > :not(.rb-certificate-dialog),
+  .rb-certificate-dialog :is(.rb-dialog-header, .rb-dialog-actions) { display: none; }
+  .rebot-workspace:has(.rb-certificate-dialog[open]) .rebot-workspace-body { margin: 0; }
+  .rb-certificate-dialog[open] {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    border: 0;
+    box-shadow: none;
+  }
+  .rb-certificate-dialog::backdrop { background: transparent; }
+  .rb-certificate-dialog .rb-dialog-body { display: block; padding: 0; }
+}

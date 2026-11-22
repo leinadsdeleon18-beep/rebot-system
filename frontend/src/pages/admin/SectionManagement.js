@@ -1,8 +1,9 @@
+import WorkspaceDialog from '../../components/WorkspaceDialog';
 import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, Edit, Trash2, Search, X, BookOpen, User, RefreshCw, Users, GraduationCap, School, AlertCircle
+  Plus, Edit, Trash2, Search, X, BookOpen, User, RefreshCw, Users, GraduationCap, School, ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { apiUrl } from '../../services/apiService';
@@ -614,73 +615,48 @@ export default function SectionManagement() {
         </div>
       )}
 
-      {/* Edit Section Modal */}
       {showEditModal && editingSection && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">Edit Section</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Grade Level *</label>
-                <select 
-                  value={formData.gradeLevel} 
-                  onChange={(e) => setFormData({ ...formData, gradeLevel: e.target.value })} 
-                  className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  {gradeLevels.map(grade => (
-                    <option key={grade} value={grade}>
-                      {grade === 'Kindergarten' ? '🎓 Kindergarten' : `📚 ${grade}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Custom Section Name *</label>
-                <input 
-                  type="text" 
-                  value={formData.sectionName} 
-                  onChange={(e) => setFormData({ ...formData, sectionName: e.target.value })} 
-                  placeholder="Enter custom section name" 
-                  className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500" 
-                />
-                <p className="text-xs text-blue-500 mt-1">
-                  Current: "{editingSection?.sectionName}" → New: "{formData.sectionName || '...'}"
-                </p>
-                <p className="text-xs text-orange-500 mt-1">
-                  ⚠️ Changing the section name will update it everywhere (teacher dashboards, student records, etc.)
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-1">Assign Teacher</label>
-                <select 
-                  value={formData.adviser} 
-                  onChange={(e) => setFormData({ ...formData, adviser: e.target.value })} 
-                  className="w-full px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">-- Select Teacher --</option>
-                  {teachers.map(teacher => (
-                    <option key={teacher._id} value={teacher._id}>
-                      {teacher.fullName} ({teacher.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <button 
-                onClick={handleUpdateSection} 
-                disabled={isSubmitting} 
-                className="w-full bg-green-600 text-white py-2 rounded-xl font-semibold hover:bg-green-700 transition disabled:opacity-50"
-              >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
+        <WorkspaceDialog
+          title="Edit section"
+          busy={isSubmitting}
+          onClose={() => setShowEditModal(false)}
+          onSubmit={handleUpdateSection}
+          actions={
+            <>
+              <button type="button" className="rb-dash-button" disabled={isSubmitting} onClick={() => setShowEditModal(false)}>Cancel</button>
+              <button type="submit" className="rb-dash-button-primary" disabled={isSubmitting}>{isSubmitting ? 'Saving…' : 'Save changes'}</button>
+            </>
+          }
+        >
+          <div className="rb-dialog-field">
+            <label htmlFor="edit-section-grade">Grade level</label>
+            <div className="rb-dialog-select">
+              <select id="edit-section-grade" value={formData.gradeLevel} required disabled={isSubmitting}
+                onChange={event => setFormData({ ...formData, gradeLevel: event.target.value })}>
+                {gradeLevels.map(grade => <option key={grade} value={grade}>{grade}</option>)}
+              </select>
+              <ChevronDown size={16} aria-hidden="true" />
             </div>
           </div>
-        </div>
+          <div className="rb-dialog-field">
+            <label htmlFor="edit-section-name">Section name</label>
+            <input id="edit-section-name" value={formData.sectionName} required disabled={isSubmitting} data-dialog-focus
+              aria-describedby="edit-section-name-hint"
+              onChange={event => setFormData({ ...formData, sectionName: event.target.value })} />
+            <p id="edit-section-name-hint" className="rb-dialog-hint">A rename also updates student records and teacher dashboards.</p>
+          </div>
+          <div className="rb-dialog-field">
+            <label htmlFor="edit-section-adviser">Assigned teacher</label>
+            <div className="rb-dialog-select">
+              <select id="edit-section-adviser" value={formData.adviser} disabled={isSubmitting}
+                onChange={event => setFormData({ ...formData, adviser: event.target.value })}>
+                <option value="">Unassigned</option>
+                {teachers.map(teacher => <option key={teacher._id} value={teacher._id}>{teacher.fullName} ({teacher.email})</option>)}
+              </select>
+              <ChevronDown size={16} aria-hidden="true" />
+            </div>
+          </div>
+        </WorkspaceDialog>
       )}
     </div>
   );
