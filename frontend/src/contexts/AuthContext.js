@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useState, useContext, useEffect } from 'react';
 import { authAPI } from '../services/apiService';
-import { setAuthSession } from '../services/authSession';
+import { getSessionUser, setAuthSession } from '../services/authSession';
 import toast from 'react-hot-toast';
 
 const AuthContext = createContext();
@@ -8,7 +8,7 @@ const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getSessionUser);
 
   const clearSession = useCallback(() => {
     setAuthSession(null, null);
