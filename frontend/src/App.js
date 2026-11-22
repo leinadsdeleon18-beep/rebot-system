@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Award, Gift, Recycle, TrendingUp } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -7,7 +7,6 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
 import { DashboardEmpty, DashboardHeader, DashboardMetrics, DashboardPanel, DashboardRefresh } from './components/Dashboard';
 import LandingPage from './pages/LandingPage';
-import LoadingScreen from './components/LoadingScreen';
 import Timestamps from './pages/Timestamps';
 import { rewardsAPI, studentsAPI } from './services/apiService';
 
@@ -190,16 +189,9 @@ const StudentSettings = () => {
 
 // ========== PROTECTED ROUTE COMPONENT ==========
 function ProtectedRoute({ children, allowedRoles }) {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-  
-  if (loading) {
-    return <LoadingScreen message="Verifying your credentials..." />;
-  }
-  
-  if (!user) {
-    return <Navigate to="/" state={{ from: location }} replace />;
-  }
+  const { user } = useAuth();
+
+  if (!user) return <Navigate to="/" replace />;
   
   if (!allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
@@ -209,121 +201,85 @@ function ProtectedRoute({ children, allowedRoles }) {
 }
 
 // ========== ROLE REDIRECT COMPONENT ==========
+const dashboardPaths = {
+  administrator: '/admin',
+  teacher: '/teacher',
+  canteen_staff: '/canteen',
+  student: '/student'
+};
+
 function RoleRedirect() {
-  const { user, loading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!loading && user) {
-      const roleMap = {
-        'administrator': '/admin',
-        'teacher': '/teacher',
-        'canteen_staff': '/canteen',
-        'student': '/student'
-      };
-      const redirectPath = roleMap[user.role] || '/';
-      navigate(redirectPath, { replace: true });
-    } else if (!loading && !user) {
-      navigate('/', { replace: true });
-    }
-  }, [user, loading, navigate]);
-
-  return <LoadingScreen message="Redirecting to your dashboard..." />;
-}
-
-// ========== THEME HANDLER ==========
-function ThemeHandler() {
-  const location = useLocation();
-  const isLandingPage = location.pathname === '/';
-  
-  useEffect(() => {
-    if (isLandingPage) {
-      document.documentElement.classList.remove('dark');
-      document.body.style.backgroundColor = '#ffffff';
-    } else {
-      document.body.style.backgroundColor = '';
-    }
-  }, [isLandingPage]);
-  
-  return null;
+  const { user } = useAuth();
+  return <Navigate to={dashboardPaths[user?.role] || '/'} replace />;
 }
 
 // ========== MAIN APP CONTENT ==========
 function AppContent() {
-  const { loading } = useAuth();
-  
-  if (loading) {
-    return <LoadingScreen message="Loading your dashboard..." />;
-  }
-  
   return (
-    <>
-      <ThemeHandler />
-      <Routes>
-        {/* Landing Page */}
-        <Route path="/" element={<LandingPage />} />
-        
-        {/* Role Redirect (after login) */}
-        <Route path="/dashboard" element={<RoleRedirect />} />
-        
-        {/* ========== ADMIN ROUTES ========== */}
-        <Route path="/admin" element={
-          <ProtectedRoute allowedRoles={['administrator']}>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<AdminDashboard />} />
-          <Route path="timestamps" element={<Timestamps />} />
-          <Route path="users" element={<UserManagement />} />
-          <Route path="rewards" element={<RewardsManagement />} />
-          <Route path="sections" element={<SectionManagement />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="inventory" element={<InventoryManagement />} />
-          <Route path="settings" element={<AdminSettings />} />
-        </Route>
-        
-        {/* ========== TEACHER ROUTES ========== */}
-        <Route path="/teacher" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<TeacherDashboard />} />
-          <Route path="timestamps" element={<Timestamps />} />
-          <Route path="students" element={<StudentManagement />} />
-          <Route path="settings" element={<TeacherSettings />} />
-        </Route>
-        
-        {/* ========== CANTEEN ROUTES ========== */}
-        <Route path="/canteen" element={
-          <ProtectedRoute allowedRoles={['canteen_staff']}>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<CanteenDashboard />} />
-          <Route path="timestamps" element={<Timestamps />} />
-          <Route path="scan" element={<RedemptionScanner />} />
-          <Route path="history" element={<TransactionHistory />} />
-          <Route path="rewards" element={<AvailableRewards />} />
-          <Route path="settings" element={<CanteenSettings />} />
-        </Route>
+    <Routes>
+      {/* Landing Page */}
+      <Route path="/" element={<LandingPage />} />
 
-        {/* ========== STUDENT ROUTES ========== */}
-        <Route path="/student" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<StudentDashboard />} />
-          <Route path="points" element={<StudentDashboard view="points" />} />
-          <Route path="history" element={<StudentDashboard view="history" />} />
-          <Route path="settings" element={<StudentSettings />} />
-        </Route>
-        
-        {/* Catch all - redirect to home */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </>
+      {/* Role Redirect (after login) */}
+      <Route path="/dashboard" element={<RoleRedirect />} />
+
+      {/* ========== ADMIN ROUTES ========== */}
+      <Route path="/admin" element={
+        <ProtectedRoute allowedRoles={['administrator']}>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<AdminDashboard />} />
+        <Route path="timestamps" element={<Timestamps />} />
+        <Route path="users" element={<UserManagement />} />
+        <Route path="rewards" element={<RewardsManagement />} />
+        <Route path="sections" element={<SectionManagement />} />
+        <Route path="reports" element={<Reports />} />
+        <Route path="inventory" element={<InventoryManagement />} />
+        <Route path="settings" element={<AdminSettings />} />
+      </Route>
+
+      {/* ========== TEACHER ROUTES ========== */}
+      <Route path="/teacher" element={
+        <ProtectedRoute allowedRoles={['teacher']}>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<TeacherDashboard />} />
+        <Route path="timestamps" element={<Timestamps />} />
+        <Route path="students" element={<StudentManagement />} />
+        <Route path="settings" element={<TeacherSettings />} />
+      </Route>
+
+      {/* ========== CANTEEN ROUTES ========== */}
+      <Route path="/canteen" element={
+        <ProtectedRoute allowedRoles={['canteen_staff']}>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<CanteenDashboard />} />
+        <Route path="timestamps" element={<Timestamps />} />
+        <Route path="scan" element={<RedemptionScanner />} />
+        <Route path="history" element={<TransactionHistory />} />
+        <Route path="rewards" element={<AvailableRewards />} />
+        <Route path="settings" element={<CanteenSettings />} />
+      </Route>
+
+      {/* ========== STUDENT ROUTES ========== */}
+      <Route path="/student" element={
+        <ProtectedRoute allowedRoles={['student']}>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<StudentDashboard />} />
+        <Route path="points" element={<StudentDashboard view="points" />} />
+        <Route path="history" element={<StudentDashboard view="history" />} />
+        <Route path="settings" element={<StudentSettings />} />
+      </Route>
+
+      {/* Catch all - redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

@@ -1,3 +1,4 @@
+import { getAuthToken, getSessionUser } from '../../services/authSession';
 import { DashboardEmpty, DashboardHeader, DashboardMetrics, DashboardPanel, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -52,7 +53,7 @@ export default function StudentManagement() {
 
   // Load user data first
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('rebot_user') || '{}');
+    const user = getSessionUser() || {};
     console.log('📋 User data loaded:', user);
     
     setTeacherAssignedGrades(user.assignedGrades || []);
@@ -103,7 +104,7 @@ export default function StudentManagement() {
   const fetchSections = async () => {
     setLoadingSections(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       console.log('🔍 Fetching sections from API...');
       
       const response = await fetch(`${API_BASE}/sections`, {
@@ -159,7 +160,7 @@ export default function StudentManagement() {
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE}/students`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -223,7 +224,7 @@ export default function StudentManagement() {
     
     setIsDeletingStudent(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE}/students/${studentToDelete.id}`, {
         method: 'DELETE',
         headers: { 
@@ -257,7 +258,7 @@ export default function StudentManagement() {
 
     setIsAddingStudent(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       const selectedSectionObj = sectionsList.find(s => s.id === formData.section);
       
@@ -300,7 +301,7 @@ export default function StudentManagement() {
     setShowQRModal(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE}/students/${student.id}/qrcode`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -550,7 +551,7 @@ export default function StudentManagement() {
     setIsImporting(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       const studentsToImport = validStudents.map(s => ({
         name: s.name,
@@ -652,7 +653,7 @@ export default function StudentManagement() {
     const loadingToast = toast.loading(`Loading ${filtered.length} QR codes...`);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const qrCodesMap = {};
 
       // Fetch each student's QR from the existing endpoint

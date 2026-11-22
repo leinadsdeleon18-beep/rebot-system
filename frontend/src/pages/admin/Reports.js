@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -103,7 +104,7 @@ export default function Reports() {
 
   const fetchSections = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/sections'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -119,7 +120,7 @@ export default function Reports() {
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const params = new URLSearchParams({
         year: selectedYear,
         month: selectedMonth,
@@ -148,7 +149,7 @@ export default function Reports() {
 
   const fetchRecyclingData = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const params = new URLSearchParams({
         year: selectedYear,
         month: selectedMonth,
@@ -171,7 +172,7 @@ export default function Reports() {
 
   const fetchRedemptionData = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const params = new URLSearchParams({
         year: selectedYear,
         month: selectedMonth,

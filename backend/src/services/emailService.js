@@ -48,9 +48,9 @@ const sendEmail = async (data) => {
   } catch (error) {
     const status = error.response?.status;
     console.error('Firebase recovery email request failed:', status || error.code || error.name);
-    // These responses mean the private function did not process the email.
-    if ([401, 403, 404].includes(status)) return sendThroughBrevo(data);
-    return false;
+    if (status === 400 || status === 405) return false;
+    // Reuse the same code if Firebase or its SMTP provider is unavailable.
+    return sendThroughBrevo(data);
   }
 };
 

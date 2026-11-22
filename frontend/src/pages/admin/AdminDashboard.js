@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUpRight, Coins, Minus, Plus, Recycle, Search, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -20,7 +21,7 @@ export default function AdminDashboard() {
     setLoading(true);
     setLoadError('');
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const [statsResponse, transactionResponse] = await Promise.all([
         fetch(apiUrl('/get-stats')),
         fetch(apiUrl('/transactions'), { headers: { Authorization: `Bearer ${token}` } })
@@ -46,7 +47,7 @@ export default function AdminDashboard() {
 
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/students/${selectedStudent._id}/points`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

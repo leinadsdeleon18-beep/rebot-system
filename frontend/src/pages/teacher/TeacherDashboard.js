@@ -1,6 +1,7 @@
+import { getAuthToken, getSessionUser } from '../../services/authSession';
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Activity, Award, BadgeCheck, BarChart3, Printer, School, Search, Star, Target, UserPlus, Users, X
+  Activity, Award, BadgeCheck, BarChart3, ClipboardList, Crown, GraduationCap, Leaf, Medal, Printer, Recycle, School, Search, Star, Target, Trophy, UserPlus, Users, X
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js';
@@ -52,12 +53,12 @@ export default function TeacherDashboard() {
 
   // Badge definitions
   const badges = [
-    { id: 'first_points', name: 'First Steps', icon: '🌟', points: 10, description: 'Earned first 10 points', color: 'bg-blue-500' },
-    { id: 'eco_warrior', name: 'Eco Warrior', icon: '🌿', points: 50, description: 'Reached 50 points', color: 'bg-green-500' },
-    { id: 'recycling_champ', name: 'Recycling Champ', icon: '♻️', points: 100, description: 'Reached 100 points', color: 'bg-yellow-500' },
-    { id: 'point_master', name: 'Point Master', icon: '⭐', points: 200, description: 'Reached 200 points', color: 'bg-purple-500' },
-    { id: 'super_recycler', name: 'Super Recycler', icon: '🏆', points: 500, description: 'Reached 500 points', color: 'bg-red-500' },
-    { id: 'legend', name: 'Recycling Legend', icon: '👑', points: 1000, description: 'Reached 1000 points', color: 'bg-indigo-500' }
+    { id: 'first_points', name: 'First Steps', icon: Star, points: 10, description: 'Earned first 10 points', color: 'bg-blue-500' },
+    { id: 'eco_warrior', name: 'Eco Warrior', icon: Leaf, points: 50, description: 'Reached 50 points', color: 'bg-green-500' },
+    { id: 'recycling_champ', name: 'Recycling Champ', icon: Recycle, points: 100, description: 'Reached 100 points', color: 'bg-yellow-500' },
+    { id: 'point_master', name: 'Point Master', icon: Medal, points: 200, description: 'Reached 200 points', color: 'bg-purple-500' },
+    { id: 'super_recycler', name: 'Super Recycler', icon: Trophy, points: 500, description: 'Reached 500 points', color: 'bg-red-500' },
+    { id: 'legend', name: 'Recycling Legend', icon: Crown, points: 1000, description: 'Reached 1000 points', color: 'bg-indigo-500' }
   ];
 
   // Get student's earned badges
@@ -151,7 +152,7 @@ export default function TeacherDashboard() {
   // Fetch teacher's assigned sections
   const fetchTeacherSections = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE}/students/teacher/sections`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -188,7 +189,7 @@ export default function TeacherDashboard() {
     if (!isDataLoaded) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE}/students`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -290,16 +291,15 @@ export default function TeacherDashboard() {
   // Load user data
   useEffect(() => {
     const loadUserData = async () => {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       if (!token) {
         setInitialLoading(false);
         setLoading(false);
         return;
       }
       try {
-        const userStr = localStorage.getItem('rebot_user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
+        const user = getSessionUser();
+        if (user) {
           setTeacherInfo({
             fullName: user.fullName || 'Teacher',
             assignedGrades: user.assignedGrades || [],
@@ -364,7 +364,7 @@ export default function TeacherDashboard() {
     }
     setIsAddingStudent(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE}/students`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -403,7 +403,7 @@ export default function TeacherDashboard() {
     setShowGoalModal(false);
     
     if (stats.totalPoints >= goalInput) {
-      toast.success(`🎉 Amazing! Your class has already reached the ${goalInput.toLocaleString()} points goal! 🎉`);
+      toast.success(`Your class has already reached the ${goalInput.toLocaleString()} points goal.`);
     } else {
       toast.success(`Class goal set to ${goalInput.toLocaleString()} points! Keep up the great work!`);
     }
@@ -713,13 +713,13 @@ export default function TeacherDashboard() {
               <div className="certificate border-2 border-yellow-500 rounded-2xl p-8 relative" style={{ background: 'white' }}>
                 <div className="text-center">
                   <div className="mb-6">
-                    <div className="text-2xl font-bold text-green-800">🏫 PATUBIG ELEMENTARY SCHOOL 🏫</div>
+                    <div className="text-2xl font-bold text-green-800">PATUBIG ELEMENTARY SCHOOL</div>
                     <div className="text-sm text-gray-500">ReBot Recycling Program</div>
                   </div>
                   
                   <div className="text-4xl font-bold text-green-700 mb-4">Certificate of Achievement</div>
                   
-                  <div className="text-6xl mb-4">🏆</div>
+                  <Trophy className="mx-auto mb-4 text-green-800" size={44} strokeWidth={1.5} aria-hidden="true" />
                   
                   <div className="text-lg text-gray-600 mb-2">This certificate is proudly presented to</div>
                   
@@ -732,7 +732,7 @@ export default function TeacherDashboard() {
                   </div>
                   
                   <div className="inline-block bg-gradient-to-r from-yellow-100 to-yellow-200 rounded-full px-8 py-4 mb-4">
-                    <div className="text-5xl mb-2">{certificateData.badge.icon}</div>
+                    <certificateData.badge.icon className="mx-auto mb-2 text-yellow-800" size={32} strokeWidth={1.5} aria-hidden="true" />
                     <div className="text-2xl font-bold text-yellow-800">{certificateData.badge.name}</div>
                   </div>
                   
@@ -797,7 +797,7 @@ export default function TeacherDashboard() {
             </div>
             <div className="p-8" id="report-content">
               <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-green-800">📊 Class Progress Report</h1>
+                <h1 className="text-3xl font-bold text-green-800"><BarChart3 className="inline-block align-text-bottom" size={25} strokeWidth={1.65} aria-hidden="true" /> Class Progress Report</h1>
                 <p className="text-gray-600">Patubig Elementary School - ReBot Recycling Program</p>
                 <p className="text-gray-500 text-sm">Generated: {reportData.today}</p>
                 <p className="text-gray-500 text-sm">Teacher: {reportData.teacherName}</p>
@@ -823,7 +823,7 @@ export default function TeacherDashboard() {
               </div>
 
               <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white mb-8">
-                <h3 className="text-xl font-bold mb-3">🎯 Class Goal Tracker</h3>
+                <h3 className="text-xl font-bold mb-3"><Target className="inline-block align-text-bottom" size={19} strokeWidth={1.65} aria-hidden="true" /> Class Goal Tracker</h3>
                 <div className="text-2xl font-bold mb-2">{classGoal.toLocaleString()} points</div>
                 <div className="w-full bg-white/30 rounded-full h-4 mb-2">
                   <div className="h-full rounded-full bg-yellow-400" style={{ width: `${reportData.goalProgress.percentage}%` }}></div>
@@ -833,12 +833,12 @@ export default function TeacherDashboard() {
                   <span>{reportData.goalProgress.currentTotal.toLocaleString()} / {classGoal.toLocaleString()}</span>
                 </div>
                 {reportData.goalProgress.isCompleted && (
-                  <div className="mt-3 text-center bg-yellow-400/30 rounded-lg p-2">🎉 GOAL ACHIEVED! Congratulations! 🎉</div>
+                  <div className="mt-3 text-center bg-yellow-400/30 rounded-lg p-2">Class goal achieved</div>
                 )}
               </div>
 
               <div className="mb-8">
-                <h3 className="text-xl font-bold mb-4">📋 Grade Level Distribution</h3>
+                <h3 className="text-xl font-bold mb-4"><ClipboardList className="inline-block align-text-bottom" size={19} strokeWidth={1.65} aria-hidden="true" /> Grade Level Distribution</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {Object.entries(reportData.gradeDistribution).map(([grade, count]) => (
                     <div key={grade} className="bg-gray-100 rounded-xl p-4 text-center">
@@ -850,7 +850,7 @@ export default function TeacherDashboard() {
               </div>
 
               <div>
-                <h3 className="text-xl font-bold mb-4">🏆 Student Performance Ranking</h3>
+                <h3 className="text-xl font-bold mb-4"><Trophy className="inline-block align-text-bottom" size={19} strokeWidth={1.65} aria-hidden="true" /> Student Performance Ranking</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-green-600 text-white">
@@ -871,7 +871,12 @@ export default function TeacherDashboard() {
                             <td className="px-4 py-2">{student.name}</td>
                             <td className="px-4 py-2">{student.grade} - <span className="font-semibold text-green-600">{student.section}</span></td>
                             <td className="px-4 py-2 font-bold text-orange-600">{student.points} pts</td>
-                            <td className="px-4 py-2">{earnedBadges.map(b => b.icon).join(' ')} ({earnedBadges.length})</td>
+                            <td className="px-4 py-2">
+                              <span className="inline-flex items-center gap-1">
+                                {earnedBadges.map(({ id, icon: Icon }) => <Icon key={id} size={16} strokeWidth={1.65} aria-hidden="true" />)}
+                                <span>{earnedBadges.length}</span>
+                              </span>
+                            </td>
                           </tr>
                         );
                       })}
@@ -917,9 +922,9 @@ export default function TeacherDashboard() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6">
             <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold">Badge Collection</h3><button onClick={() => setShowBadgesModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button></div>
             <div className="text-center mb-4"><div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto text-3xl text-white font-bold">{selectedBadgeStudent.name.charAt(0)}</div><h4 className="font-bold text-lg mt-2">{selectedBadgeStudent.name}</h4><p className="text-sm text-gray-500">{selectedBadgeStudent.points} total points</p></div>
-            <div className="space-y-3"><p className="text-sm font-semibold">Earned Badges:</p><div className="grid grid-cols-2 gap-3">{getStudentBadges(selectedBadgeStudent.points).map(badge => (<div key={badge.id} className={`${badge.color} bg-opacity-20 rounded-xl p-3 text-center`}><span className="text-3xl">{badge.icon}</span><p className="font-semibold text-sm mt-1">{badge.name}</p><p className="text-xs text-gray-500">{badge.description}</p></div>))}</div>
+            <div className="space-y-3"><p className="text-sm font-semibold">Earned Badges:</p><div className="grid grid-cols-2 gap-3">{getStudentBadges(selectedBadgeStudent.points).map(badge => (<div key={badge.id} className={`${badge.color} bg-opacity-20 rounded-xl p-3 text-center`}><badge.icon className="mx-auto" size={26} strokeWidth={1.65} aria-hidden="true" /><p className="font-semibold text-sm mt-1">{badge.name}</p><p className="text-xs text-gray-500">{badge.description}</p></div>))}</div>
             {getNextBadge(selectedBadgeStudent.points).points > selectedBadgeStudent.points && (<><p className="text-sm font-semibold mt-4">Next Badge:</p><div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-3 text-center opacity-60"><span className="text-3xl">{getNextBadge(selectedBadgeStudent.points).icon}</span><p className="font-semibold text-sm mt-1">{getNextBadge(selectedBadgeStudent.points).name}</p><p className="text-xs text-gray-500">Need {getNextBadge(selectedBadgeStudent.points).points - selectedBadgeStudent.points} more points</p></div></>)}</div>
-            <button onClick={() => generateCertificate(selectedBadgeStudent)} className="w-full mt-6 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700">🎓 Generate Certificate</button>
+            <button onClick={() => generateCertificate(selectedBadgeStudent)} className="w-full mt-6 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700"><GraduationCap className="inline-block align-text-bottom" size={19} strokeWidth={1.65} aria-hidden="true" /> Generate Certificate</button>
           </div>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { 
@@ -180,7 +181,7 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/admin/users'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -197,7 +198,7 @@ export default function UserManagement() {
 
   const fetchRoles = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/admin/roles'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -210,7 +211,7 @@ export default function UserManagement() {
 
   const fetchSections = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/admin/sections'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -232,7 +233,7 @@ export default function UserManagement() {
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const selectedRole = roles.find(r => r._id === formData.role);
       const roleName = selectedRole ? selectedRole.name : formData.role;
       
@@ -281,7 +282,7 @@ export default function UserManagement() {
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       const fullGradeNames = formData.assignedGrades.map(code => {
         const grade = gradeLevels.find(g => g.code === code);
@@ -327,7 +328,7 @@ export default function UserManagement() {
     const newStatus = !pendingUser.isActive;
     setConfirmLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/admin/users/${pendingUser._id}/toggle-status`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },

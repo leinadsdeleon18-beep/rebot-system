@@ -149,7 +149,11 @@ const otpLifetime = 10 * 60 * 1000;
 const resendDelay = 60 * 1000;
 const maxOtpAttempts = 5;
 const invalidOtp = 'Invalid or expired code. Check your code or request a new one.';
-const invalidResetToken = 'The reset session has expired. Request a new code.';
+const invalidResetToken = {
+  success: false,
+  code: 'RESET_TOKEN_INVALID',
+  message: 'The reset session has expired. Request a new code.'
+};
 const hashResetToken = (token) => createHash('sha256').update(token).digest('hex');
 const normalizeEmail = (email) => typeof email === 'string' ? email.trim().toLowerCase() : '';
 
@@ -241,13 +245,13 @@ router.post('/reset-password', async (req, res) => {
     }
 
     if (typeof token !== 'string' || !/^[a-f0-9]{24}\.[a-f0-9]{64}$/.test(token)) {
-      return res.status(400).json({ success: false, message: invalidResetToken });
+      return res.status(400).json(invalidResetToken);
     }
 
     const [userId, tokenSecret] = token.split('.');
     const reset = { _id: userId, resetTokenHash: hashResetToken(tokenSecret) };
     if (!(await User.exists({ ...reset, otpExpiry: { $gt: new Date() } }))) {
-      return res.status(400).json({ success: false, message: invalidResetToken });
+      return res.status(400).json(invalidResetToken);
     }
 
     // Query updates skip the User model's pre-save password hashing hook.
@@ -258,7 +262,7 @@ router.post('/reset-password', async (req, res) => {
     );
 
     if (!user) {
-      return res.status(400).json({ success: false, message: invalidResetToken });
+      return res.status(400).json(invalidResetToken);
     }
 
     res.json({ success: true, message: 'Password reset successfully' });

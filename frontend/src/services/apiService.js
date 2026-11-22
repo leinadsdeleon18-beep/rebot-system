@@ -1,3 +1,4 @@
+import { getAuthToken } from './authSession';
 // src/services/apiService.js
 import axios from 'axios';
 
@@ -27,7 +28,7 @@ const api = axios.create({
 // Add token to requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('rebot_token');
+    const token = getAuthToken();
     if (token) {
       config.headers.Authorization = 'Bearer ' + token;
     }

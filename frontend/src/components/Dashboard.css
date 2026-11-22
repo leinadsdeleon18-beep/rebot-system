@@ -90,6 +90,16 @@
 }
 
 .rb-dash-metric dt svg { flex: none; color: var(--workspace-green); }
+.rb-dash-metric-icon {
+  display: inline-grid;
+  width: 1.85rem;
+  height: 1.85rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.4rem;
+  background: var(--workspace-active);
+}
+.rb-dash-metric.is-primary .rb-dash-metric-icon { background: rgb(255 255 255 / 0.12); }
 .rb-dash-metric.is-primary dt, .rb-dash-metric.is-primary dt svg { color: #d2e8d9; }
 .rb-dash-metric dd {
   margin-top: 0.5rem;

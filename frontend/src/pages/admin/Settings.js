@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -35,7 +36,7 @@ export default function AdminSettings() {
   const fetchRewards = async () => {
     setLoadingRewards(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       console.log('Fetching rewards from API...');
       const response = await fetch(apiUrl('/rewards'), {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -60,7 +61,7 @@ export default function AdminSettings() {
 
   const handleUpdatePoints = async (rewardId, newPoints) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/rewards/${rewardId}`), {
         method: 'PUT',
         headers: {

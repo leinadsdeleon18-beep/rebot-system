@@ -1,3 +1,4 @@
+import { getAuthToken } from '../services/authSession';
 import { DashboardEmpty, DashboardHeader, DashboardPanel, DashboardRefresh } from '../components/Dashboard';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Clock3, PackagePlus, Gift, Search } from 'lucide-react';
@@ -14,7 +15,7 @@ export default function Timestamps() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/transactions'), {
         headers: { Authorization: `Bearer ${token}` }
       });

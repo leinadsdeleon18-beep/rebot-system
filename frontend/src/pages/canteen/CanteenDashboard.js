@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 ﻿import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowUpRight, Coins, Gift, Package, QrCode, ShoppingBag } from 'lucide-react';
@@ -23,7 +24,7 @@ export default function CanteenDashboard() {
     setLoading(true);
     setError('');
     try {
-      const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      const headers = { Authorization: `Bearer ${getAuthToken()}` };
       const results = await Promise.all(['/rewards', '/transactions?type=redeem&limit=500', '/students'].map(async endpoint => {
         const response = await fetch(apiUrl(endpoint), { headers });
         if (!response.ok) throw new Error('Could not load canteen data.');

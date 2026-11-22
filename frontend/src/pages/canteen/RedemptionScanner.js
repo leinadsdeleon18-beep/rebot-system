@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
@@ -51,7 +52,7 @@ export default function RedemptionScanner() {
   const fetchRewards = async () => {
     setLoadingRewards(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/rewards'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -70,7 +71,7 @@ export default function RedemptionScanner() {
 
   const fetchRecentRedemptions = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/transactions?type=redeem&limit=5'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -85,7 +86,7 @@ export default function RedemptionScanner() {
 
   const fetchStudentById = async (studentId) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/students/${studentId}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -110,7 +111,7 @@ export default function RedemptionScanner() {
 
   const fetchStudentByQR = async (qrCode) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/students/qr/${qrCode}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -219,7 +220,7 @@ export default function RedemptionScanner() {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/students?search=${encodeURIComponent(searchQuery)}`), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -270,7 +271,7 @@ export default function RedemptionScanner() {
 
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       const response = await fetch(apiUrl('/transactions/redeem'), {
         method: 'POST',

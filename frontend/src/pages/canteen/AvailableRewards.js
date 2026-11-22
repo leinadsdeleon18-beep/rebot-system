@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { Gift, Package, AlertTriangle, ShoppingBag, Edit2, Plus, Coffee, Utensils, Book, Gamepad, MoreHorizontal } from 'lucide-react';
@@ -42,7 +43,7 @@ export default function AvailableRewards() {
   const fetchRewards = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/rewards'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -69,7 +70,7 @@ export default function AvailableRewards() {
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/rewards'), {
         method: 'POST',
         headers: {
@@ -118,7 +119,7 @@ export default function AvailableRewards() {
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/rewards/${editingReward._id}`), {
         method: 'PUT',
         headers: {
@@ -156,7 +157,7 @@ export default function AvailableRewards() {
     }
     
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const newStock = (selectedReward.stock || 0) + parseInt(restockAmount);
       
       const response = await fetch(apiUrl(`/rewards/${selectedReward._id}`), {

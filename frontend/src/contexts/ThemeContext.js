@@ -1,70 +1,25 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const ThemeContext = createContext();
 
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    // Check if we're on landing page by looking at the URL
-    const isLandingPage = window.location.pathname === '/' || window.location.pathname === '/login';
-    // Don't apply dark mode on landing page
-    if (isLandingPage) return false;
-    return saved === 'true';
-  });
-
-  // Function to check if current page is landing page
-  const isLandingPage = () => {
-    return window.location.pathname === '/' || window.location.pathname === '/login';
-  };
+  const { pathname } = useLocation();
+  const isLandingPage = pathname === '/';
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
 
   useEffect(() => {
-    // NEVER apply dark mode on landing page
-    if (isLandingPage()) {
-      document.documentElement.classList.remove('dark');
-      return;
-    }
-    
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('darkMode', 'true');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('darkMode', 'false');
-    }
+    document.documentElement.classList.toggle('dark', darkMode && !isLandingPage);
+  }, [darkMode, isLandingPage]);
+
+  useEffect(() => {
+    localStorage.setItem('darkMode', String(darkMode));
   }, [darkMode]);
 
-  // Listen for route changes
-  useEffect(() => {
-    const handleRouteChange = () => {
-      if (isLandingPage()) {
-        // Force remove dark class on landing page
-        document.documentElement.classList.remove('dark');
-      } else {
-        // Apply saved theme on dashboards
-        const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-        if (savedDarkMode) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      }
-    };
-
-    // Listen for popstate (browser back/forward)
-    window.addEventListener('popstate', handleRouteChange);
-    
-    // Initial check
-    handleRouteChange();
-
-    return () => window.removeEventListener('popstate', handleRouteChange);
-  }, []);
-
   const toggleDarkMode = () => {
-    // Don't allow toggling dark mode on landing page
-    if (isLandingPage()) return;
-    setDarkMode(prev => !prev);
+    if (!isLandingPage) setDarkMode(previous => !previous);
   };
 
   return (

@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { 
@@ -44,7 +45,7 @@ export default function SectionManagement() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       // Fetch both sections and students in parallel
       const [sectionsResponse, studentsResponse] = await Promise.all([
@@ -104,7 +105,7 @@ export default function SectionManagement() {
   const fetchSections = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       // First get all sections
       const sectionsResponse = await fetch(apiUrl('/sections'), {
@@ -152,7 +153,7 @@ export default function SectionManagement() {
 
   const fetchTeachers = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/admin/users'), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -179,7 +180,7 @@ export default function SectionManagement() {
       console.error('Error filtering students:', error);
       // Fallback: make API call
       try {
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const response = await fetch(apiUrl(`/students?section=${sectionId}`), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -201,7 +202,7 @@ export default function SectionManagement() {
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/sections'), {
         method: 'POST',
         headers: {
@@ -242,7 +243,7 @@ export default function SectionManagement() {
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/sections/${editingSection._id}`), {
         method: 'PUT',
         headers: {
@@ -282,7 +283,7 @@ export default function SectionManagement() {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl(`/sections/${section._id}`), {
         method: 'DELETE',
         headers: {

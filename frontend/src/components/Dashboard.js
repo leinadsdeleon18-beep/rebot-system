@@ -30,7 +30,10 @@ export function DashboardMetrics({ items, label = 'Dashboard totals' }) {
     <dl className="rb-dash-metrics" aria-label={label}>
       {items.map(({ label, value, icon: Icon, primary, detail }) => (
         <div key={label} className={primary ? 'rb-dash-metric is-primary' : 'rb-dash-metric'}>
-          <dt><Icon size={19} aria-hidden="true" /> {label}</dt>
+          <dt>
+            <span className="rb-dash-metric-icon"><Icon size={17} strokeWidth={1.65} aria-hidden="true" /></span>
+            {label}
+          </dt>
           <dd>{typeof value === 'number' ? numbers.format(value) : value ?? '0'}{detail && <small>{detail}</small>}</dd>
         </div>
       ))}
@@ -56,7 +59,7 @@ export function DashboardPanel({ title, description, action, children, className
 export function DashboardEmpty({ icon: Icon, title, children }) {
   return (
     <div className="rb-dash-empty">
-      {Icon && <Icon size={24} aria-hidden="true" />}
+      {Icon && <Icon size={23} strokeWidth={1.65} aria-hidden="true" />}
       <p><strong>{title}</strong></p>
       {children && <p>{children}</p>}
     </div>

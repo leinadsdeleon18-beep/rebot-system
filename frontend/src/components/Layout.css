@@ -102,6 +102,8 @@
 }
 
 .rebot-workspace-link svg { flex: none; }
+.rebot-workspace-link .rebot-nav-icon { color: var(--nav-muted); }
+.rebot-workspace-link[aria-current='page'] .rebot-nav-icon { color: currentColor; }
 .rebot-workspace-link:hover { background: var(--nav-hover); }
 .rebot-workspace-link[aria-current='page'] { background: var(--nav-selected); color: var(--nav-selected-text); }
 .rebot-workspace-link[aria-current='page']::after { width: 3px; height: 0.95rem; margin-left: auto; border-radius: 2px; background: currentColor; content: ''; }

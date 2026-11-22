@@ -7,19 +7,19 @@ import {
   X,
   LogOut,
   Settings as SettingsIcon,
-  LayoutDashboard,
-  Users,
+  LayoutGrid,
+  UsersRound,
   Gift,
   Package,
-  BarChart3,
+  ChartNoAxesColumn,
   Moon,
   Sun,
-  QrCode,
-  ShoppingBag,
+  ScanLine,
+  History,
   GraduationCap,
   ChevronLeft,
   ChevronRight,
-  Award,
+  Coins,
   Calendar,
   BookOpen,
   Loader,
@@ -100,12 +100,6 @@ export default function Layout() {
       const newAvatarUrl = event.detail?.avatarUrl;
       setUserAvatar(newAvatarUrl);
 
-      const userStr = localStorage.getItem('rebot_user');
-      if (userStr) {
-        const userData = JSON.parse(userStr);
-        userData.avatar = newAvatarUrl;
-        localStorage.setItem('rebot_user', JSON.stringify(userData));
-      }
 
       if (currentUser) {
         setCurrentUser({ ...currentUser, avatar: newAvatarUrl });
@@ -131,8 +125,7 @@ export default function Layout() {
     setLoggingOut(true);
     try {
       await logout();
-      toast.success('Logged out successfully!');
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to logout');
@@ -158,12 +151,12 @@ export default function Layout() {
   const navByRole = {
     administrator: [
       { label: 'Overview', items: [
-        { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+        { name: 'Dashboard', path: '/admin', icon: LayoutGrid },
         { name: 'Timestamps', path: '/admin/timestamps', icon: Clock3 },
-        { name: 'Reports', path: '/admin/reports', icon: BarChart3 },
+        { name: 'Reports', path: '/admin/reports', icon: ChartNoAxesColumn },
       ] },
       { label: 'School management', items: [
-        { name: 'User Management', path: '/admin/users', icon: Users },
+        { name: 'User Management', path: '/admin/users', icon: UsersRound },
         { name: 'Section Management', path: '/admin/sections', icon: BookOpen },
       ] },
       { label: 'Rewards', items: [
@@ -174,7 +167,7 @@ export default function Layout() {
     ],
     teacher: [
       { label: 'Overview', items: [
-        { name: 'Dashboard', path: '/teacher', icon: LayoutDashboard },
+        { name: 'Dashboard', path: '/teacher', icon: LayoutGrid },
         { name: 'Timestamps', path: '/teacher/timestamps', icon: Clock3 },
       ] },
       { label: 'Classroom', items: [{ name: 'Students', path: '/teacher/students', icon: GraduationCap }] },
@@ -182,21 +175,21 @@ export default function Layout() {
     ],
     canteen_staff: [
       { label: 'Overview', items: [
-        { name: 'Dashboard', path: '/canteen', icon: LayoutDashboard },
+        { name: 'Dashboard', path: '/canteen', icon: LayoutGrid },
         { name: 'Timestamps', path: '/canteen/timestamps', icon: Clock3 },
       ] },
       { label: 'Canteen operations', items: [
-        { name: 'Scan & Redeem', path: '/canteen/scan', icon: QrCode },
-        { name: 'History', path: '/canteen/history', icon: ShoppingBag },
+        { name: 'Scan & Redeem', path: '/canteen/scan', icon: ScanLine },
+        { name: 'History', path: '/canteen/history', icon: History },
         { name: 'Rewards', path: '/canteen/rewards', icon: Gift },
       ] },
       { label: 'Account', items: [{ name: 'Settings', path: '/canteen/settings', icon: SettingsIcon }] },
     ],
     student: [
       { label: 'My recycling', items: [
-        { name: 'Dashboard', path: '/student', icon: LayoutDashboard },
-        { name: 'My Points', path: '/student/points', icon: Award },
-        { name: 'History', path: '/student/history', icon: ShoppingBag },
+        { name: 'Dashboard', path: '/student', icon: LayoutGrid },
+        { name: 'My Points', path: '/student/points', icon: Coins },
+        { name: 'History', path: '/student/history', icon: History },
       ] },
       { label: 'Account', items: [{ name: 'Settings', path: '/student/settings', icon: SettingsIcon }] },
     ]
@@ -263,7 +256,7 @@ export default function Layout() {
                   aria-current={activeNavItem?.path === path ? 'page' : undefined}
                   title={sidebarCollapsed ? name : undefined}
                 >
-                  <Icon size={18} aria-hidden="true" />
+                  <Icon className="rebot-nav-icon" size={18} strokeWidth={1.65} aria-hidden="true" />
                   <span className="rebot-sidebar-label">{name}</span>
                 </Link>
               ))}

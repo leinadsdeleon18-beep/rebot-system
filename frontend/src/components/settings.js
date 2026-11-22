@@ -1,3 +1,4 @@
+import { getAuthToken, updateSessionUser } from '../services/authSession';
 import { DashboardHeader } from './Dashboard';
 import React, { useState, useEffect } from 'react';
 import { apiUrl } from '../services/apiService';
@@ -492,12 +493,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
   const updateGlobalAvatar = (newAvatarUrl) => {
     setAvatarUrl(newAvatarUrl);
     
-    const userStr = localStorage.getItem('rebot_user');
-    if (userStr) {
-      const user = JSON.parse(userStr);
-      user.avatar = newAvatarUrl;
-      localStorage.setItem('rebot_user', JSON.stringify(user));
-    }
+    updateSessionUser({ avatar: newAvatarUrl });
     
     window.dispatchEvent(new CustomEvent('avatarUpdated', { detail: { avatarUrl: newAvatarUrl } }));
   };
@@ -538,7 +534,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     
     // You can also send to API if needed
     // try {
-    //   const token = localStorage.getItem('token');
+    //   const token = getAuthToken();
     //   await fetch(apiUrl('/settings/bottle-points'), {
     //     method: 'PUT',
     //     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -566,7 +562,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const response = await fetch(apiUrl('/upload/profile'), {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -589,9 +585,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
           });
           setAvatarUrl(user.avatar);
           
-          const storedUser = JSON.parse(localStorage.getItem('rebot_user') || '{}');
-          const updatedUser = { ...storedUser, ...user };
-          localStorage.setItem('rebot_user', JSON.stringify(updatedUser));
+          updateSessionUser(user);
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -666,7 +660,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
       const formData = new FormData();
       formData.append('avatar', compressedFile);
       
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/upload/avatar'), {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -693,7 +687,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     setRemovingAvatar(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/upload/avatar'), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -725,7 +719,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     setSaving(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       const response = await fetch(apiUrl('/auth/profile'), {
         method: 'PUT',
@@ -745,12 +739,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
       const data = await response.json();
       
       if (data.success) {
-        const userStr = localStorage.getItem('rebot_user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          const updatedUser = { ...user, ...profile };
-          localStorage.setItem('rebot_user', JSON.stringify(updatedUser));
-        }
+        updateSessionUser(profile);
         
         toast.success('Profile updated successfully!');
       } else {
@@ -788,7 +777,7 @@ export default function Settings({ userRole = 'admin', userData = {}, onLogout, 
     setSaving(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       
       const response = await fetch(apiUrl('/auth/change-password'), {
         method: 'PUT',

@@ -3,17 +3,11 @@ import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChartColumn, Check, CircleAlert,
   Copy, Eye, EyeOff, Gift, GraduationCap, LoaderCircle, QrCode, Recycle, School, Utensils, X
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/apiService';
 import toast from 'react-hot-toast';
 import './LandingPage.css';
-
-const dashboardPaths = {
-  administrator: '/admin',
-  teacher: '/teacher',
-  canteen_staff: '/canteen',
-  student: '/student'
-};
 
 const recyclingSteps = [
   { icon: QrCode, title: 'Scan your QR code', description: 'Use your student QR code to link the deposit to your account.' },
@@ -87,7 +81,7 @@ function SubmitButton({ busy, children }) {
   );
 }
 
-function PasswordField({ id, label, autoComplete = 'new-password', ...input }) {
+function PasswordField({ id, label, inputRef, autoComplete = 'new-password', ...input }) {
   const [visible, setVisible] = useState(false);
   const Icon = visible ? EyeOff : Eye;
 
@@ -95,7 +89,7 @@ function PasswordField({ id, label, autoComplete = 'new-password', ...input }) {
     <div className="rebot-field">
       <label htmlFor={id}>{label}</label>
       <div className="rebot-password">
-        <input id={id} type={visible ? 'text' : 'password'} autoComplete={autoComplete} required {...input} />
+        <input ref={inputRef} id={id} type={visible ? 'text' : 'password'} autoComplete={autoComplete} required {...input} />
         <button type="button" className="rebot-icon-button" aria-label={visible ? 'Hide ' + label.toLowerCase() : 'Show ' + label.toLowerCase()} onClick={() => setVisible(!visible)}>
           <Icon size={18} aria-hidden="true" />
         </button>
@@ -106,6 +100,7 @@ function PasswordField({ id, label, autoComplete = 'new-password', ...input }) {
 
 function SignIn({ onClose, onReset }) {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -119,7 +114,7 @@ function SignIn({ onClose, onReset }) {
       const result = await login(username, password);
       if (result.success) {
         onClose();
-        window.location.href = dashboardPaths[result.user.role] || '/';
+        navigate('/dashboard');
       } else {
         setError(result.error || 'Could not sign in. Please try again.');
       }
@@ -203,6 +198,27 @@ function ResetPassword({ onClose, onSignIn }) {
     }
   };
 
+  const verifyCode = async (event) => {
+    event.preventDefault();
+    setBusy('verify');
+    setError('');
+    try {
+      const { data } = await authAPI.verifyOtp({ email, otp: code });
+      if (!data.success || !data.resetToken) {
+        setError(data.message || 'Invalid verification code.');
+        return;
+      }
+
+      setResetToken(data.resetToken);
+      setStatus('');
+      setStep(3);
+    } catch (requestError) {
+      setError(resetErrorMessage(requestError));
+    } finally {
+      setBusy('');
+    }
+  };
+
   const handleReset = async (event) => {
     event.preventDefault();
     setError('');
@@ -218,18 +234,7 @@ function ResetPassword({ onClose, onSignIn }) {
 
     setBusy('reset');
     try {
-      let token = resetToken;
-      if (!token) {
-        const { data } = await authAPI.verifyOtp({ email, otp: code });
-        if (!data.success || !data.resetToken) {
-          setError(data.message || 'Invalid verification code.');
-          return;
-        }
-        token = data.resetToken;
-        setResetToken(token);
-      }
-
-      const { data } = await authAPI.resetPassword({ token, newPassword: password });
+      const { data } = await authAPI.resetPassword({ token: resetToken, newPassword: password });
       if (!data.success) {
         setError(data.message || 'Could not reset your password.');
         return;
@@ -238,6 +243,11 @@ function ResetPassword({ onClose, onSignIn }) {
       toast.success('Password changed. Sign in with your new password.');
       onSignIn();
     } catch (requestError) {
+      if (requestError.response?.data?.code === 'RESET_TOKEN_INVALID') {
+        setCode('');
+        setResetToken('');
+        setStep(2);
+      }
       setError(resetErrorMessage(requestError));
     } finally {
       setBusy('');
@@ -254,10 +264,16 @@ function ResetPassword({ onClose, onSignIn }) {
     setStep(1);
   };
 
+  const descriptions = {
+    1: 'Enter the email address registered with your ReBot account.',
+    2: 'Enter the six-digit code sent to your email.',
+    3: 'Choose a new password for your ReBot account.'
+  };
+
   return (
     <AccountDialog
       title="Reset password"
-      description={step === 1 ? 'Enter the email address registered with your ReBot account.' : 'Enter your six-digit code and choose a new password.'}
+      description={descriptions[step]}
       busy={Boolean(busy)}
       onClose={onClose}
     >
@@ -273,8 +289,8 @@ function ResetPassword({ onClose, onSignIn }) {
             <ArrowLeft size={16} aria-hidden="true" /> Back to sign in
           </button>
         </form>
-      ) : (
-        <form className="rebot-form rebot-step" onSubmit={handleReset}>
+      ) : step === 2 ? (
+        <form className="rebot-form rebot-step" onSubmit={verifyCode}>
           <div className="rebot-reset-address">
             <span>{email}</span>
             <button type="button" className="rebot-text-button" onClick={changeEmail} disabled={Boolean(busy)}>Change email</button>
@@ -292,7 +308,7 @@ function ResetPassword({ onClose, onSignIn }) {
               pattern="[0-9]{6}"
               value={code}
               onChange={(event) => setCode(cleanCode(event.target.value))}
-              disabled={Boolean(resetToken)}
+              disabled={Boolean(busy)}
               required
             />
             <div className="rebot-code-help">
@@ -304,12 +320,17 @@ function ResetPassword({ onClose, onSignIn }) {
               )}
             </div>
           </div>
-          <PasswordField id="rebot-new-password" label="New password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} aria-describedby="rebot-password-hint" />
+          <FormError message={error} />
+          <SubmitButton busy={Boolean(busy)}>{busy === 'verify' ? 'Verifying…' : 'Verify code'}</SubmitButton>
+        </form>
+      ) : (
+        <form className="rebot-form rebot-step" onSubmit={handleReset}>
+          <PasswordField inputRef={initialField} id="rebot-new-password" label="New password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} disabled={Boolean(busy)} aria-describedby="rebot-password-hint" />
           <div id="rebot-password-hint" className="rebot-password-hint">
             <span>Use at least 6 characters.</span>
             {password && <span>Strength: {passwordStrength}</span>}
           </div>
-          <PasswordField id="rebot-confirm-password" label="Confirm new password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={6} />
+          <PasswordField id="rebot-confirm-password" label="Confirm new password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={6} disabled={Boolean(busy)} />
           <FormError message={error} />
           <SubmitButton busy={Boolean(busy)}>{busy === 'reset' ? 'Resetting password…' : 'Reset password'}</SubmitButton>
         </form>
@@ -321,14 +342,9 @@ function ResetPassword({ onClose, onSignIn }) {
 export default function LandingPage() {
   const [dialog, setDialog] = useState(null);
   const signInTrigger = useRef(null);
-  const { user } = useAuth();
-  const dashboardPath = dashboardPaths[user?.role];
+  const { clearSession } = useAuth();
 
-  useEffect(() => {
-    if (dashboardPath && (localStorage.getItem('token') || localStorage.getItem('rebot_token'))) {
-      window.location.replace(dashboardPath);
-    }
-  }, [dashboardPath]);
+  useEffect(clearSession, [clearSession]);
 
   const openSignIn = (event) => {
     signInTrigger.current = event.currentTarget;

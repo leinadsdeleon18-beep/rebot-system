@@ -1,3 +1,4 @@
+import { getAuthToken } from '../../services/authSession';
 import { DashboardHeader, DashboardMetrics, DashboardRefresh } from '../../components/Dashboard';
 import React, { useState, useEffect } from 'react';
 import { History, Users, Search, Download, Calendar, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
@@ -21,7 +22,7 @@ export default function TransactionHistory() {
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(apiUrl('/transactions'), {
         headers: { 'Authorization': 'Bearer ' + token }
       });
