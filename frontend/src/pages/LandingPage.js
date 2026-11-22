@@ -404,7 +404,6 @@ export default function LandingPage() {
                 <li className="rebot-receipt-total"><Gift size={18} aria-hidden="true" /> Points added</li>
               </ul>
             </div>
-            <p>Each accepted bottle is recorded in the student’s account.</p>
           </figure>
         </section>
 
