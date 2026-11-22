@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, ChartColumn, Check, CircleAlert,
-  Copy, Eye, EyeOff, Gift, GraduationCap, LoaderCircle, QrCode, Recycle, School, Utensils, X
+  Copy, Eye, EyeOff, Gift, LoaderCircle, QrCode, Recycle, School, Utensils, X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,7 +17,6 @@ const recyclingSteps = [
 ];
 
 const schoolRoles = [
-  { icon: GraduationCap, title: 'Students', description: 'Check points, recycling activity, and available rewards.' },
   { icon: School, title: 'Teachers', description: 'Manage student records and track class activity.' },
   { icon: Utensils, title: 'Canteen staff', description: 'Redeem rewards and manage stock.' },
   { icon: ChartColumn, title: 'Administrators', description: 'Manage accounts, inventory, and reports.' }
